@@ -23,6 +23,27 @@ function toast(msg, type){
   setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2800);
 }
 
+/* =========================================================
+   LÓGICA DEL MENÚ MÓVIL (HAMBURGUESA)
+========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  const menuBtn = document.getElementById('mobile-menu-btn');
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+
+  if(menuBtn && sidebar && backdrop) {
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.add('open');
+      backdrop.classList.add('show');
+    });
+    
+    backdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('show');
+    });
+  }
+});
+
 /* Modal y Dropdowns */
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
@@ -40,6 +61,13 @@ function goView(name){
   document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active', i.getAttribute('data-view')===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
   closeDropdowns();
+  
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if(window.innerWidth <= 768 && sidebar && backdrop) {
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('show');
+  }
 }
 document.querySelectorAll('.nav-item').forEach(it=>{ it.addEventListener('click', ()=>goView(it.getAttribute('data-view'))); });
 
@@ -1236,7 +1264,6 @@ function registerPayment(){
   toast('Abono de '+fmt(aplicado)+' registrado');
 }
 
-/* OTORGAR PRÉSTAMO MANUAL */
 function openNuevoCreditoModal(){
   populateClienteSelectCredito();
   openModal('modal-nuevo-credito');
@@ -1348,7 +1375,6 @@ function renderProductosTable(){
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">Sin productos en esta categoría.</td></tr>';
 
-  // KPIs
   const skus = DATA.productos.length;
   const valorInv = DATA.productos.filter(p=>p.categoria!=='Servicios').reduce((s,p)=>s+p.precio*p.stock,0);
   const stockBajo = DATA.productos.filter(p=>p.categoria!=='Servicios' && p.stock>0 && p.stock/p.stockMax<0.25).length;
@@ -1380,7 +1406,6 @@ function createProducto(){
   toast('Producto agregado al catálogo');
 }
 
-/* --- NUEVAS FUNCIONES PARA EDITAR PRODUCTO --- */
 let currentEditProductSku = null;
 
 function editProducto(sku) {
@@ -1400,7 +1425,6 @@ function editProducto(sku) {
 function saveEditProducto() {
     if(!currentEditProductSku) return;
     
-    // Buscar la posicion real en el arreglo original
     const realIdx = DATA.productos.findIndex(p => p.sku === currentEditProductSku);
     if(realIdx === -1) return;
     
@@ -1411,12 +1435,10 @@ function saveEditProducto() {
     
     if(!nombre) { toast('El nombre no puede estar vacío'); return; }
     
-    // Actualizamos los datos
     DATA.productos[realIdx].nombre = nombre;
     DATA.productos[realIdx].precio = precio;
     DATA.productos[realIdx].stock = stock;
     
-    // Si meten más stock del Maximo histórico, actualizamos el límite para que la barra se vea bien
     if(stock > DATA.productos[realIdx].stockMax) {
         DATA.productos[realIdx].stockMax = stock; 
     }
@@ -1441,8 +1463,6 @@ function eliminarProducto(sku) {
     }
 }
 
-
-// LOGICA DE PROMOCIONES
 function renderPromocionesTable() {
   const tbody = document.getElementById('promos-table-body');
   if(!tbody) return;
@@ -1504,7 +1524,6 @@ function createPromocion() {
   toast('Promoción creada con éxito');
 }
 
-
 /* =========================================================
    REPORTES
 ========================================================= */
@@ -1531,27 +1550,97 @@ function renderReportes(){
 }
 
 /* =========================================================
-   CONFIGURACIÓN
+   CONFIGURACIÓN (NEGOCIO, USUARIOS Y ROLES REALES)
 ========================================================= */
-function renderConfig(){
+
+function renderConfig() {
+  // 1. Pintar datos del negocio
+  if(DATA.negocio) {
+      document.getElementById('cfg-nombre').value = DATA.negocio.nombre || '';
+      document.getElementById('cfg-rfc').value = DATA.negocio.rfc || '';
+      document.getElementById('cfg-tel').value = DATA.negocio.telefono || '';
+      document.getElementById('cfg-email').value = DATA.negocio.correo || '';
+      document.getElementById('cfg-dir').value = DATA.negocio.direccion || '';
+  }
+
+  // 2. Pintar tabla de usuarios
   document.getElementById('config-users-body').innerHTML = DATA.usuarios.map((u,i)=>`
     <tr><td><div class="cust"><div class="ci">${initials(u.nombre)}</div><b>${u.nombre}</b></div></td><td>${u.rol}</td><td class="mono">${u.email}</td>
     <td><div class="toggle ${u.activo?'on':''}" onclick="toggleUsuario(${i})"><div class="knob"></div></div></td></tr>`).join('');
   document.getElementById('config-users-meta').textContent = DATA.usuarios.filter(u=>u.activo).length + ' activos de ' + DATA.usuarios.length;
 
-  const roles = [
-    {nombre:'Administrador', desc:'Acceso total al sistema y configuración.', permisos:['Gestionar usuarios y roles','Ver reportes financieros','Editar catálogo de productos','Aprobar créditos y descuentos']},
-    {nombre:'Técnico', desc:'Gestiona tickets y diagnósticos.', permisos:['Ver y actualizar tickets asignados','Registrar piezas y diagnósticos','Agregar notas internas','Sin acceso al balance financiero']},
-    {nombre:'Ventas / Caja', desc:'Opera el punto de venta y caja diaria.', permisos:['Registrar ventas y cobros','Abrir y cerrar corte de caja','Consultar clientes y créditos','Sin acceso a configuración']}
-  ];
-  document.getElementById('config-roles').innerHTML = roles.map(r=>`
+  // 3. Pintar tarjetas de roles
+  document.getElementById('config-roles').innerHTML = DATA.roles.map(r=>`
     <div class="role-card"><h4>${r.nombre}</h4><p>${r.desc}</p><ul>${r.permisos.map(p=>'<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'+p+'</li>').join('')}</ul></div>`).join('');
+
+  // 4. Llenar el select del modal de nuevo usuario con los roles disponibles
+  const selRol = document.getElementById('nu-rol');
+  if(selRol) {
+      selRol.innerHTML = DATA.roles.map(r => `<option value="${r.nombre}">${r.nombre}</option>`).join('');
+  }
 }
+
+function saveConfigNegocio() {
+    DATA.negocio = {
+        nombre: document.getElementById('cfg-nombre').value.trim(),
+        rfc: document.getElementById('cfg-rfc').value.trim(),
+        telefono: document.getElementById('cfg-tel').value.trim(),
+        correo: document.getElementById('cfg-email').value.trim(),
+        direccion: document.getElementById('cfg-dir').value.trim()
+    };
+    saveToLocal();
+    toast('Datos del negocio guardados en la nube');
+}
+
+function createUsuario() {
+    const nombre = document.getElementById('nu-nombre').value.trim();
+    const email = document.getElementById('nu-email').value.trim();
+    const rol = document.getElementById('nu-rol').value;
+
+    if(!nombre || !email) { toast('Completa todos los campos'); return; }
+
+    DATA.usuarios.push({ nombre, email, rol, activo: true });
+    saveToLocal();
+
+    document.getElementById('nu-nombre').value = '';
+    document.getElementById('nu-email').value = '';
+    
+    closeModal('modal-nuevo-usuario');
+    renderConfig();
+    toast('Usuario creado exitosamente');
+}
+
 function toggleUsuario(i){ 
   DATA.usuarios[i].activo = !DATA.usuarios[i].activo; 
   saveToLocal();
   renderConfig(); 
   toast(DATA.usuarios[i].activo?'Usuario activado':'Usuario desactivado'); 
+}
+
+function createRol() {
+    const nombre = document.getElementById('nr-nombre').value.trim();
+    const desc = document.getElementById('nr-desc').value.trim();
+    
+    // Capturar todos los permisos que tengan el check marcado
+    const checkboxes = document.querySelectorAll('.chk-permiso:checked');
+    const permisos = Array.from(checkboxes).map(chk => chk.value);
+
+    if(!nombre || permisos.length === 0) { 
+        toast('Escribe un nombre y selecciona al menos 1 permiso'); 
+        return; 
+    }
+
+    DATA.roles.push({ nombre, desc, permisos });
+    saveToLocal();
+
+    // Limpiar el formulario
+    document.getElementById('nr-nombre').value = '';
+    document.getElementById('nr-desc').value = '';
+    document.querySelectorAll('.chk-permiso').forEach(chk => chk.checked = false);
+
+    closeModal('modal-nuevo-rol');
+    renderConfig();
+    toast('Nuevo rol creado con éxito');
 }
 
 /* =========================================================
@@ -1572,6 +1661,9 @@ function renderAll(){
   renderProductosTabs(); renderProductosTable(); 
   renderPromocionesTable(); 
   renderReportes();
-  renderConfig();
+  renderConfig(); // Ahora lee la base de datos real
 }
+
+// Ejecutamos por primera vez con los datos iniciales
+// (Se volverá a ejecutar automáticamente si la nube descarga información en data.js)
 renderAll();
