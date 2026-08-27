@@ -48,7 +48,6 @@
 <!-- ============ MAIN ============ -->
 <div class="main">
   <div class="topbar">
-    <!-- BOTÓN MENÚ MÓVIL (Oculto en PC) -->
     <button id="mobile-menu-btn" class="icon-btn" style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
     </button>
@@ -56,7 +55,7 @@
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
     
     <div class="topbar-actions">
-      <div class="status-strip"><span class="pulse"></span>Sistema operativo</div>
+      <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
 
       <div style="position:relative;">
         <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="dot-alert"></span></div>
@@ -407,29 +406,40 @@
         <div class="panel-head"><h3>Datos del negocio</h3></div>
         <div class="panel-body">
           <div class="form-grid">
-            <div><label>Nombre del negocio</label><input class="inp" style="width:100%;" value="SERVIX — Soporte técnico PC"></div>
-            <div><label>RFC / NIT</label><input class="inp" style="width:100%;" value="SVX-860412-QW1"></div>
-            <div><label>Teléfono</label><input class="inp" style="width:100%;" value="+52 555 900 1122"></div>
-            <div><label>Correo</label><input class="inp" style="width:100%;" value="contacto@servix.com"></div>
-            <div class="full"><label>Dirección</label><input class="inp" style="width:100%;" value="Av. Tecnológico 450, Local 3"></div>
+            <div><label>Nombre del negocio</label><input id="cfg-nombre" class="inp" style="width:100%;"></div>
+            <div><label>RFC / NIT</label><input id="cfg-rfc" class="inp" style="width:100%;"></div>
+            <div><label>Teléfono</label><input id="cfg-tel" class="inp" style="width:100%;"></div>
+            <div><label>Correo</label><input id="cfg-email" class="inp" style="width:100%;"></div>
+            <div class="full"><label>Dirección</label><input id="cfg-dir" class="inp" style="width:100%;"></div>
           </div>
-          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="toast('Cambios guardados', 'ok')">Guardar cambios</button></div>
+          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfigNegocio()">Guardar cambios</button></div>
         </div>
       </div>
 
       <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-head"><h3>Usuarios</h3><span class="meta" id="config-users-meta"></span></div>
+        <div class="panel-head" style="justify-content:space-between; display:flex; align-items:center;">
+            <h3>Usuarios</h3>
+            <div>
+              <span class="meta" id="config-users-meta" style="margin-right:15px;"></span>
+              <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button>
+            </div>
+        </div>
         <table><thead><tr><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th></tr></thead><tbody id="config-users-body"></tbody></table>
       </div>
 
-      <div class="panel-head" style="background:none;border:none;padding:0 0 12px;"><h3 style="font-size:14.5px;">Roles y permisos</h3></div>
+      <div class="panel-head" style="background:none;border:none;padding:0 0 12px; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:14.5px;">Roles y permisos</h3>
+        <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-rol')">+ Nuevo Rol</button>
+      </div>
       <div class="grid-cards" id="config-roles"></div>
     </div>
 
   </div>
 </div>
 
-<!-- ============ MODAL: TICKET DETALLE ============ -->
+<!-- ============ MODALES ============ -->
+
+<!-- MODAL: TICKET DETALLE -->
 <div class="modal-overlay" id="modal-ticket">
   <div class="modal">
     <div class="modal-head">
@@ -515,7 +525,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: COBRO / PASARELA DE CAJA REAL ============ -->
+<!-- MODAL: COBRO / PASARELA DE CAJA REAL -->
 <div class="modal-overlay" id="modal-cobro-caja">
   <div class="modal narrow">
     <div class="modal-head">
@@ -550,7 +560,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: CLIENTE DETALLE ============ -->
+<!-- MODAL: CLIENTE DETALLE -->
 <div class="modal-overlay" id="modal-cliente">
   <div class="modal">
     <div class="modal-head">
@@ -600,7 +610,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: CRÉDITO DETALLE ============ -->
+<!-- MODAL: CRÉDITO DETALLE -->
 <div class="modal-overlay" id="modal-credito">
   <div class="modal narrow">
     <div class="modal-head">
@@ -634,7 +644,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVO CRÉDITO ============ -->
+<!-- MODAL: NUEVO CRÉDITO -->
 <div class="modal-overlay" id="modal-nuevo-credito">
   <div class="modal narrow">
     <div class="modal-head">
@@ -659,7 +669,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVO TICKET ============ -->
+<!-- MODAL: NUEVO TICKET -->
 <div class="modal-overlay" id="modal-nuevo-ticket">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo ticket de soporte</h3><button class="modal-close" onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -688,7 +698,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVO CLIENTE ============ -->
+<!-- MODAL: NUEVO CLIENTE -->
 <div class="modal-overlay" id="modal-nuevo-cliente">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -706,7 +716,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVO PRODUCTO ============ -->
+<!-- MODAL: NUEVO PRODUCTO -->
 <div class="modal-overlay" id="modal-nuevo-producto">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo producto</h3><button class="modal-close" onclick="closeModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -723,7 +733,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: EDITAR PRODUCTO ============ -->
+<!-- MODAL: EDITAR PRODUCTO -->
 <div class="modal-overlay" id="modal-editar-producto">
   <div class="modal narrow">
     <div class="modal-head"><h3>Editar producto</h3><button class="modal-close" onclick="closeModal('modal-editar-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -740,7 +750,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVA PROMOCIÓN ============ -->
+<!-- MODAL: NUEVA PROMOCIÓN -->
 <div class="modal-overlay" id="modal-nueva-promocion">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nueva promoción</h3><button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -757,7 +767,7 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVA OPORTUNIDAD CRM ============ -->
+<!-- MODAL: NUEVA OPORTUNIDAD CRM -->
 <div class="modal-overlay" id="modal-nueva-oportunidad">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nueva oportunidad</h3><button class="modal-close" onclick="closeModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -774,12 +784,58 @@
   </div>
 </div>
 
-<!-- ============ MODAL: CIERRE DE CAJA ============ -->
+<!-- MODAL: CIERRE DE CAJA -->
 <div class="modal-overlay" id="modal-cierre">
   <div class="modal narrow">
     <div class="modal-head"><h3>Cerrar corte de caja</h3><button class="modal-close" onclick="closeModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body" id="cierre-resumen"></div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-cierre')">Cancelar</button><button class="btn btn-primary" onclick="cerrarCorte()">Confirmar cierre</button></div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO USUARIO (CONFIGURACIÓN) -->
+<div class="modal-overlay" id="modal-nuevo-usuario">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nuevo Usuario</h3><button class="modal-close" onclick="closeModal('modal-nuevo-usuario')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre Completo</label><input id="nu-nombre" class="inp" placeholder="Ej. Laura Gómez"></div>
+        <div class="full"><label>Correo Electrónico</label><input id="nu-email" class="inp" type="email" placeholder="laura@servix.com"></div>
+        <div class="full">
+          <label>Asignar Rol</label>
+          <select id="nu-rol" class="sel"></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button><button class="btn btn-primary" onclick="createUsuario()">Guardar Usuario</button></div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO ROL Y PERMISOS -->
+<div class="modal-overlay" id="modal-nuevo-rol">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nuevo Rol de Sistema</h3><button class="modal-close" onclick="closeModal('modal-nuevo-rol')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre del Rol</label><input id="nr-nombre" class="inp" placeholder="Ej. Supervisor de Ventas"></div>
+        <div class="full"><label>Descripción</label><input id="nr-desc" class="inp" placeholder="Breve descripción del rol"></div>
+        
+        <div class="full" style="margin-top:10px;">
+          <label>Permisos de Acceso</label>
+          <div style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Acceso total al sistema"> Acceso total al sistema</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Gestionar usuarios y roles"> Gestionar usuarios y roles</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes financieros</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Editar catálogo de productos"> Editar catálogo de productos</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Aprobar créditos y descuentos"> Aprobar créditos y descuentos</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver y actualizar tickets asignados"> Ver y actualizar tickets asignados</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Registrar ventas y cobros"> Registrar ventas y cobros</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Abrir y cerrar corte de caja"> Abrir y cerrar corte de caja</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-rol')">Cancelar</button><button class="btn btn-primary" onclick="createRol()">Guardar Rol</button></div>
   </div>
 </div>
 
@@ -805,7 +861,7 @@
   
   // Habilitar la base de datos (la llamaremos "db")
   const db = firebase.firestore();
-  console.log("🔥 ¡Firebase conectado a la perfección!");
+  console.log("🔥 ¡Firebase inicializado!");
 </script>
 
 <script src="js/data.js"></script>
