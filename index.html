@@ -429,7 +429,6 @@
   </div>
 </div>
 
-<!-- MODALES MANTENIDOS EXACTAMENTE IGUAL -->
 <!-- ============ MODAL: TICKET DETALLE ============ -->
 <div class="modal-overlay" id="modal-ticket">
   <div class="modal">
@@ -785,6 +784,29 @@
 </div>
 
 <div id="toast-wrap"></div>
+
+<!-- ============ SDKs de Firebase (Versión Compat) ============ -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<script>
+  // Las llaves de tu proyecto
+  const firebaseConfig = {
+    apiKey: "AIzaSyDkku4IIoyYoRKWlpIuB7HRaC5fOVEoUws",
+    authDomain: "soporte-5a45c.firebaseapp.com",
+    projectId: "soporte-5a45c",
+    storageBucket: "soporte-5a45c.firebasestorage.app",
+    messagingSenderId: "470487622519",
+    appId: "1:470487622519:web:da1b0304282c4bd2f97772"
+  };
+
+  // Inicializar Firebase
+  firebase.initializeApp(firebaseConfig);
+  
+  // Habilitar la base de datos (la llamaremos "db")
+  const db = firebase.firestore();
+  console.log("🔥 ¡Firebase conectado a la perfección!");
+</script>
 
 <script src="js/data.js"></script>
 <script src="js/app.js"></script>
