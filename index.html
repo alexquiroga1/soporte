@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SERVIX · Sistema de gestión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- FONDO OSCURO PARA EL MENÚ EN MÓVILES -->
+<div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">S</div>
+    <div class="brand-text"><b>SERVIX</b><span>Suite de gestión</span></div>
+  </div>
+
+  <div class="nav-group-label">Operación</div>
+  <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Panel general</div>
+  <div class="nav-item" data-view="tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z"/></svg>Tickets soporte<span class="nav-badge" id="badge-tickets">10</span></div>
+  <div class="nav-item" data-view="ventas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/><path d="M2.5 3h2l2.6 12.4a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6"/></svg>Ventas</div>
+  <div class="nav-item" data-view="caja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M2 11h20M7 15h.01M12 15h5"/></svg>Caja</div>
+
+  <div class="nav-group-label">Relación &amp; datos</div>
+  <div class="nav-item" data-view="crm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>CRM</div>
+  <div class="nav-item" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Clientes</div>
+  <div class="nav-item" data-view="creditos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Créditos</div>
+
+  <div class="nav-group-label">Recursos</div>
+  <div class="nav-item" data-view="productos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>Catálogo y Promos</div>
+  <div class="nav-item" data-view="erp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>ERP</div>
+
+  <div class="nav-group-label">Sistema</div>
+  <div class="nav-item" data-view="reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>Reportes</div>
+  <div class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Configuración</div>
+
+  <div class="sidebar-foot">
+    <div class="avatar">MR</div>
+    <div class="who"><b>Mario Rossi</b><span>Administrador</span></div>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<div class="main">
+  <div class="topbar">
+    <!-- BOTÓN MENÚ MÓVIL (Oculto en PC) -->
+    <button id="mobile-menu-btn" class="icon-btn" style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
+    
+    <div class="topbar-actions">
+      <div class="status-strip"><span class="pulse"></span>Sistema operativo</div>
+
+      <div style="position:relative;">
+        <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="dot-alert"></span></div>
+        <div class="dropdown" id="dd-notif">
+          <div class="dropdown-head">Notificaciones <span onclick="closeDropdowns()">Marcar leídas</span></div>
+          <div class="notif-item"><div class="notif-dot"></div><div><p>El ticket <b>#TK-2231</b> lleva 6h esperando repuesto</p><div class="t">HACE 12 MIN</div></div></div>
+        </div>
+      </div>
+
+      <div style="position:relative;">
+        <div class="avatar" id="btn-user" style="cursor:pointer;">MR</div>
+        <div class="dropdown" id="dd-user" style="width:200px;">
+          <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi perfil</div>
+          <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9"/></svg>Configuración</div>
+          <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Cerrar sesión</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ================= DASHBOARD ================= -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-head">
+        <div><h1>Panel general</h1><p>SÁB 24 AGO 2026 · 09:42</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo ticket</button>
+      </div>
+
+      <div class="kpi-row" id="dash-kpis"></div>
+
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="panel">
+          <div class="panel-head"><h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span></div>
+          <div class="panel-body" id="dash-bar-chart"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Tickets por estado</h3></div>
+          <div class="panel-body"><div class="donut-wrap" id="dash-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span></div>
+          <table><thead><tr><th>Prior.</th><th>Ticket</th><th>Cliente</th><th>Equipo / falla</th><th>Estado</th><th>Técnico</th></tr></thead><tbody id="dash-tickets-body"></tbody></table>
+        </div>
+        <div class="stack">
+          <div class="panel">
+            <div class="panel-head"><h3>Caja del día</h3></div>
+            <div class="caja-box" id="dash-caja"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Actividad</h3></div>
+            <div class="actlist" id="dash-activity"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TICKETS ================= -->
+    <div class="view" id="view-tickets">
+      <div class="page-head">
+        <div><h1>Tickets de soporte</h1><p id="tickets-meta">— ABIERTOS</p></div>
+        <div class="head-actions">
+          <div class="tabs"><div class="tab active" data-sub="tk-lista">Lista</div><div class="tab" data-sub="tk-tablero">Tablero</div></div>
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo ticket</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="tk-search" placeholder="Buscar por cliente o ticket…" oninput="renderTicketsTable()"></div>
+        <select class="sel" id="tk-filter-tecnico" onchange="renderTicketsTable()">
+          <option value="">Todos los técnicos</option>
+          <option value="Sin asignar">Sin asignar</option>
+          <option value="J. Peña">J. Peña</option>
+          <option value="R. Solís">R. Solís</option>
+          <option value="M. Torres">M. Torres</option>
+        </select>
+        <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="diagnostico">En diagnóstico</option>
+          <option value="reparacion">En reparación</option>
+          <option value="repuesto">Esperando repuesto</option>
+          <option value="listo">Listo para entrega</option>
+          <option value="entregado">Entregado</option>
+        </select>
+        <select class="sel" id="tk-filter-prio" onchange="renderTicketsTable()">
+          <option value="">Toda prioridad</option><option value="P1">P1 · Urgente</option><option value="P2">P2 · Media</option><option value="P3">P3 · Baja</option>
+        </select>
+      </div>
+
+      <div id="tk-lista" class="subview">
+        <div class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Prior.</th>
+                <th>Ticket</th>
+                <th>Cliente</th>
+                <th>Equipo / falla</th>
+                <th>Ingreso</th>
+                <th>Estado</th>
+                <th>Técnico</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="tk-tablero" class="subview" style="display:none;">
+        <div class="kanban" id="tickets-kanban"></div>
+      </div>
+    </div>
+
+    <!-- ================= VENTAS (POS) ================= -->
+    <div class="view" id="view-ventas">
+      <div class="page-head">
+        <div><h1>Ventas</h1><p id="ventas-meta">PUNTO DE VENTA</p></div>
+        <div class="tabs"><div class="tab active" data-sub="v-pos">Nueva venta</div><div class="tab" data-sub="v-historial">Historial</div></div>
+      </div>
+
+      <div id="v-pos" class="subview">
+        <div class="pos-layout">
+          <div>
+            <div class="field-search" style="max-width:100%;margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pos-search" placeholder="Buscar producto o servicio…" oninput="renderPOSProducts()"></div>
+            <div class="pos-products" id="pos-products"></div>
+          </div>
+          <div class="cart-panel">
+            <div class="cart-head"><h3>Carrito</h3><span class="mono" id="cart-count">0 items</span></div>
+            <div class="cart-items" id="cart-items"></div>
+            <select class="sel" id="pos-cliente">
+              <option value="Mostrador">Cliente: Mostrador</option>
+            </select>
+            
+            <div style="padding:0 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">MÉTODO DE PAGO</div>
+            <div class="pay-methods" id="pay-methods"></div>
+            
+            <div style="padding:12px 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">PROMOCIONES (OPCIONAL)</div>
+            <select class="sel" id="pos-promo" style="margin:0 16px 12px; width:calc(100% - 32px);" onchange="renderCart()">
+              <option value="">Sin promoción / descuento</option>
+            </select>
+
+            <div class="cart-totals">
+              <div class="ct-line"><span>Subtotal</span><span id="ct-subtotal">$0.00</span></div>
+              <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);"><span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
+              <div class="ct-line"><span>IVA (16%)</span><span id="ct-iva">$0.00</span></div>
+              <div class="ct-line total"><span>Total</span><span class="v" id="ct-total">$0.00</span></div>
+            </div>
+            <button class="checkout-btn" onclick="checkout()">Enviar a Caja para Cobro</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="v-historial" class="subview" style="display:none;">
+        <div class="panel">
+          <table><thead><tr><th>Folio</th><th>Cliente</th><th>Artículos</th><th>Pago</th><th>Total</th><th>Hora</th></tr></thead><tbody id="ventas-historial-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CAJA ================= -->
+    <div class="view" id="view-caja">
+      <div class="page-head">
+        <div><h1>Caja</h1><p id="caja-meta">CORTE ABIERTO DESDE 08:00</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Cerrar corte</button>
+      </div>
+
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div>
+        <div class="tab" data-sub="caja-movs-sub">Movimientos y Resumen</div>
+      </div>
+
+      <div id="caja-pendientes-sub" class="subview">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Facturaciones Pendientes de Cobro</h3>
+            <span class="meta">Procesa el cobro con pasarela detallada</span>
+          </div>
+          <table>
+            <thead><tr><th>Origen</th><th>Referencia</th><th>Cliente</th><th>Concepto / Artículos</th><th>Total a cobrar</th><th>Acción</th></tr></thead>
+            <tbody id="caja-pendientes-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="caja-movs-sub" class="subview" style="display:none;">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><h3>Movimientos de caja</h3></div>
+            <table><thead><tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead><tbody id="caja-mov-body"></tbody></table>
+            <div class="panel-body" style="border-top:1px solid var(--line);">
+              <div class="form-grid">
+                <div><label>Concepto</label><input class="inp" id="mov-concepto" placeholder="Ej. Compra de insumos" style="width:100%;"></div>
+                <div><label>Tipo</label><select class="sel" id="mov-tipo" style="width:100%;"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select></div>
+                <div><label>Monto</label><input class="inp" id="mov-monto" type="number" min="0" step="0.01" placeholder="$0.00" style="width:100%;"></div>
+                <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="addMovimiento()">Registrar movimiento</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Resumen</h3></div>
+            <div class="caja-box" id="caja-resumen"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CRM ================= -->
+    <div class="view" id="view-crm">
+      <div class="page-head">
+        <div><h1>CRM</h1><p>PIPELINE DE OPORTUNIDADES</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nueva oportunidad</button>
+      </div>
+      <div class="kanban" id="crm-kanban" style="margin-bottom:18px;"></div>
+      <div class="panel">
+        <div class="panel-head"><h3>Valor total en pipeline</h3><span class="meta" id="crm-total"></span></div>
+      </div>
+    </div>
+
+    <!-- ================= CLIENTES ================= -->
+    <div class="view" id="view-clientes">
+      <div class="page-head">
+        <div><h1>Clientes</h1><p id="clientes-meta">— REGISTRADOS</p></div>
+        <button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo cliente</button>
+      </div>
+      <div class="toolbar">
+        <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono…" oninput="renderClientesTable()"></div>
+      </div>
+      <div class="panel">
+        <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ================= CRÉDITOS ================= -->
+    <div class="view" id="view-creditos">
+      <div class="page-head">
+        <div><h1>Créditos y Préstamos</h1><p id="creditos-meta">SALDO TOTAL POR COBRAR</p></div>
+        <button class="btn btn-primary" onclick="openNuevoCreditoModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo Préstamo</button>
+      </div>
+      <div class="kpi-row" id="creditos-kpis"></div>
+      <div class="panel">
+        <table><thead><tr><th>Cliente</th><th>Concepto</th><th>Monto original</th><th>Saldo</th><th>Vence</th><th>Estado</th></tr></thead><tbody id="creditos-table-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ================= PRODUCTOS Y PROMOCIONES ================= -->
+    <div class="view" id="view-productos">
+      <div class="page-head">
+        <div><h1>Catálogo y Promos</h1><p id="productos-meta">SKU EN CATÁLOGO</p></div>
+        <div class="head-actions">
+          <button class="btn btn-ghost" onclick="openModal('modal-nueva-promocion')">Nueva promo</button>
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo producto</button>
+        </div>
+      </div>
+      
+      <div class="kpi-row" id="productos-kpis"></div>
+      
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab active" data-sub="prod-catalogo">Catálogo de Productos</div>
+        <div class="tab" data-sub="prod-promos">Promociones Activas</div>
+      </div>
+
+      <div id="prod-catalogo" class="subview">
+        <div class="tabs" id="productos-tabs" style="margin-bottom:16px;"></div>
+        <div class="panel">
+          <table>
+            <thead><tr><th>SKU / Producto</th><th>Categoría</th><th>Precio Base</th><th>Stock</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody id="productos-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="prod-promos" class="subview" style="display:none;">
+         <div class="panel">
+          <table>
+            <thead><tr><th>Promoción</th><th>Descuento</th><th>Aplica a</th><th>Vence</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody id="promos-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= ERP ================= -->
+    <div class="view" id="view-erp">
+      <div class="page-head"><div><h1>ERP</h1><p>VISTA CONSOLIDADA DEL NEGOCIO</p></div></div>
+      <div class="kpi-row">
+        <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg></div><div class="label">Ingresos del mes</div><div class="value">$48.2k</div><div class="delta up">↑ 9.1%</div></div>
+        <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 18l-9.5-9.5-5 5L1 6"/></svg></div><div class="label">Gastos del mes</div><div class="value">$21.6k</div><div class="delta down">↑ 3.4%</div></div>
+        <div class="kpi c-copper"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/></svg></div><div class="label">Inventario valorizado</div><div class="value">$96.4k</div><div class="delta up">412 SKU</div></div>
+        <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></div><div class="label">Nómina técnica</div><div class="value">$9.8k</div><div class="delta up">5 técnicos</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Órdenes de compra a proveedores</h3></div>
+          <table><thead><tr><th>Orden</th><th>Proveedor</th><th>Artículos</th><th>Total</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr class="tbl-row"><td class="mono">OC-330</td><td>TecnoImport S.A.</td><td>SSD, RAM, fuentes</td><td class="mono">$8,400.00</td><td><span class="badge prog">En tránsito</span></td></tr>
+            <tr class="tbl-row"><td class="mono">OC-329</td><td>Componentes del Norte</td><td>Cables, gabinetes</td><td class="mono">$2,150.00</td><td><span class="badge done">Recibida</span></td></tr>
+            <tr class="tbl-row"><td class="mono">OC-328</td><td>PC Wholesale</td><td>Placas madre</td><td class="mono">$5,900.00</td><td><span class="badge pend">Pendiente</span></td></tr>
+          </tbody></table>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Proveedores</h3></div>
+          <table><thead><tr><th>Proveedor</th><th>Categoría</th><th>Contacto</th></tr></thead>
+          <tbody>
+            <tr class="tbl-row"><td>TecnoImport S.A.</td><td>Componentes</td><td class="mono">ventas@tecnoimport.com</td></tr>
+            <tr class="tbl-row"><td>Componentes del Norte</td><td>Insumos</td><td class="mono">contacto@cnorte.com</td></tr>
+            <tr class="tbl-row"><td>PC Wholesale</td><td>Periféricos</td><td class="mono">pedidos@pcwholesale.com</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= REPORTES ================= -->
+    <div class="view" id="view-reportes">
+      <div class="page-head"><div><h1>Reportes</h1><p>ANÁLISIS DEL NEGOCIO</p></div><button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar PDF</button></div>
+      <div class="kpi-row" id="reportes-kpis"></div>
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="panel">
+          <div class="panel-head"><h3>Ventas mensuales</h3><span class="meta">ÚLTIMOS 6 MESES</span></div>
+          <div class="panel-body" id="reportes-bar-ventas"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Tickets por técnico</h3><span class="meta">ESTE MES</span></div>
+          <div class="panel-body" id="reportes-bar-tecnico"></div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><h3>Tickets por estado</h3></div>
+          <div class="panel-body"><div class="donut-wrap" id="reportes-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Productos más vendidos</h3><span class="meta">ESTE MES</span></div>
+          <div class="panel-body" id="reportes-top-productos"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CONFIGURACIÓN ================= -->
+    <div class="view" id="view-config">
+      <div class="page-head"><div><h1>Configuración</h1><p>NEGOCIO, USUARIOS Y ROLES</p></div></div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Datos del negocio</h3></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div><label>Nombre del negocio</label><input class="inp" style="width:100%;" value="SERVIX — Soporte técnico PC"></div>
+            <div><label>RFC / NIT</label><input class="inp" style="width:100%;" value="SVX-860412-QW1"></div>
+            <div><label>Teléfono</label><input class="inp" style="width:100%;" value="+52 555 900 1122"></div>
+            <div><label>Correo</label><input class="inp" style="width:100%;" value="contacto@servix.com"></div>
+            <div class="full"><label>Dirección</label><input class="inp" style="width:100%;" value="Av. Tecnológico 450, Local 3"></div>
+          </div>
+          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="toast('Cambios guardados', 'ok')">Guardar cambios</button></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Usuarios</h3><span class="meta" id="config-users-meta"></span></div>
+        <table><thead><tr><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th></tr></thead><tbody id="config-users-body"></tbody></table>
+      </div>
+
+      <div class="panel-head" style="background:none;border:none;padding:0 0 12px;"><h3 style="font-size:14.5px;">Roles y permisos</h3></div>
+      <div class="grid-cards" id="config-roles"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALES MANTENIDOS EXACTAMENTE IGUAL -->
+<!-- ============ MODAL: TICKET DETALLE ============ -->
+<div class="modal-overlay" id="modal-ticket">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="mt-id">#TK-0000</h3><span class="mono" id="mt-ingreso"></span></div>
+      <button class="modal-close" onclick="closeModal('modal-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="mrow">
+        <div class="mfield"><div class="l">Cliente</div><div class="v" id="mt-cliente"></div></div>
+        <div class="mfield"><div class="l">Equipo</div><div class="v" id="mt-equipo"></div></div>
+        <div class="mfield"><div class="l">Prioridad</div><div class="v" id="mt-prioridad"></div></div>
+        <div class="mfield"><div class="l">Técnico asignado</div><div class="v" id="mt-tecnico"></div></div>
+      </div>
+      
+      <div class="mrow" style="margin-bottom:16px; background: var(--bg); padding: 12px; border-radius: 8px;">
+        <div class="mfield"><div class="l">Accesorios recibidos</div><div class="v" id="mt-accesorios" style="font-size: 12px;"></div></div>
+        <div class="mfield"><div class="l">Condición física</div><div class="v" id="mt-condicion" style="font-size: 12px;"></div></div>
+      </div>
+
+      <div class="mrow" style="margin-bottom:16px; align-items:center;">
+        <div class="mfield">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
+            <input type="checkbox" id="mt-presupuesto-chk" onchange="togglePresupuesto()" style="width:16px; height:16px; accent-color: var(--copper);">
+            Presupuesto autorizado por el cliente
+          </label>
+        </div>
+      </div>
+
+      <div class="mfield" style="margin-bottom:16px;"><div class="l">Falla reportada</div><div class="v" id="mt-falla" style="font-weight:500;"></div></div>
+
+      <div class="mfield" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div class="l">Estado del ticket</div>
+          <select class="sel" id="mt-estado-select" style="width:220px;margin-top:4px;" onchange="changeTicketStage()">
+            <option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="sendWhatsAppNotice()" style="margin-top:14px; background:#25D366; color:#fff; border:none;">💬 Enviar WhatsApp</button>
+      </div>
+
+      <div class="msection">
+        <h4>Checklist de Calidad Técnica</h4>
+        <div style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-encendido" onchange="updateChecklist()"> Prueba de encendido y estabilidad inicial</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-respaldo" onchange="updateChecklist()"> Respaldo de datos del usuario realizado</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-memoria" onchange="updateChecklist()"> Test de estrés de memoria / hardware</label>
+        </div>
+      </div>
+
+      <div class="msection">
+        <h4>Diagnóstico técnico</h4>
+        <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Escribe el diagnóstico técnico aquí..." style="width:100%; margin-bottom:6px;"></textarea>
+        <button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar diagnóstico</button>
+      </div>
+
+      <div class="msection">
+        <h4>Repuestos / Servicios utilizados</h4>
+        <div style="display:flex; gap:8px; margin-bottom: 10px;">
+          <select id="mt-repuesto-select" class="sel" style="flex:1;"></select>
+          <button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir al ticket</button>
+        </div>
+        <table><thead><tr><th>Artículo</th><th>Cant.</th><th>Costo</th><th></th></tr></thead><tbody id="mt-piezas"></tbody></table>
+      </div>
+
+      <div class="msection"><h4>Historial de estados</h4><div class="timeline" id="mt-historial"></div></div>
+
+      <div class="msection"><h4>Notas internas</h4>
+        <div id="mt-notas"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input class="inp" id="mt-nota-input" placeholder="Agregar una nota…" style="flex:1;">
+          <button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Agregar</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-foot">
+      <div style="margin-right:auto; font-size:16px; font-weight:bold; color:var(--copper); display:flex; align-items:center;">
+        Total: <span id="mt-total-costo" style="margin-left:6px;">$0.00</span>
+      </div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-ticket')">Cerrar</button>
+      <button class="btn btn-primary" id="btn-facturar-ticket" onclick="enviarAFacturacion()" style="display:none;">Facturar y enviar a Caja</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: COBRO / PASARELA DE CAJA REAL ============ -->
+<div class="modal-overlay" id="modal-cobro-caja">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <div><h3>Facturación y Cobro</h3><span class="mono" id="mcc-referencia">REF-0000</span></div>
+      <button class="modal-close" onclick="closeModal('modal-cobro-caja')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="mrow" style="margin-bottom:12px;">
+        <div class="mfield"><div class="l">Cliente (Base de datos)</div><div class="v" id="mcc-cliente">Mostrador</div></div>
+        <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mcc-tel">—</div></div>
+      </div>
+      <div class="mfield" style="margin-bottom:14px;"><div class="l">Concepto / Artículos</div><div class="v" id="mcc-concepto" style="font-weight:500;">—</div></div>
+      <div class="mfield" style="margin-bottom:16px;">
+        <div class="l">Total a Pagar</div>
+        <div class="v" id="mcc-total" style="font-size:24px; font-family:'IBM Plex Mono',monospace; color:var(--copper);">$0.00</div>
+      </div>
+      
+      <div class="mfield" style="margin-bottom:12px;"><div class="l">Método de Pago</div></div>
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;" id="mcc-metodos-pago">
+        <div class="pay-btn active" onclick="setCobroMetodo(this, 'Efectivo')">Efectivo</div>
+        <div class="pay-btn" onclick="setCobroMetodo(this, 'Tarjeta')">Tarjeta</div>
+        <div class="pay-btn" onclick="setCobroMetodo(this, 'Transferencia')">Transferencia</div>
+        <div class="pay-btn" onclick="setCobroMetodo(this, 'Préstamo personal')">Préstamo personal</div>
+      </div>
+
+      <div id="mcc-dynamic-fields" style="background:var(--bg); padding:12px; border-radius:8px; margin-bottom:16px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cobro-caja')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cobro" onclick="procesarCobroFinal()">Confirmar y Cobrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CLIENTE DETALLE ============ -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span></div>
+      <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="mrow">
+        <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
+        <div class="mfield"><div class="l">Dirección</div><div class="v" id="mc-direccion"></div></div>
+        <div class="mfield">
+          <div class="l">Límite de Crédito ($)</div>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;">
+            <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
+          </div>
+        </div>
+        <div class="mfield"><div class="l">Tickets totales</div><div class="v" id="mc-ntickets"></div></div>
+      </div>
+      
+      <div class="tabs" style="margin: 16px 0 12px;">
+        <div class="tab active" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
+        <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
+        <div class="tab" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Préstamos</div>
+      </div>
+
+      <div id="mc-tab-tickets" class="client-subview">
+        <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
+        <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
+      </div>
+
+      <div id="mc-tab-ventas" class="client-subview" style="display:none;">
+        <div class="msection">
+          <h4>Historial de Compras / Facturación</h4>
+          <table>
+            <thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead>
+            <tbody id="mc-ventas-list"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="mc-tab-prestamos" class="client-subview" style="display:none;">
+        <div class="msection"><h4>Préstamos Activos (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
+        <div class="msection"><h4>Préstamos Finalizados (Liquidados)</h4><div id="mc-prestamos-finalizados"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CRÉDITO DETALLE ============ -->
+<div class="modal-overlay" id="modal-credito">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
+      <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="mrow">
+        <div class="mfield"><div class="l">Monto original</div><div class="v" id="mcr-original"></div></div>
+        <div class="mfield"><div class="l">Vence</div><div class="v" id="mcr-vence"></div></div>
+      </div>
+      
+      <div class="mfield" style="margin-bottom:12px;">
+        <div class="l">Saldo pendiente</div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div class="v" id="mcr-saldo" style="font-size:20px;font-family:'IBM Plex Mono',monospace;"></div>
+          <button class="btn btn-ghost btn-sm" id="btn-aplicar-mora" onclick="aplicarInteresMora()" style="color:var(--red); display:none;">+ Aplicar Interés (Mora)</button>
+        </div>
+        <div class="progress" style="margin-top:8px;"><i id="mcr-progress" style="width:0%;"></i></div>
+      </div>
+
+      <div class="abono-form">
+        <div class="f"><label>Monto del abono</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+        <div class="f"><label>Método</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
+        <button class="btn btn-primary btn-sm" onclick="registerPayment()">Registrar abono</button>
+      </div>
+      <div class="msection"><h4>Historial de abonos</h4>
+        <table><thead><tr><th>Fecha</th><th>Monto</th><th>Método</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVO CRÉDITO ============ -->
+<div class="modal-overlay" id="modal-nuevo-credito">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <div><h3>Otorgar Préstamo Manual</h3></div>
+      <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full">
+          <label>Cliente</label>
+          <select id="ncr-cliente" class="sel"></select>
+        </div>
+        <div class="full"><label>Concepto / Motivo</label><input id="ncr-concepto" class="inp" placeholder="Ej. Préstamo para repuestos"></div>
+        <div><label>Monto a otorgar ($)</label><input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label>Fecha de Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button>
+      <button class="btn btn-primary" onclick="createCreditoManual()">Otorgar Préstamo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVO TICKET ============ -->
+<div class="modal-overlay" id="modal-nuevo-ticket">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nuevo ticket de soporte</h3><button class="modal-close" onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full" style="position:relative;">
+          <label>Cliente (Buscar por nombre o apellido)</label>
+          <div style="display:flex; gap:6px;">
+            <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')" title="Crear cliente nuevo">+ Nuevo</button>
+          </div>
+          <input type="hidden" id="nt-cliente-id" value="">
+          <div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
+        </div>
+        
+        <div class="full"><label>Equipo</label><input class="inp" id="nt-equipo" placeholder="Ej. Laptop Dell Inspiron 15"></div>
+        <div class="full"><label>Accesorios recibidos (Ej. Cargador, funda, cables)</label><input class="inp" id="nt-accesorios" placeholder="¿Qué dejó el cliente junto con el equipo?"></div>
+        <div class="full"><label>Condición física (Ej. Pantalla rayada, sin tornillos)</label><input class="inp" id="nt-condicion" placeholder="Estado físico en el que ingresa..."></div>
+        <div class="full"><label>Falla reportada</label><textarea class="inp" id="nt-falla" rows="3" placeholder="Describe el problema…"></textarea></div>
+        
+        <div><label>Prioridad</label><select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select></div>
+        <div><label>Técnico</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option><option>J. Peña</option><option>R. Solís</option><option>M. Torres</option></select></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-ticket')">Cancelar</button><button class="btn btn-primary" onclick="createTicket()">Crear ticket</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVO CLIENTE ============ -->
+<div class="modal-overlay" id="modal-nuevo-cliente">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre(s) / Razón social</label><input id="ncl-nombre" class="inp" placeholder="Ej. Juan"></div>
+        <div class="full"><label>Apellido(s)</label><input id="ncl-apellido" class="inp" placeholder="Ej. Pérez"></div>
+        <div class="full"><label>Dirección</label><input id="ncl-direccion" class="inp" placeholder="Ej. Av. Siempre Viva 123"></div>
+        <div><label>Teléfono</label><input id="ncl-tel" class="inp" placeholder="555-000-0000"></div>
+        <div><label>Correo electrónico</label><input id="ncl-email" class="inp" placeholder="correo@ejemplo.com"></div>
+        <div class="full"><label>Límite de Crédito ($)</label><input id="ncl-limite" class="inp" type="number" placeholder="Ej. 1000" value="500"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-cliente')">Cancelar</button><button class="btn btn-primary" onclick="createCliente()">Guardar cliente</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVO PRODUCTO ============ -->
+<div class="modal-overlay" id="modal-nuevo-producto">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nuevo producto</h3><button class="modal-close" onclick="closeModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre</label><input id="np-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
+        <div><label>SKU</label><input id="np-sku" class="inp" placeholder="SKU-0000"></div>
+        <div><label>Categoría</label><select id="np-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
+        <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+        <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-producto')">Cancelar</button><button class="btn btn-primary" onclick="createProducto()">Guardar producto</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EDITAR PRODUCTO ============ -->
+<div class="modal-overlay" id="modal-editar-producto">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Editar producto</h3><button class="modal-close" onclick="closeModal('modal-editar-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre</label><input id="ep-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
+        <div><label>SKU</label><input id="ep-sku" class="inp" readonly style="background:#f5f5f5; color:#888; cursor:not-allowed;" title="El SKU no se puede modificar"></div>
+        <div><label>Categoría</label><select id="ep-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
+        <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+        <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-editar-producto')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProducto()">Guardar cambios</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVA PROMOCIÓN ============ -->
+<div class="modal-overlay" id="modal-nueva-promocion">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nueva promoción</h3><button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Nombre / Etiqueta</label><input id="npr-nombre" class="inp" placeholder="Ej. CyberWeek -10%"></div>
+        <div><label>Tipo de descuento</label><select id="npr-tipo" class="sel"><option>Porcentaje (%)</option><option>Monto Fijo ($)</option></select></div>
+        <div><label>Valor</label><input id="npr-valor" class="inp" type="number" min="1" placeholder="Ej. 10"></div>
+        <div class="full"><label>Aplica a la categoría</label><select id="npr-aplica" class="sel"><option>Todos</option><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
+        <div class="full"><label>Válida hasta</label><input id="npr-vence" class="inp" type="date"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-promocion')">Cancelar</button><button class="btn btn-primary" onclick="createPromocion()">Guardar promoción</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVA OPORTUNIDAD CRM ============ -->
+<div class="modal-overlay" id="modal-nueva-oportunidad">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Nueva oportunidad</h3><button class="modal-close" onclick="closeModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label>Contacto</label><input id="no-contacto" class="inp" placeholder="Nombre del contacto"></div>
+        <div class="full"><label>Empresa</label><input id="no-empresa" class="inp" placeholder="Empresa (opcional)"></div>
+        <div class="full"><label>Interés</label><input id="no-interes" class="inp" placeholder="Ej. Contrato de mantenimiento"></div>
+        <div><label>Valor estimado</label><input id="no-valor" class="inp" type="number" min="0" placeholder="$0.00"></div>
+        <div><label>Próximo contacto</label><input id="no-fecha" class="inp" placeholder="Ej. 28 Ago"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-oportunidad')">Cancelar</button><button class="btn btn-primary" onclick="createOportunidad()">Crear oportunidad</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CIERRE DE CAJA ============ -->
+<div class="modal-overlay" id="modal-cierre">
+  <div class="modal narrow">
+    <div class="modal-head"><h3>Cerrar corte de caja</h3><button class="modal-close" onclick="closeModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body" id="cierre-resumen"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-cierre')">Cancelar</button><button class="btn btn-primary" onclick="cerrarCorte()">Confirmar cierre</button></div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

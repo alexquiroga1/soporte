@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tickets - Soporte Técnico</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <aside class="sidebar">
+            <div class="logo-container">
+                <h3>SERVIX<br><small style="color: #6E7689; font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;">SUITE DE GESTIÓN</small></h3>
+            </div>
+            <nav class="menu">
+                <ul>
+                    <li onclick="window.location.href='index.html'">Panel general</li>
+                    <li class="active">Tickets soporte</li>
+                    <li>Clientes</li>
+                    <li>Productos</li>
+                    <li>Reportes</li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            
+            <!-- TOPBAR ACTUALIZADO CON NUEVO BUSCADOR -->
+            <header class="topbar">
+                <div class="search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    <input type="text" placeholder="Buscar ticket, cliente, equipo...">
+                    <kbd>⌘K</kbd>
+                </div>
+                <div class="user-profile">
+                    <div class="user-info">
+                        <strong>Admin Pérez</strong>
+                        <small>Misiones, Arg</small>
+                    </div>
+                </div>
+            </header>
+
+            <section class="tickets-area">
+                <div class="tickets-header">
+                    <div>
+                        <h2>Tickets de soporte</h2>
+                        <small>10 TOTALES · 8 ABIERTOS</small>
+                    </div>
+                    <div class="tickets-actions">
+                        <button class="btn-primary" onclick="openNewTicketModal()">
+                            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                            Nuevo ticket
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="tickets-table" id="mainTicketsTable">
+                        <thead>
+                            <tr>
+                                <th>PRIOR.</th>
+                                <th>TICKET</th>
+                                <th>CLIENTE</th>
+                                <th>EQUIPO / FALLA</th>
+                                <th>INGRESO</th>
+                                <th>ESTADO</th>
+                                <th>TÉCNICO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr onclick="openTicketModal()">
+                                <td><div class="prio p1">P1</div></td>
+                                <td class="mono">#TK-2231</td>
+                                <td>Distribuidora López</td>
+                                <td>PC de escritorio Dell OptiPlex</td>
+                                <td class="mono">20 Ago</td>
+                                <td><span class="badge wait">Esperando repuesto</span></td>
+                                <td>J. Peña</td>
+                            </tr>
+                            <tr onclick="openTicketModal()">
+                                <td><div class="prio p2">P2</div></td>
+                                <td class="mono">#TK-2230</td>
+                                <td>Marta Cabrera</td>
+                                <td>Laptop HP Pavilion 15</td>
+                                <td class="mono">20 Ago</td>
+                                <td><span class="badge prog">En diagnóstico</span></td>
+                                <td>R. Solís</td>
+                            </tr>
+                            <tr onclick="openTicketModal()">
+                                <td><div class="prio p3">P3</div></td>
+                                <td class="mono">#TK-2229</td>
+                                <td>Carlos Núñez</td>
+                                <td>PC de escritorio armada</td>
+                                <td class="mono">19 Ago</td>
+                                <td><span class="badge pend">Pendiente</span></td>
+                                <td>Sin asignar</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL DETALLE DE TICKET (NUEVO DISEÑO SERVIX) -->
+    <div id="ticketModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-head">
+                <div>
+                    <h3>#TK-2231</h3>
+                    <span class="mono">Ingresó el 20 Ago</span>
+                </div>
+                <button class="modal-close" onclick="closeTicketModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="mrow">
+                    <div class="mfield"><div class="l">Cliente</div><div class="v">Distribuidora López</div></div>
+                    <div class="mfield"><div class="l">Equipo</div><div class="v">PC de escritorio Dell OptiPlex</div></div>
+                    <div class="mfield"><div class="l">Prioridad</div><div class="v"><div class="prio p1" style="display:inline-flex;">P1</div></div></div>
+                    <div class="mfield"><div class="l">Técnico asignado</div><div class="v">J. Peña</div></div>
+                </div>
+
+                <div class="mfield" style="margin-bottom:16px;">
+                    <div class="l">Falla reportada</div>
+                    <div class="v" style="font-weight:500;">No enciende — se sospecha fuente de poder dañada por sobrecarga eléctrica.</div>
+                </div>
+
+                <div class="mfield">
+                    <div class="l">Estado del ticket</div>
+                    <select class="sel" style="width:220px; margin-top:4px;">
+                        <option value="repuesto">Esperando repuesto</option>
+                        <option value="reparacion">En reparación</option>
+                        <option value="listo">Listo para entrega</option>
+                    </select>
+                </div>
+
+                <div class="msection">
+                    <h4>Diagnóstico técnico</h4>
+                    <div style="font-size:13px; line-height:1.5; color:var(--ink);">Fuente de poder quemada confirmada. Se solicitó autorización al cliente para reemplazo; pieza en pedido con proveedor.</div>
+                </div>
+
+                <div class="msection">
+                    <h4>Repuestos / piezas utilizadas</h4>
+                    <table id="partsTable">
+                        <thead><tr><th>Pieza</th><th>Cant.</th><th>Costo</th></tr></thead>
+                        <tbody>
+                            <tr><td>Fuente 500W</td><td class="mono">1</td><td class="mono">$720.00</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div style="display:flex; gap:8px; margin-top:10px;">
+                        <input class="inp" id="partName" placeholder="Nombre pieza" style="flex:2;">
+                        <input class="inp" id="partQty" type="number" placeholder="Cant." style="flex:1;">
+                        <input class="inp" id="partCost" type="number" placeholder="Costo" style="flex:1;">
+                        <button class="btn-secondary btn-sm" onclick="addPart()">Agregar</button>
+                    </div>
+                </div>
+
+                <div class="msection">
+                    <h4>Historial de estados</h4>
+                    <div class="timeline">
+                        <div class="tl-item"><b>Esperando repuesto</b><span>20 Ago 11:15 · J. Peña</span></div>
+                        <div class="tl-item"><b>En diagnóstico</b><span>20 Ago 10:30 · J. Peña</span></div>
+                        <div class="tl-item"><b>Recibido</b><span>20 Ago 09:10 · Mostrador</span></div>
+                    </div>
+                </div>
+
+                <div class="msection">
+                    <h4>Notas internas</h4>
+                    <div class="note-item">
+                        <b>J. Peña</b> <span class="t">20 Ago 11:20</span>
+                        <div>Cliente notificado por teléfono, autoriza cambio de fuente.</div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:10px;">
+                        <input class="inp" placeholder="Agregar una nota…" style="flex:1;">
+                        <button class="btn-secondary btn-sm">Guardar nota</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NUEVO TICKET (Se mantiene funcional pero con diseño limpio) -->
+    <div id="newTicketModal" class="modal-overlay">
+        <div class="modal narrow">
+            <div class="modal-head">
+                <h3>Nuevo ticket</h3>
+                <button class="modal-close" onclick="closeNewTicketModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mfield" style="margin-bottom: 12px;">
+                    <div class="l">Cliente</div>
+                    <input class="inp" id="newClient" placeholder="Nombre del cliente">
+                </div>
+                <div class="mfield" style="margin-bottom: 12px;">
+                    <div class="l">Equipo</div>
+                    <input class="inp" id="newDevice" placeholder="Ej: Laptop HP">
+                </div>
+                <div class="mfield" style="margin-bottom: 12px;">
+                    <div class="l">Prioridad</div>
+                    <select class="sel" id="newPriority">
+                        <option value="P3">P3 (Baja)</option>
+                        <option value="P2">P2 (Media)</option>
+                        <option value="P1">P1 (Alta)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn-secondary" onclick="closeNewTicketModal()">Cancelar</button>
+                <button class="btn-primary" onclick="createNewTicket()">Crear ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
