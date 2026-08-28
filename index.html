@@ -3,442 +3,464 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SERVIX · Sistema de gestión</title>
+<title>ALEX · GESTION TECNICO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<style>
+  /* Estilos exclusivos para la pantalla de Login */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column;
+  }
+  .login-box {
+    background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); width: 100%; max-width: 380px; text-align: center; border: 1px solid var(--line);
+  }
+  .login-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px; }
+  .login-brand-mark { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--copper), #C4471F); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #fff; font-size: 20px; box-shadow: 0 0 0 4px rgba(255,106,61,0.15); }
+  .login-brand-text { text-align: left; }
+  .login-brand-text b { color: var(--graphite); font-size: 20px; letter-spacing: 0.02em; display: block; }
+  .login-brand-text span { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .login-input { width: 100%; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 16px; font-size: 14px; outline: none; transition: border 0.2s; }
+  .login-input:focus { border-color: var(--copper); }
+  .login-btn { width: 100%; padding: 12px; background: var(--graphite); color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 14.5px; cursor: pointer; transition: background 0.2s; }
+  .login-btn:hover { background: var(--graphite-2); }
+  #app-container { display: none; width: 100%; height: 100vh; }
+</style>
 </head>
 <body>
+
+<!-- ============ PANTALLA DE LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-brand-mark">S</div>
+      <div class="login-brand-text"><b>SERVIX</b><span>Acceso Privado</span></div>
+    </div>
+    <form onsubmit="event.preventDefault(); doLogin();">
+      <input type="email" id="login-email" class="login-input" placeholder="Correo electrónico" required autocomplete="email">
+      <input type="password" id="login-pass" class="login-input" placeholder="Contraseña" required autocomplete="current-password">
+      <button type="submit" class="login-btn">Iniciar Sesión</button>
+    </form>
+    <div style="margin-top: 20px; font-size: 12px; color: var(--muted);">Sistema exclusivo para personal autorizado.</div>
+  </div>
+</div>
 
 <!-- FONDO OSCURO PARA EL MENÚ EN MÓVILES -->
 <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
-<!-- ============ SIDEBAR ============ -->
-<aside class="sidebar">
-  <div class="brand">
-    <div class="brand-mark">S</div>
-    <div class="brand-text"><b>SERVIX</b><span>Suite de gestión</span></div>
-  </div>
-
-  <div class="nav-group-label">Operación</div>
-  <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Panel general</div>
-  <div class="nav-item" data-view="tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z"/></svg>Tickets soporte<span class="nav-badge" id="badge-tickets">10</span></div>
-  <div class="nav-item" data-view="ventas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/><path d="M2.5 3h2l2.6 12.4a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6"/></svg>Ventas</div>
-  <div class="nav-item" data-view="caja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M2 11h20M7 15h.01M12 15h5"/></svg>Caja</div>
-
-  <div class="nav-group-label">Relación &amp; datos</div>
-  <div class="nav-item" data-view="crm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>CRM</div>
-  <div class="nav-item" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Clientes</div>
-  <div class="nav-item" data-view="creditos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Créditos</div>
-
-  <div class="nav-group-label">Recursos</div>
-  <div class="nav-item" data-view="productos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>Catálogo y Promos</div>
-  <div class="nav-item" data-view="erp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>ERP</div>
-
-  <div class="nav-group-label">Sistema</div>
-  <div class="nav-item" data-view="reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>Reportes</div>
-  <div class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Configuración</div>
-
-  <div class="sidebar-foot">
-    <div class="avatar">MR</div>
-    <div class="who"><b>Mario Rossi</b><span>Administrador</span></div>
-  </div>
-</aside>
-
-<!-- ============ MAIN ============ -->
-<div class="main">
-  <div class="topbar">
-    <button id="mobile-menu-btn" class="icon-btn" style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-    </button>
-    
-    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
-    
-    <div class="topbar-actions">
-      <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
-
-      <div style="position:relative;">
-        <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="dot-alert"></span></div>
-        <div class="dropdown" id="dd-notif">
-          <div class="dropdown-head">Notificaciones <span onclick="closeDropdowns()">Marcar leídas</span></div>
-          <div class="notif-item"><div class="notif-dot"></div><div><p>El ticket <b>#TK-2231</b> lleva 6h esperando repuesto</p><div class="t">HACE 12 MIN</div></div></div>
-        </div>
-      </div>
-
-      <div style="position:relative;">
-        <div class="avatar" id="btn-user" style="cursor:pointer;">MR</div>
-        <div class="dropdown" id="dd-user" style="width:200px;">
-          <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi perfil</div>
-          <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9"/></svg>Configuración</div>
-          <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Cerrar sesión</div>
-        </div>
-      </div>
+<!-- ============ CONTENEDOR PRINCIPAL DE LA APP ============ -->
+<div id="app-container">
+  
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div class="brand-text"><b>SERVIX</b><span>Suite de gestión</span></div>
     </div>
-  </div>
 
-  <div class="content">
+    <div class="nav-group-label">Operación</div>
+    <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Panel general</div>
+    <div class="nav-item" data-view="tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z"/></svg>Tickets soporte<span class="nav-badge" id="badge-tickets">0</span></div>
+    <div class="nav-item" data-view="ventas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/><path d="M2.5 3h2l2.6 12.4a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6"/></svg>Ventas</div>
+    <div class="nav-item" data-view="caja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M2 11h20M7 15h.01M12 15h5"/></svg>Caja</div>
 
-    <!-- ================= DASHBOARD ================= -->
-    <div class="view active" id="view-dashboard">
-      <div class="page-head">
-        <div><h1>Panel general</h1><p>SÁB 24 AGO 2026 · 09:42</p></div>
-        <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo ticket</button>
-      </div>
+    <div class="nav-group-label">Relación &amp; datos</div>
+    <div class="nav-item" data-view="crm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>CRM</div>
+    <div class="nav-item" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Clientes</div>
+    <div class="nav-item" data-view="creditos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Créditos</div>
 
-      <div class="kpi-row" id="dash-kpis"></div>
+    <div class="nav-group-label">Recursos</div>
+    <div class="nav-item" data-view="productos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>Catálogo y Promos</div>
+    <div class="nav-item" data-view="erp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>ERP</div>
 
-      <div class="grid-2" style="margin-bottom:16px;">
-        <div class="panel">
-          <div class="panel-head"><h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span></div>
-          <div class="panel-body" id="dash-bar-chart"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Tickets por estado</h3></div>
-          <div class="panel-body"><div class="donut-wrap" id="dash-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
-        </div>
-      </div>
+    <div class="nav-group-label">Sistema</div>
+    <div class="nav-item" data-view="reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>Reportes</div>
+    <div class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Configuración</div>
 
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-head"><h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span></div>
-          <table><thead><tr><th>Prior.</th><th>Ticket</th><th>Cliente</th><th>Equipo / falla</th><th>Estado</th><th>Técnico</th></tr></thead><tbody id="dash-tickets-body"></tbody></table>
-        </div>
-        <div class="stack">
-          <div class="panel">
-            <div class="panel-head"><h3>Caja del día</h3></div>
-            <div class="caja-box" id="dash-caja"></div>
+    <div class="sidebar-foot">
+      <div class="avatar" id="sidebar-avatar">US</div>
+      <div class="who"><b id="sidebar-user-name">Usuario</b><span id="sidebar-user-role">Activo</span></div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <div class="topbar">
+      <!-- BOTÓN MENÚ MÓVIL -->
+      <button id="mobile-menu-btn" class="icon-btn" style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
+      
+      <div class="topbar-actions">
+        <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
+
+        <div style="position:relative;">
+          <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="dot-alert"></span></div>
+          <div class="dropdown" id="dd-notif">
+            <div class="dropdown-head">Notificaciones <span onclick="closeDropdowns()">Marcar leídas</span></div>
+            <div class="notif-item"><div class="notif-dot"></div><div><p>No tienes notificaciones nuevas por ahora.</p><div class="t">AHORA</div></div></div>
           </div>
-          <div class="panel">
-            <div class="panel-head"><h3>Actividad</h3></div>
-            <div class="actlist" id="dash-activity"></div>
+        </div>
+
+        <div style="position:relative;">
+          <div class="avatar" id="btn-user" style="cursor:pointer;">US</div>
+          <div class="dropdown" id="dd-user" style="width:200px;">
+            <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mi perfil</div>
+            <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9"/></svg>Configuración</div>
+            <div class="user-dd-item" onclick="doLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Cerrar sesión</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ================= TICKETS ================= -->
-    <div class="view" id="view-tickets">
-      <div class="page-head">
-        <div><h1>Tickets de soporte</h1><p id="tickets-meta">— ABIERTOS</p></div>
-        <div class="head-actions">
-          <div class="tabs"><div class="tab active" data-sub="tk-lista">Lista</div><div class="tab" data-sub="tk-tablero">Tablero</div></div>
+    <div class="content">
+
+      <!-- ================= DASHBOARD ================= -->
+      <div class="view active" id="view-dashboard">
+        <div class="page-head">
+          <div><h1 id="dash-title-negocio">Panel general</h1><p id="dash-date">HOY</p></div>
           <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo ticket</button>
         </div>
-      </div>
 
-      <div class="toolbar">
-        <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="tk-search" placeholder="Buscar por cliente o ticket…" oninput="renderTicketsTable()"></div>
-        <select class="sel" id="tk-filter-tecnico" onchange="renderTicketsTable()">
-          <option value="">Todos los técnicos</option>
-          <option value="Sin asignar">Sin asignar</option>
-          <option value="J. Peña">J. Peña</option>
-          <option value="R. Solís">R. Solís</option>
-          <option value="M. Torres">M. Torres</option>
-        </select>
-        <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
-          <option value="">Todos los estados</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="diagnostico">En diagnóstico</option>
-          <option value="reparacion">En reparación</option>
-          <option value="repuesto">Esperando repuesto</option>
-          <option value="listo">Listo para entrega</option>
-          <option value="entregado">Entregado</option>
-        </select>
-        <select class="sel" id="tk-filter-prio" onchange="renderTicketsTable()">
-          <option value="">Toda prioridad</option><option value="P1">P1 · Urgente</option><option value="P2">P2 · Media</option><option value="P3">P3 · Baja</option>
-        </select>
-      </div>
+        <div class="kpi-row" id="dash-kpis"></div>
 
-      <div id="tk-lista" class="subview">
-        <div class="panel">
-          <table>
-            <thead>
-              <tr>
-                <th>Prior.</th>
-                <th>Ticket</th>
-                <th>Cliente</th>
-                <th>Equipo / falla</th>
-                <th>Ingreso</th>
-                <th>Estado</th>
-                <th>Técnico</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="tickets-table-body"></tbody>
-          </table>
-        </div>
-      </div>
-      <div id="tk-tablero" class="subview" style="display:none;">
-        <div class="kanban" id="tickets-kanban"></div>
-      </div>
-    </div>
-
-    <!-- ================= VENTAS (POS) ================= -->
-    <div class="view" id="view-ventas">
-      <div class="page-head">
-        <div><h1>Ventas</h1><p id="ventas-meta">PUNTO DE VENTA</p></div>
-        <div class="tabs"><div class="tab active" data-sub="v-pos">Nueva venta</div><div class="tab" data-sub="v-historial">Historial</div></div>
-      </div>
-
-      <div id="v-pos" class="subview">
-        <div class="pos-layout">
-          <div>
-            <div class="field-search" style="max-width:100%;margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pos-search" placeholder="Buscar producto o servicio…" oninput="renderPOSProducts()"></div>
-            <div class="pos-products" id="pos-products"></div>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="panel">
+            <div class="panel-head"><h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span></div>
+            <div class="panel-body" id="dash-bar-chart"></div>
           </div>
-          <div class="cart-panel">
-            <div class="cart-head"><h3>Carrito</h3><span class="mono" id="cart-count">0 items</span></div>
-            <div class="cart-items" id="cart-items"></div>
-            <select class="sel" id="pos-cliente">
-              <option value="Mostrador">Cliente: Mostrador</option>
-            </select>
-            
-            <div style="padding:0 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">MÉTODO DE PAGO</div>
-            <div class="pay-methods" id="pay-methods"></div>
-            
-            <div style="padding:12px 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">PROMOCIONES (OPCIONAL)</div>
-            <select class="sel" id="pos-promo" style="margin:0 16px 12px; width:calc(100% - 32px);" onchange="renderCart()">
-              <option value="">Sin promoción / descuento</option>
-            </select>
-
-            <div class="cart-totals">
-              <div class="ct-line"><span>Subtotal</span><span id="ct-subtotal">$0.00</span></div>
-              <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);"><span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
-              <div class="ct-line"><span>IVA (16%)</span><span id="ct-iva">$0.00</span></div>
-              <div class="ct-line total"><span>Total</span><span class="v" id="ct-total">$0.00</span></div>
-            </div>
-            <button class="checkout-btn" onclick="checkout()">Enviar a Caja para Cobro</button>
+          <div class="panel">
+            <div class="panel-head"><h3>Tickets por estado</h3></div>
+            <div class="panel-body"><div class="donut-wrap" id="dash-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
           </div>
         </div>
-      </div>
 
-      <div id="v-historial" class="subview" style="display:none;">
-        <div class="panel">
-          <table><thead><tr><th>Folio</th><th>Cliente</th><th>Artículos</th><th>Pago</th><th>Total</th><th>Hora</th></tr></thead><tbody id="ventas-historial-body"></tbody></table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================= CAJA ================= -->
-    <div class="view" id="view-caja">
-      <div class="page-head">
-        <div><h1>Caja</h1><p id="caja-meta">CORTE ABIERTO DESDE 08:00</p></div>
-        <button class="btn btn-primary" onclick="openModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Cerrar corte</button>
-      </div>
-
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div>
-        <div class="tab" data-sub="caja-movs-sub">Movimientos y Resumen</div>
-      </div>
-
-      <div id="caja-pendientes-sub" class="subview">
-        <div class="panel">
-          <div class="panel-head">
-            <h3>Facturaciones Pendientes de Cobro</h3>
-            <span class="meta">Procesa el cobro con pasarela detallada</span>
-          </div>
-          <table>
-            <thead><tr><th>Origen</th><th>Referencia</th><th>Cliente</th><th>Concepto / Artículos</th><th>Total a cobrar</th><th>Acción</th></tr></thead>
-            <tbody id="caja-pendientes-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="caja-movs-sub" class="subview" style="display:none;">
         <div class="grid-2">
           <div class="panel">
-            <div class="panel-head"><h3>Movimientos de caja</h3></div>
-            <table><thead><tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead><tbody id="caja-mov-body"></tbody></table>
-            <div class="panel-body" style="border-top:1px solid var(--line);">
-              <div class="form-grid">
-                <div><label>Concepto</label><input class="inp" id="mov-concepto" placeholder="Ej. Compra de insumos" style="width:100%;"></div>
-                <div><label>Tipo</label><select class="sel" id="mov-tipo" style="width:100%;"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select></div>
-                <div><label>Monto</label><input class="inp" id="mov-monto" type="number" min="0" step="0.01" placeholder="$0.00" style="width:100%;"></div>
-                <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="addMovimiento()">Registrar movimiento</button></div>
+            <div class="panel-head"><h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span></div>
+            <table><thead><tr><th>Prior.</th><th>Ticket</th><th>Cliente</th><th>Equipo / falla</th><th>Estado</th><th>Técnico</th></tr></thead><tbody id="dash-tickets-body"></tbody></table>
+          </div>
+          <div class="stack">
+            <div class="panel">
+              <div class="panel-head"><h3>Caja del día</h3></div>
+              <div class="caja-box" id="dash-caja"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Actividad</h3></div>
+              <div class="actlist" id="dash-activity">
+                 <div style="padding: 10px 18px; color: var(--muted); font-size: 13px;">Sin actividad reciente.</div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ================= TICKETS ================= -->
+      <div class="view" id="view-tickets">
+        <div class="page-head">
+          <div><h1>Tickets de soporte</h1><p id="tickets-meta">— ABIERTOS</p></div>
+          <div class="head-actions">
+            <div class="tabs"><div class="tab active" data-sub="tk-lista">Lista</div><div class="tab" data-sub="tk-tablero">Tablero</div></div>
+            <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo ticket</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="tk-search" placeholder="Buscar por cliente o ticket…" oninput="renderTicketsTable()"></div>
+          <select class="sel" id="tk-filter-tecnico" onchange="renderTicketsTable()">
+            <option value="">Todos los técnicos</option>
+            <option value="Sin asignar">Sin asignar</option>
+            <!-- Técnicos llenados dinámicamente -->
+          </select>
+          <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="diagnostico">En diagnóstico</option>
+            <option value="reparacion">En reparación</option>
+            <option value="repuesto">Esperando repuesto</option>
+            <option value="listo">Listo para entrega</option>
+            <option value="entregado">Entregado</option>
+          </select>
+          <select class="sel" id="tk-filter-prio" onchange="renderTicketsTable()">
+            <option value="">Toda prioridad</option><option value="P1">P1 · Urgente</option><option value="P2">P2 · Media</option><option value="P3">P3 · Baja</option>
+          </select>
+        </div>
+
+        <div id="tk-lista" class="subview">
           <div class="panel">
-            <div class="panel-head"><h3>Resumen</h3></div>
-            <div class="caja-box" id="caja-resumen"></div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Prior.</th>
+                  <th>Ticket</th>
+                  <th>Cliente</th>
+                  <th>Equipo / falla</th>
+                  <th>Ingreso</th>
+                  <th>Estado</th>
+                  <th>Técnico</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tickets-table-body"></tbody>
+            </table>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- ================= CRM ================= -->
-    <div class="view" id="view-crm">
-      <div class="page-head">
-        <div><h1>CRM</h1><p>PIPELINE DE OPORTUNIDADES</p></div>
-        <button class="btn btn-primary" onclick="openModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nueva oportunidad</button>
-      </div>
-      <div class="kanban" id="crm-kanban" style="margin-bottom:18px;"></div>
-      <div class="panel">
-        <div class="panel-head"><h3>Valor total en pipeline</h3><span class="meta" id="crm-total"></span></div>
-      </div>
-    </div>
-
-    <!-- ================= CLIENTES ================= -->
-    <div class="view" id="view-clientes">
-      <div class="page-head">
-        <div><h1>Clientes</h1><p id="clientes-meta">— REGISTRADOS</p></div>
-        <button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo cliente</button>
-      </div>
-      <div class="toolbar">
-        <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono…" oninput="renderClientesTable()"></div>
-      </div>
-      <div class="panel">
-        <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
-      </div>
-    </div>
-
-    <!-- ================= CRÉDITOS ================= -->
-    <div class="view" id="view-creditos">
-      <div class="page-head">
-        <div><h1>Créditos y Préstamos</h1><p id="creditos-meta">SALDO TOTAL POR COBRAR</p></div>
-        <button class="btn btn-primary" onclick="openNuevoCreditoModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo Préstamo</button>
-      </div>
-      <div class="kpi-row" id="creditos-kpis"></div>
-      <div class="panel">
-        <table><thead><tr><th>Cliente</th><th>Concepto</th><th>Monto original</th><th>Saldo</th><th>Vence</th><th>Estado</th></tr></thead><tbody id="creditos-table-body"></tbody></table>
-      </div>
-    </div>
-
-    <!-- ================= PRODUCTOS Y PROMOCIONES ================= -->
-    <div class="view" id="view-productos">
-      <div class="page-head">
-        <div><h1>Catálogo y Promos</h1><p id="productos-meta">SKU EN CATÁLOGO</p></div>
-        <div class="head-actions">
-          <button class="btn btn-ghost" onclick="openModal('modal-nueva-promocion')">Nueva promo</button>
-          <button class="btn btn-primary" onclick="openModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo producto</button>
-        </div>
-      </div>
-      
-      <div class="kpi-row" id="productos-kpis"></div>
-      
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="prod-catalogo">Catálogo de Productos</div>
-        <div class="tab" data-sub="prod-promos">Promociones Activas</div>
-      </div>
-
-      <div id="prod-catalogo" class="subview">
-        <div class="tabs" id="productos-tabs" style="margin-bottom:16px;"></div>
-        <div class="panel">
-          <table>
-            <thead><tr><th>SKU / Producto</th><th>Categoría</th><th>Precio Base</th><th>Stock</th><th>Estado</th><th>Acción</th></tr></thead>
-            <tbody id="productos-table-body"></tbody>
-          </table>
+        <div id="tk-tablero" class="subview" style="display:none;">
+          <div class="kanban" id="tickets-kanban"></div>
         </div>
       </div>
 
-      <div id="prod-promos" class="subview" style="display:none;">
-         <div class="panel">
-          <table>
-            <thead><tr><th>Promoción</th><th>Descuento</th><th>Aplica a</th><th>Vence</th><th>Estado</th><th>Acción</th></tr></thead>
-            <tbody id="promos-table-body"></tbody>
-          </table>
+      <!-- ================= VENTAS (POS) ================= -->
+      <div class="view" id="view-ventas">
+        <div class="page-head">
+          <div><h1>Ventas</h1><p id="ventas-meta">PUNTO DE VENTA</p></div>
+          <div class="tabs"><div class="tab active" data-sub="v-pos">Nueva venta</div><div class="tab" data-sub="v-historial">Historial</div></div>
         </div>
-      </div>
-    </div>
 
-    <!-- ================= ERP ================= -->
-    <div class="view" id="view-erp">
-      <div class="page-head"><div><h1>ERP</h1><p>VISTA CONSOLIDADA DEL NEGOCIO</p></div></div>
-      <div class="kpi-row">
-        <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg></div><div class="label">Ingresos del mes</div><div class="value">$48.2k</div><div class="delta up">↑ 9.1%</div></div>
-        <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 18l-9.5-9.5-5 5L1 6"/></svg></div><div class="label">Gastos del mes</div><div class="value">$21.6k</div><div class="delta down">↑ 3.4%</div></div>
-        <div class="kpi c-copper"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/></svg></div><div class="label">Inventario valorizado</div><div class="value">$96.4k</div><div class="delta up">412 SKU</div></div>
-        <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></div><div class="label">Nómina técnica</div><div class="value">$9.8k</div><div class="delta up">5 técnicos</div></div>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-head"><h3>Órdenes de compra a proveedores</h3></div>
-          <table><thead><tr><th>Orden</th><th>Proveedor</th><th>Artículos</th><th>Total</th><th>Estado</th></tr></thead>
-          <tbody>
-            <tr class="tbl-row"><td class="mono">OC-330</td><td>TecnoImport S.A.</td><td>SSD, RAM, fuentes</td><td class="mono">$8,400.00</td><td><span class="badge prog">En tránsito</span></td></tr>
-            <tr class="tbl-row"><td class="mono">OC-329</td><td>Componentes del Norte</td><td>Cables, gabinetes</td><td class="mono">$2,150.00</td><td><span class="badge done">Recibida</span></td></tr>
-            <tr class="tbl-row"><td class="mono">OC-328</td><td>PC Wholesale</td><td>Placas madre</td><td class="mono">$5,900.00</td><td><span class="badge pend">Pendiente</span></td></tr>
-          </tbody></table>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Proveedores</h3></div>
-          <table><thead><tr><th>Proveedor</th><th>Categoría</th><th>Contacto</th></tr></thead>
-          <tbody>
-            <tr class="tbl-row"><td>TecnoImport S.A.</td><td>Componentes</td><td class="mono">ventas@tecnoimport.com</td></tr>
-            <tr class="tbl-row"><td>Componentes del Norte</td><td>Insumos</td><td class="mono">contacto@cnorte.com</td></tr>
-            <tr class="tbl-row"><td>PC Wholesale</td><td>Periféricos</td><td class="mono">pedidos@pcwholesale.com</td></tr>
-          </tbody></table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================= REPORTES ================= -->
-    <div class="view" id="view-reportes">
-      <div class="page-head"><div><h1>Reportes</h1><p>ANÁLISIS DEL NEGOCIO</p></div><button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar PDF</button></div>
-      <div class="kpi-row" id="reportes-kpis"></div>
-      <div class="grid-2" style="margin-bottom:16px;">
-        <div class="panel">
-          <div class="panel-head"><h3>Ventas mensuales</h3><span class="meta">ÚLTIMOS 6 MESES</span></div>
-          <div class="panel-body" id="reportes-bar-ventas"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Tickets por técnico</h3><span class="meta">ESTE MES</span></div>
-          <div class="panel-body" id="reportes-bar-tecnico"></div>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-head"><h3>Tickets por estado</h3></div>
-          <div class="panel-body"><div class="donut-wrap" id="reportes-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Productos más vendidos</h3><span class="meta">ESTE MES</span></div>
-          <div class="panel-body" id="reportes-top-productos"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================= CONFIGURACIÓN ================= -->
-    <div class="view" id="view-config">
-      <div class="page-head"><div><h1>Configuración</h1><p>NEGOCIO, USUARIOS Y ROLES</p></div></div>
-
-      <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-head"><h3>Datos del negocio</h3></div>
-        <div class="panel-body">
-          <div class="form-grid">
-            <div><label>Nombre del negocio</label><input id="cfg-nombre" class="inp" style="width:100%;"></div>
-            <div><label>RFC / NIT</label><input id="cfg-rfc" class="inp" style="width:100%;"></div>
-            <div><label>Teléfono</label><input id="cfg-tel" class="inp" style="width:100%;"></div>
-            <div><label>Correo</label><input id="cfg-email" class="inp" style="width:100%;"></div>
-            <div class="full"><label>Dirección</label><input id="cfg-dir" class="inp" style="width:100%;"></div>
-          </div>
-          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfigNegocio()">Guardar cambios</button></div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-bottom:16px;">
-        <div class="panel-head" style="justify-content:space-between; display:flex; align-items:center;">
-            <h3>Usuarios</h3>
+        <div id="v-pos" class="subview">
+          <div class="pos-layout">
             <div>
-              <span class="meta" id="config-users-meta" style="margin-right:15px;"></span>
-              <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button>
+              <div class="field-search" style="max-width:100%;margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="pos-search" placeholder="Buscar producto o servicio…" oninput="renderPOSProducts()"></div>
+              <div class="pos-products" id="pos-products"></div>
             </div>
+            <div class="cart-panel">
+              <div class="cart-head"><h3>Carrito</h3><span class="mono" id="cart-count">0 items</span></div>
+              <div class="cart-items" id="cart-items"></div>
+              <select class="sel" id="pos-cliente">
+                <option value="Mostrador">Cliente: Mostrador</option>
+              </select>
+              
+              <div style="padding:0 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">MÉTODO DE PAGO</div>
+              <div class="pay-methods" id="pay-methods"></div>
+              
+              <div style="padding:12px 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">PROMOCIONES (OPCIONAL)</div>
+              <select class="sel" id="pos-promo" style="margin:0 16px 12px; width:calc(100% - 32px);" onchange="renderCart()">
+                <option value="">Sin promoción / descuento</option>
+              </select>
+
+              <div class="cart-totals">
+                <div class="ct-line"><span>Subtotal</span><span id="ct-subtotal">$0.00</span></div>
+                <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);"><span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
+                <div class="ct-line"><span>IVA (16%)</span><span id="ct-iva">$0.00</span></div>
+                <div class="ct-line total"><span>Total</span><span class="v" id="ct-total">$0.00</span></div>
+              </div>
+              <button class="checkout-btn" onclick="checkout()">Enviar a Caja para Cobro</button>
+            </div>
+          </div>
         </div>
-        <table><thead><tr><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th></tr></thead><tbody id="config-users-body"></tbody></table>
+
+        <div id="v-historial" class="subview" style="display:none;">
+          <div class="panel">
+            <table><thead><tr><th>Folio</th><th>Cliente</th><th>Artículos</th><th>Pago</th><th>Total</th><th>Hora</th></tr></thead><tbody id="ventas-historial-body"></tbody></table>
+          </div>
+        </div>
       </div>
 
-      <div class="panel-head" style="background:none;border:none;padding:0 0 12px; display:flex; justify-content:space-between; align-items:center;">
-        <h3 style="font-size:14.5px;">Roles y permisos</h3>
-        <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-rol')">+ Nuevo Rol</button>
+      <!-- ================= CAJA ================= -->
+      <div class="view" id="view-caja">
+        <div class="page-head">
+          <div><h1>Caja</h1><p id="caja-meta">CORTE ABIERTO DESDE 08:00</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Cerrar corte</button>
+        </div>
+
+        <div class="tabs" style="margin-bottom:16px;">
+          <div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div>
+          <div class="tab" data-sub="caja-movs-sub">Movimientos y Resumen</div>
+        </div>
+
+        <div id="caja-pendientes-sub" class="subview">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Facturaciones Pendientes de Cobro</h3>
+              <span class="meta">Procesa el cobro con pasarela detallada</span>
+            </div>
+            <table>
+              <thead><tr><th>Origen</th><th>Referencia</th><th>Cliente</th><th>Concepto / Artículos</th><th>Total a cobrar</th><th>Acción</th></tr></thead>
+              <tbody id="caja-pendientes-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="caja-movs-sub" class="subview" style="display:none;">
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-head"><h3>Movimientos de caja</h3></div>
+              <table><thead><tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead><tbody id="caja-mov-body"></tbody></table>
+              <div class="panel-body" style="border-top:1px solid var(--line);">
+                <div class="form-grid">
+                  <div><label>Concepto</label><input class="inp" id="mov-concepto" placeholder="Ej. Compra de insumos" style="width:100%;"></div>
+                  <div><label>Tipo</label><select class="sel" id="mov-tipo" style="width:100%;"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select></div>
+                  <div><label>Monto</label><input class="inp" id="mov-monto" type="number" min="0" step="0.01" placeholder="$0.00" style="width:100%;"></div>
+                  <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="addMovimiento()">Registrar movimiento</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Resumen</h3></div>
+              <div class="caja-box" id="caja-resumen"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="grid-cards" id="config-roles"></div>
+
+      <!-- ================= CRM ================= -->
+      <div class="view" id="view-crm">
+        <div class="page-head">
+          <div><h1>CRM</h1><p>PIPELINE DE OPORTUNIDADES</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nueva oportunidad</button>
+        </div>
+        <div class="kanban" id="crm-kanban" style="margin-bottom:18px;"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Valor total en pipeline</h3><span class="meta" id="crm-total"></span></div>
+        </div>
+      </div>
+
+      <!-- ================= CLIENTES ================= -->
+      <div class="view" id="view-clientes">
+        <div class="page-head">
+          <div><h1>Clientes</h1><p id="clientes-meta">— REGISTRADOS</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo cliente</button>
+        </div>
+        <div class="toolbar">
+          <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono…" oninput="renderClientesTable()"></div>
+        </div>
+        <div class="panel">
+          <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ================= CRÉDITOS ================= -->
+      <div class="view" id="view-creditos">
+        <div class="page-head">
+          <div><h1>Créditos y Préstamos</h1><p id="creditos-meta">SALDO TOTAL POR COBRAR</p></div>
+          <button class="btn btn-primary" onclick="openNuevoCreditoModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo Préstamo</button>
+        </div>
+        <div class="kpi-row" id="creditos-kpis"></div>
+        <div class="panel">
+          <table><thead><tr><th>Cliente</th><th>Concepto</th><th>Monto original</th><th>Saldo</th><th>Vence</th><th>Estado</th></tr></thead><tbody id="creditos-table-body"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ================= PRODUCTOS Y PROMOCIONES ================= -->
+      <div class="view" id="view-productos">
+        <div class="page-head">
+          <div><h1>Catálogo y Promos</h1><p id="productos-meta">SKU EN CATÁLOGO</p></div>
+          <div class="head-actions">
+            <button class="btn btn-ghost" onclick="openModal('modal-nueva-promocion')">Nueva promo</button>
+            <button class="btn btn-primary" onclick="openModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo producto</button>
+          </div>
+        </div>
+        
+        <div class="kpi-row" id="productos-kpis"></div>
+        
+        <div class="tabs" style="margin-bottom:16px;">
+          <div class="tab active" data-sub="prod-catalogo">Catálogo de Productos</div>
+          <div class="tab" data-sub="prod-promos">Promociones Activas</div>
+        </div>
+
+        <div id="prod-catalogo" class="subview">
+          <div class="tabs" id="productos-tabs" style="margin-bottom:16px;"></div>
+          <div class="panel">
+            <table>
+              <thead><tr><th>SKU / Producto</th><th>Categoría</th><th>Precio Base</th><th>Stock</th><th>Estado</th><th>Acción</th></tr></thead>
+              <tbody id="productos-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="prod-promos" class="subview" style="display:none;">
+           <div class="panel">
+            <table>
+              <thead><tr><th>Promoción</th><th>Descuento</th><th>Aplica a</th><th>Vence</th><th>Estado</th><th>Acción</th></tr></thead>
+              <tbody id="promos-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= ERP ================= -->
+      <div class="view" id="view-erp">
+        <div class="page-head"><div><h1>ERP</h1><p>VISTA CONSOLIDADA DEL NEGOCIO</p></div></div>
+        <div class="kpi-row">
+          <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg></div><div class="label">Ingresos del mes</div><div class="value">$0</div><div class="delta up">Sin datos</div></div>
+          <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 18l-9.5-9.5-5 5L1 6"/></svg></div><div class="label">Gastos del mes</div><div class="value">$0</div><div class="delta down">Sin datos</div></div>
+          <div class="kpi c-copper"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/></svg></div><div class="label">Inventario valorizado</div><div class="value">$0</div><div class="delta up">0 SKU</div></div>
+          <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></div><div class="label">Nómina técnica</div><div class="value">$0</div><div class="delta up">0 técnicos</div></div>
+        </div>
+      </div>
+
+      <!-- ================= REPORTES ================= -->
+      <div class="view" id="view-reportes">
+        <div class="page-head"><div><h1>Reportes</h1><p>ANÁLISIS DEL NEGOCIO</p></div><button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar PDF</button></div>
+        <div class="kpi-row" id="reportes-kpis"></div>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="panel">
+            <div class="panel-head"><h3>Ventas mensuales</h3><span class="meta">ÚLTIMOS 6 MESES</span></div>
+            <div class="panel-body" id="reportes-bar-ventas"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Tickets por técnico</h3><span class="meta">ESTE MES</span></div>
+            <div class="panel-body" id="reportes-bar-tecnico"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><h3>Tickets por estado</h3></div>
+            <div class="panel-body"><div class="donut-wrap" id="reportes-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Productos más vendidos</h3><span class="meta">ESTE MES</span></div>
+            <div class="panel-body" id="reportes-top-productos"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= CONFIGURACIÓN ================= -->
+      <div class="view" id="view-config">
+        <div class="page-head"><div><h1>Configuración</h1><p>NEGOCIO, USUARIOS Y ROLES</p></div></div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Datos del negocio</h3></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div><label>Nombre del negocio</label><input id="cfg-nombre" class="inp" style="width:100%;"></div>
+              <div><label>RFC / NIT</label><input id="cfg-rfc" class="inp" style="width:100%;"></div>
+              <div><label>Teléfono</label><input id="cfg-tel" class="inp" style="width:100%;"></div>
+              <div><label>Correo</label><input id="cfg-email" class="inp" style="width:100%;"></div>
+              <div class="full"><label>Dirección</label><input id="cfg-dir" class="inp" style="width:100%;"></div>
+            </div>
+            <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfigNegocio()">Guardar cambios</button></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head" style="justify-content:space-between; display:flex; align-items:center;">
+              <h3>Usuarios (Perfiles Locales)</h3>
+              <div>
+                <span class="meta" id="config-users-meta" style="margin-right:15px;"></span>
+                <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button>
+              </div>
+          </div>
+          <div style="padding:10px 18px; font-size:12px; color:var(--amber); background:var(--amber-dim); border-bottom:1px solid var(--line);">
+            <b>Nota:</b> Estos son los perfiles dentro de Servix. Recuerda que para que puedan iniciar sesión, debes registrarlos también en la consola de Firebase Authentication.
+          </div>
+          <table><thead><tr><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th></tr></thead><tbody id="config-users-body"></tbody></table>
+        </div>
+
+        <div class="panel-head" style="background:none;border:none;padding:0 0 12px; display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="font-size:14.5px;">Roles y permisos</h3>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-rol')">+ Nuevo Rol</button>
+        </div>
+        <div class="grid-cards" id="config-roles"></div>
+      </div>
+
     </div>
-
   </div>
-</div>
+</div> <!-- CIERRE APP CONTAINER -->
 
-<!-- ============ MODALES ============ -->
-
+<!-- ============ MODALES (Tickets, Clientes, etc.) ============ -->
 <!-- MODAL: TICKET DETALLE -->
 <div class="modal-overlay" id="modal-ticket">
   <div class="modal">
@@ -691,7 +713,7 @@
         <div class="full"><label>Falla reportada</label><textarea class="inp" id="nt-falla" rows="3" placeholder="Describe el problema…"></textarea></div>
         
         <div><label>Prioridad</label><select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select></div>
-        <div><label>Técnico</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option><option>J. Peña</option><option>R. Solís</option><option>M. Torres</option></select></div>
+        <div><label>Técnico</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option></select></div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-ticket')">Cancelar</button><button class="btn btn-primary" onclick="createTicket()">Crear ticket</button></div>
@@ -843,10 +865,10 @@
 
 <!-- ============ SDKs de Firebase (Versión Compat) ============ -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
 <script>
-  // Las llaves de tu proyecto
   const firebaseConfig = {
     apiKey: "AIzaSyDkku4IIoyYoRKWlpIuB7HRaC5fOVEoUws",
     authDomain: "soporte-5a45c.firebaseapp.com",
@@ -856,12 +878,9 @@
     appId: "1:470487622519:web:da1b0304282c4bd2f97772"
   };
 
-  // Inicializar Firebase
   firebase.initializeApp(firebaseConfig);
-  
-  // Habilitar la base de datos (la llamaremos "db")
   const db = firebase.firestore();
-  console.log("🔥 ¡Firebase inicializado!");
+  const auth = firebase.auth();
 </script>
 
 <script src="js/data.js"></script>
