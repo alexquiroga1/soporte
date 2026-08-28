@@ -24,6 +24,78 @@ function toast(msg, type){
 }
 
 /* =========================================================
+   SISTEMA DE LOGIN (AUTENTICACIÓN FIREBASE)
+========================================================= */
+let currentUserProfile = null;
+
+// Escuchamos los cambios en el estado de autenticación
+auth.onAuthStateChanged(user => {
+  const loginScreen = document.getElementById('login-screen');
+  const appContainer = document.getElementById('app-container');
+
+  if (user) {
+    // Usuario logueado: Ocultamos el login y mostramos la app
+    loginScreen.style.display = 'none';
+    appContainer.style.display = 'flex';
+    
+    // Tratamos de buscar su nombre en nuestra lista de usuarios de Configuración
+    currentUserProfile = DATA.usuarios.find(u => u.email === user.email);
+    
+    const uName = currentUserProfile ? currentUserProfile.nombre : user.email;
+    const uRole = currentUserProfile ? currentUserProfile.rol : 'Admin';
+    
+    // Actualizar avatares en la UI
+    document.getElementById('sidebar-avatar').textContent = initials(uName);
+    document.getElementById('sidebar-user-name').textContent = uName;
+    document.getElementById('sidebar-user-role').textContent = uRole;
+    document.getElementById('btn-user').textContent = initials(uName);
+    
+    // Renderizamos la app
+    if(typeof renderAll === 'function') renderAll();
+    toast(`Bienvenido de nuevo, ${uName.split(' ')[0]}`);
+  } else {
+    // No hay usuario: Mostramos el login y ocultamos la app
+    loginScreen.style.display = 'flex';
+    appContainer.style.display = 'none';
+  }
+});
+
+function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass = document.getElementById('login-pass').value;
+  
+  if(!email || !pass) { toast('Completa tus datos'); return; }
+  
+  // Usamos el botón para mostrar que está cargando
+  const btn = document.querySelector('.login-btn');
+  const btnText = btn.textContent;
+  btn.textContent = 'Verificando...';
+  btn.disabled = true;
+
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(() => {
+        // El onAuthStateChanged se encargará de mostrar la app
+        btn.textContent = btnText;
+        btn.disabled = false;
+        document.getElementById('login-pass').value = '';
+    })
+    .catch((error) => {
+        btn.textContent = btnText;
+        btn.disabled = false;
+        toast('Error: Verifica tu correo y contraseña');
+        console.error(error);
+    });
+}
+
+function doLogout() {
+  auth.signOut().then(() => {
+    closeDropdowns();
+  }).catch((error) => {
+    toast('No se pudo cerrar la sesión');
+  });
+}
+
+/* =========================================================
    LÓGICA DEL MENÚ MÓVIL (HAMBURGUESA)
 ========================================================= */
 document.addEventListener('DOMContentLoaded', () => {
@@ -74,7 +146,7 @@ document.querySelectorAll('.nav-item').forEach(it=>{ it.addEventListener('click'
 /* Sub-tabs genérico */
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
-    if(tab.getAttribute('onclick')) return; // Skipeamos si es el CRM del cliente
+    if(tab.getAttribute('onclick')) return;
     
     const group = tab.parentElement;
     group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -138,6 +210,9 @@ function renderDashboard(){
   const ventasHoy = DATA.ventas.reduce((s,v)=>s+v.total,0);
   const creditoTotal = DATA.creditos.reduce((s,c)=>s+c.saldo,0);
   const slaRiesgo = DATA.tickets.filter(t=>t.prioridad==='P1' && t.stage!=='entregado').length;
+  
+  // Actualizar Título del negocio dinámico
+  document.getElementById('dash-title-negocio').textContent = DATA.negocio.nombre || 'Panel general';
 
   document.getElementById('dash-kpis').innerHTML = `
     <div class="kpi c-copper"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z"/></svg></div><div class="label">Tickets abiertos</div><div class="value">${abiertos}</div><div class="delta up">↑ activos hoy</div></div>
@@ -202,7 +277,26 @@ function selectClientForTicket(id, nombre){
   document.getElementById('nt-client-suggestions').style.display = 'none';
 }
 
+function populateTecnicos() {
+    const selFilter = document.getElementById('tk-filter-tecnico');
+    const selNew = document.getElementById('nt-tecnico');
+    
+    // Obtenemos los usuarios que tienen un rol diferente a 'Ventas / Caja' para ser considerados técnicos
+    const tecnicos = DATA.usuarios.filter(u => u.activo);
+    
+    if(selFilter) {
+        selFilter.innerHTML = '<option value="">Todos los técnicos</option><option value="Sin asignar">Sin asignar</option>' +
+        tecnicos.map(t => `<option value="${t.nombre}">${t.nombre}</option>`).join('');
+    }
+    
+    if(selNew) {
+        selNew.innerHTML = '<option value="Sin asignar">Sin asignar</option>' +
+        tecnicos.map(t => `<option value="${t.nombre}">${t.nombre}</option>`).join('');
+    }
+}
+
 function renderTicketsTable(){
+  populateTecnicos();
   const q = (document.getElementById('tk-search').value || '').toLowerCase();
   const fEstado = document.getElementById('tk-filter-estado').value;
   const fPrio = document.getElementById('tk-filter-prio').value;
@@ -263,7 +357,7 @@ function printTicket(id){
       </style>
     </head>
     <body>
-      <h2>SERVIX · Orden de Servicio #${t.id}</h2>
+      <h2>${DATA.negocio.nombre} · Orden de Servicio #${t.id}</h2>
       <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Presupuesto: ${t.presupuestoAprobado ? 'APROBADO' : 'PENDIENTE'}</div>
       
       <div class="box">
@@ -317,7 +411,8 @@ function renderTicketsKanban(){
     const t = DATA.tickets.find(x=>x.id===id);
     if(t && t.stage!==newStage){
       t.stage = newStage;
-      t.historial.push({estado: stageInfo(newStage).label, fecha:'24 Ago ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:'Tú'});
+      const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
+      t.historial.push({estado: stageInfo(newStage).label, fecha: fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor: user});
       saveToLocal();
       renderTicketsKanban(); renderTicketsTable(); renderDashboard();
       checkBillingButtonVisibility(t);
@@ -498,7 +593,8 @@ function addTicketNota(){
   const texto = input.value.trim();
   if(!texto) return;
   const t = DATA.tickets.find(x=>x.id===currentTicketId);
-  t.notas.push({autor:'Mario Rossi', fecha:'Ahora', texto});
+  const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
+  t.notas.push({autor:user, fecha:'Ahora', texto});
   saveToLocal();
   input.value = '';
   renderTicketNotas(t);
@@ -509,7 +605,8 @@ function changeTicketStage(){
   const t = DATA.tickets.find(x=>x.id===currentTicketId);
   if(t.stage===newStage) return;
   t.stage = newStage;
-  t.historial.push({estado: stageInfo(newStage).label, fecha:'24 Ago ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:'Tú'});
+  const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
+  t.historial.push({estado: stageInfo(newStage).label, fecha:fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user});
   saveToLocal();
   document.getElementById('mt-historial').innerHTML = t.historial.map(h=>`<div class="tl-item"><b>${h.estado}</b><span>${h.fecha} · ${h.autor}</span></div>`).join('');
   renderTicketsTable(); renderTicketsKanban(); renderDashboard();
@@ -530,14 +627,17 @@ function createTicket(){
   
   if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
   const id = 'TK-' + (nextTicketNum++);
+  
+  const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
+  
   const t = {
     id, clienteId: cliente?cliente.id:null, cliente: clienteNombre,
     equipo, accesorios, condicion, presupuestoAprobado: false,
     checklist: {encendido:false, respaldo:false, memoria:false},
     falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
-    tecnico: document.getElementById('nt-tecnico').value, ingreso:'24 Ago',
+    tecnico: document.getElementById('nt-tecnico').value, ingreso: fDate(new Date().toISOString().split('T')[0]),
     diagnostico:'Pendiente de revisión inicial.', piezas:[],
-    historial:[{estado:'Recibido', fecha:'24 Ago ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:'Mostrador'}], notas:[]
+    historial:[{estado:'Recibido', fecha:fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
   };
   DATA.tickets.unshift(t);
   saveToLocal();
@@ -1463,6 +1563,7 @@ function eliminarProducto(sku) {
     }
 }
 
+
 function renderPromocionesTable() {
   const tbody = document.getElementById('promos-table-body');
   if(!tbody) return;
@@ -1524,6 +1625,7 @@ function createPromocion() {
   toast('Promoción creada con éxito');
 }
 
+
 /* =========================================================
    REPORTES
 ========================================================= */
@@ -1554,7 +1656,6 @@ function renderReportes(){
 ========================================================= */
 
 function renderConfig() {
-  // 1. Pintar datos del negocio
   if(DATA.negocio) {
       document.getElementById('cfg-nombre').value = DATA.negocio.nombre || '';
       document.getElementById('cfg-rfc').value = DATA.negocio.rfc || '';
@@ -1563,17 +1664,14 @@ function renderConfig() {
       document.getElementById('cfg-dir').value = DATA.negocio.direccion || '';
   }
 
-  // 2. Pintar tabla de usuarios
   document.getElementById('config-users-body').innerHTML = DATA.usuarios.map((u,i)=>`
     <tr><td><div class="cust"><div class="ci">${initials(u.nombre)}</div><b>${u.nombre}</b></div></td><td>${u.rol}</td><td class="mono">${u.email}</td>
     <td><div class="toggle ${u.activo?'on':''}" onclick="toggleUsuario(${i})"><div class="knob"></div></div></td></tr>`).join('');
   document.getElementById('config-users-meta').textContent = DATA.usuarios.filter(u=>u.activo).length + ' activos de ' + DATA.usuarios.length;
 
-  // 3. Pintar tarjetas de roles
   document.getElementById('config-roles').innerHTML = DATA.roles.map(r=>`
     <div class="role-card"><h4>${r.nombre}</h4><p>${r.desc}</p><ul>${r.permisos.map(p=>'<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'+p+'</li>').join('')}</ul></div>`).join('');
 
-  // 4. Llenar el select del modal de nuevo usuario con los roles disponibles
   const selRol = document.getElementById('nu-rol');
   if(selRol) {
       selRol.innerHTML = DATA.roles.map(r => `<option value="${r.nombre}">${r.nombre}</option>`).join('');
@@ -1589,6 +1687,7 @@ function saveConfigNegocio() {
         direccion: document.getElementById('cfg-dir').value.trim()
     };
     saveToLocal();
+    document.getElementById('dash-title-negocio').textContent = DATA.negocio.nombre;
     toast('Datos del negocio guardados en la nube');
 }
 
@@ -1607,7 +1706,7 @@ function createUsuario() {
     
     closeModal('modal-nuevo-usuario');
     renderConfig();
-    toast('Usuario creado exitosamente');
+    toast('Usuario creado. (Regístralo también en Firebase Auth)');
 }
 
 function toggleUsuario(i){ 
@@ -1621,7 +1720,6 @@ function createRol() {
     const nombre = document.getElementById('nr-nombre').value.trim();
     const desc = document.getElementById('nr-desc').value.trim();
     
-    // Capturar todos los permisos que tengan el check marcado
     const checkboxes = document.querySelectorAll('.chk-permiso:checked');
     const permisos = Array.from(checkboxes).map(chk => chk.value);
 
@@ -1633,7 +1731,6 @@ function createRol() {
     DATA.roles.push({ nombre, desc, permisos });
     saveToLocal();
 
-    // Limpiar el formulario
     document.getElementById('nr-nombre').value = '';
     document.getElementById('nr-desc').value = '';
     document.querySelectorAll('.chk-permiso').forEach(chk => chk.checked = false);
@@ -1644,7 +1741,7 @@ function createRol() {
 }
 
 /* =========================================================
-   INIT
+   LA FUNCIÓN MAESTRA: Se ejecuta cuando se detecta usuario
 ========================================================= */
 function renderAll(){
   renderDashboard();
@@ -1661,9 +1758,5 @@ function renderAll(){
   renderProductosTabs(); renderProductosTable(); 
   renderPromocionesTable(); 
   renderReportes();
-  renderConfig(); // Ahora lee la base de datos real
+  renderConfig(); 
 }
-
-// Ejecutamos por primera vez con los datos iniciales
-// (Se volverá a ejecutar automáticamente si la nube descarga información en data.js)
-renderAll();
