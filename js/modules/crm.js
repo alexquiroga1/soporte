@@ -1,39 +1,57 @@
-// js/core/charts.js
-export function svgBarChart(data, opts){
-  opts = opts || {};
-  const w = opts.width || 480, h = opts.height || 170, pad = 26, gap = opts.gap || 16;
-  const max = Math.max(...data.map(d=>d.v)) * 1.2 || 1;
-  const bw = (w - pad*1.4) / data.length - gap;
-  let bars = '', labels = '';
-  data.forEach((d,i)=>{
-    const bh = max ? (d.v/max) * (h-38) : 0;
-    const x = pad + i*(bw+gap);
-    const y = h - 28 - bh;
-    const color = opts.color || 'var(--copper)';
-    bars += '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="5" fill="'+color+'" opacity="'+(i===data.length-1?1:0.55)+'"></rect>';
-    bars += '<text x="'+(x+bw/2)+'" y="'+(y-7)+'" text-anchor="middle" class="chart-val">'+(opts.fmt?opts.fmt(d.v):d.v)+'</text>';
-    labels += '<text x="'+(x+bw/2)+'" y="'+(h-8)+'" text-anchor="middle" class="chart-lbl">'+d.l+'</text>';
+// js/modules/crm.js
+import { DATA, saveToLocal, CRM_STAGES } from '../core/store.js';
+import { fmt, toast } from '../core/utils.js';
+import { closeModal, wireKanbanDrag } from './ui.js';
+
+export function crmStageInfo(key) { return CRM_STAGES.find(s=>s.key===key); }
+
+export function renderCRMKanban(){
+  const board = document.getElementById('crm-kanban');
+  if(!board) return;
+  board.innerHTML = CRM_STAGES.map(s=>{
+    const items = DATA.crm.filter(o=>o.stage===s.key);
+    const cards = items.map(o=>`
+      <div class="kanban-card" draggable="true" data-id="${o.contacto}|${o.empresa}">
+        <b>${o.contacto}</b><div class="kc-sub">${o.empresa}</div>
+        <div class="kc-sub" style="margin-top:4px;">${o.interes}</div>
+        <div class="kc-foot"><span class="kc-val">${fmt(o.valor)}</span><span>${o.fecha}</span></div>
+      </div>`).join('');
+    return `<div class="kanban-col" data-stage="${s.key}">
+      <div class="kanban-col-head"><span class="dot" style="background:${s.color}"></span>${s.label}<b>${items.length}</b></div>
+      ${cards}
+    </div>`;
+  }).join('');
+  
+  wireKanbanDrag(board, (idKey, newStage)=>{
+    const [contacto, empresa] = idKey.split('|');
+    const o = DATA.crm.find(x=>x.contacto===contacto && x.empresa===empresa);
+    if(o && o.stage!==newStage){
+      o.stage = newStage;
+      saveToLocal();
+      renderCRMKanban();
+      toast('Oportunidad movida a "'+crmStageInfo(newStage).label+'"');
+    }
   });
-  return '<svg viewBox="0 0 '+w+' '+h+'" class="bar-svg"><line x1="'+(pad-6)+'" y1="'+(h-28)+'" x2="'+(w-4)+'" y2="'+(h-28)+'" stroke="var(--line)" stroke-width="1"></line>'+bars+labels+'</svg>';
+  const total = DATA.crm.filter(o=>o.stage!=='perdido').reduce((s,o)=>s+o.valor,0);
+  const totalEl = document.getElementById('crm-total');
+  if(totalEl) totalEl.textContent = fmt(total) + ' en pipeline activo';
 }
 
-export function renderDonut(containerEl, segments){
-  const total = segments.reduce((s,x)=>s+x.value,0) || 1;
-  let acc = 0;
-  const stops = segments.map(s=>{
-    const start = acc/total*360; acc += s.value; const end = acc/total*360;
-    return s.color+' '+start.toFixed(1)+'deg '+end.toFixed(1)+'deg';
-  }).join(', ');
-  containerEl.querySelector('.donut-ring').style.background = 'conic-gradient('+stops+')';
-  containerEl.querySelector('.donut-center b').textContent = total;
-  containerEl.querySelector('.donut-legend').innerHTML = segments.map(s=>
-    '<div class="dl-item"><span class="dl-dot" style="background:'+s.color+'"></span>'+s.label+'<b>'+s.value+'</b></div>'
-  ).join('');
-}
-
-export function renderHBars(container, data, opts){
-  const max = Math.max(...data.map(d=>d.v)) || 1;
-  container.innerHTML = data.map(d=>
-    '<div class="hbar-row"><div class="hbar-lbl">'+d.l+'</div><div class="hbar-track"><div class="hbar-fill" style="width:'+(d.v/max*100).toFixed(0)+'%"></div></div><div class="hbar-val">'+d.v+'</div></div>'
-  ).join('');
+// ¡ESTA ES LA FUNCIÓN QUE FALTABA O NO SE EXPORTÓ BIEN!
+export function createOportunidad(){
+  const contacto = document.getElementById('no-contacto').value.trim();
+  const empresa = document.getElementById('no-empresa').value.trim() || '—';
+  const interes = document.getElementById('no-interes').value.trim();
+  const valor = parseFloat(document.getElementById('no-valor').value) || 0;
+  const fecha = document.getElementById('no-fecha').value.trim() || 'Sin fecha';
+  
+  if(!contacto || !interes){ toast('Completa contacto e interés'); return; }
+  
+  DATA.crm.unshift({contacto, empresa, interes, valor, fecha, stage:'prospecto'});
+  saveToLocal();
+  
+  ['no-contacto','no-empresa','no-interes','no-valor','no-fecha'].forEach(id=>document.getElementById(id).value='');
+  closeModal('modal-nueva-oportunidad');
+  renderCRMKanban();
+  toast('Oportunidad creada');
 }
