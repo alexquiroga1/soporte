@@ -9,19 +9,20 @@ window.closeModal = closeModal;
 window.goView = goView;
 window.doLogin = () => doLogin(window.auth);
 window.doLogout = () => doLogout(window.auth, closeDropdowns);
+window.closeDropdowns = closeDropdowns; // Para el botón de notificaciones
 
-// 2. FUNCIÓN DE RENDERIZADO GLOBAL (Temporal hasta modularizar las demás vistas)
+// 2. FUNCIÓN MAESTRA DE RENDERIZADO
+// Aquí iremos llamando a los "renders" de cada módulo que vayamos separando.
 window.renderAll = function() {
-    console.log("¡Los datos están listos para pintar en pantalla!");
-    // En el próximo paso traeremos aquí los renders de Tickets, POS, Caja, etc.
+    console.log("¡Sesión iniciada correctamente! Datos listos.");
+    
+    // Aquí pondremos: renderTicketsTable(), renderCajaView(), etc...
 }
 
 // 3. INICIALIZACIÓN DE LA APLICACIÓN
 document.addEventListener('DOMContentLoaded', () => {
-    // Iniciamos la interfaz (clicks, modales, menú móvil)
     initUI();
     
-    // Conectamos a Firestore. Una vez descargada la BD, inicia Firebase Auth
     initStore(window.db, () => {
         initAuth(window.auth, window.renderAll);
     });
