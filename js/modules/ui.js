@@ -21,13 +21,28 @@ export function goView(name){
   }
 }
 
+// Función para arrastrar tarjetas en los Kanban (Tickets y CRM)
+export function wireKanbanDrag(board, onDrop){
+  board.querySelectorAll('.kanban-card').forEach(card=>{
+    card.addEventListener('dragstart', e=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.getAttribute('data-id')); });
+    card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
+  });
+  board.querySelectorAll('.kanban-col').forEach(col=>{
+    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', ()=> col.classList.remove('drag-over'));
+    col.addEventListener('drop', e=>{
+      e.preventDefault(); col.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      onDrop(id, col.getAttribute('data-stage'));
+    });
+  });
+}
+
 export function initUI() {
-  // Cerrar modales al hacer clic afuera
   document.querySelectorAll('.modal-overlay').forEach(ov=>{
     ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('active'); });
   });
 
-  // Eventos de Dropdowns
   document.getElementById('btn-notif').addEventListener('click', e=>{ 
       e.stopPropagation(); 
       const dd = document.getElementById('dd-notif'); 
@@ -45,12 +60,10 @@ export function initUI() {
   });
   document.addEventListener('click', closeDropdowns);
 
-  // Navegación lateral
   document.querySelectorAll('.nav-item').forEach(it=>{ 
       it.addEventListener('click', ()=>goView(it.getAttribute('data-view'))); 
   });
 
-  // Sub-pestañas genéricas
   document.querySelectorAll('.tab').forEach(tab=>{
     tab.addEventListener('click', ()=>{
       if(tab.getAttribute('onclick')) return;
@@ -65,7 +78,6 @@ export function initUI() {
     });
   });
 
-  // Menú hamburguesa móvil
   const menuBtn = document.getElementById('mobile-menu-btn');
   const sidebar = document.querySelector('.sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
