@@ -106,6 +106,17 @@ window.renderAll = function() {
 // =========================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUI();
+    
+    // 🚀 FIX MÁGICO: Tomamos a Firebase por la fuerza desde el navegador
+    if (window.firebase) {
+        window.db = window.firebase.firestore();
+        window.auth = window.firebase.auth();
+    } else {
+        console.error("No se detectó Firebase. Revisa los scripts del index.html");
+        return;
+    }
+
+    // Iniciamos la base de datos y la sesión
     initStore(window.db, () => {
         initAuth(window.auth, window.renderAll);
     });
