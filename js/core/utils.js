@@ -22,3 +22,11 @@ export function toast(msg, type){
 
 // Función auxiliar para obtener nombre completo
 export const getFullName = (c) => c.apellido ? `${c.nombre} ${c.apellido}` : c.nombre;
+
+// Agrega esto al final de js/core/utils.js
+const _hoy = new Date();
+export const addDays = (d) => {
+  const nd = new Date(_hoy);
+  nd.setDate(nd.getDate() + d);
+  return nd.toISOString().split('T')[0];
+};
