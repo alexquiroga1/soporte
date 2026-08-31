@@ -50,8 +50,12 @@ export async function initStore(db, renderCallback) {
   }
 }
 
-export function saveToLocal(db) {
-    db.collection("sistema").doc("servix_produccion").set(DATA)
-        .catch(err => console.error("No se guardó en Firebase:", err));
+export function saveToLocal() {
+    // FIX: Ahora utiliza la instancia global window.db para no crashear
+    if (window.db) {
+        window.db.collection("sistema").doc("servix_produccion").set(DATA)
+            .catch(err => console.error("No se guardó en Firebase:", err));
+    }
+    // El respaldo local ahora siempre se ejecuta
     localStorage.setItem('servix_prod_data', JSON.stringify(DATA));
 }

@@ -216,10 +216,39 @@ export function addMovimiento(){
   toast('Movimiento registrado');
 }
 
+export function abrirModalCierre(){
+  const ingresos = DATA.caja.movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
+  const egresos = DATA.caja.movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
+  const total = DATA.caja.fondo + ingresos - egresos;
+  
+  document.getElementById('cierre-resumen').innerHTML = `
+    <div class="caja-box">
+      <div class="caja-line"><span class="l">Fondo inicial</span><span class="v">${fmt(DATA.caja.fondo)}</span></div>
+      <div class="caja-line"><span class="l">Ingresos totales</span><span class="v" style="color:var(--teal);">${fmt(ingresos)}</span></div>
+      <div class="caja-line"><span class="l">Egresos totales</span><span class="v" style="color:var(--red);">-${fmt(egresos)}</span></div>
+      <div class="caja-total" style="margin-top:16px;"><span class="l">Efectivo a retirar</span><span class="v">${fmt(total)}</span></div>
+    </div>
+    <div style="margin-top:16px;">
+      <label style="font-size:12px; color:var(--muted); margin-bottom:6px; display:block;">Fondo a dejar para el próximo turno ($)</label>
+      <input type="number" id="cierre-nuevo-fondo" class="inp" style="width:100%;" placeholder="Ej. 500" value="0">
+    </div>
+  `;
+  openModal('modal-cierre');
+}
+
 export function cerrarCorte(){
+  const nuevoFondo = parseFloat(document.getElementById('cierre-nuevo-fondo').value) || 0;
+  
+  // Vaciamos los movimientos de hoy y seteamos el fondo para mañana
+  DATA.caja.movs = [];
+  DATA.caja.fondo = nuevoFondo;
+  
   saveToLocal();
   closeModal('modal-cierre');
-  toast('Corte cerrado correctamente');
+  renderCajaView();
+  
+  if(window.renderAll) window.renderAll();
+  toast('Corte cerrado. Nuevo fondo: ' + fmt(nuevoFondo));
 }
 
 // ==========================================

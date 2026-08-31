@@ -30,7 +30,7 @@ export function onClientSearchInput(){
     box.style.display = 'block';
     box.innerHTML = `
       <div style="padding:10px 12px; font-size:12.5px; color:var(--muted);">
-        No encontrado. <a href="#" onclick="openModal('modal-nuevo-cliente'); document.getElementById('nt-client-suggestions').style.display='none';" style="color:var(--copper); font-weight:600;">¿Crear nuevo cliente?</a>
+        No encontrado. <span style="color:var(--copper); font-weight:600; cursor:pointer;" onclick="openModal('modal-nuevo-cliente'); document.getElementById('nt-client-suggestions').style.display='none';">¿Crear nuevo cliente?</span>
       </div>
     `;
   }

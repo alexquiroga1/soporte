@@ -12,11 +12,10 @@ import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectCli
 import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
-import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, cerrarCorte, renderCreditosTable, openCreditModal, aplicarInteresMora, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual } from './modules/caja.js';
+import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, cerrarCorte, renderCreditosTable, openCreditModal, aplicarInteresMora, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, abrirModalCierre } from './modules/caja.js';
 import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
 import { renderDashboard, renderReportes } from './modules/dashboard.js';
-
 
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
@@ -63,12 +62,12 @@ window.renderCajaView = renderCajaView; window.openCreditModal = openCreditModal
 window.aplicarInteresMora = aplicarInteresMora; window.registerPayment = registerPayment;
 window.openNuevoCreditoModal = openNuevoCreditoModal; window.createCreditoManual = createCreditoManual;
 window.populateClienteSelectCredito = populateClienteSelectCredito;
+window.abrirModalCierre = abrirModalCierre; // FIX: Exponemos la nueva función
 
 // CRM, Configuración y Otros
 window.createOportunidad = createOportunidad; window.saveConfigNegocio = saveConfigNegocio;
 window.createUsuario = createUsuario; window.toggleUsuario = toggleUsuario;
 window.createRol = createRol;
-
 
 // =========================================================
 // FUNCIÓN MAESTRA DE RENDERIZADO
