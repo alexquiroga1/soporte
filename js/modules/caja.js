@@ -653,7 +653,7 @@ export function printReciboDoble(credito){
         <div class="divider"></div>
         <p class="center" style="font-size:10px;">ATENCION: Su pago en término evitará la adición de intereses punitorios y gastos a las cuotas.<br><br><b>CUPON PARA EL CLIENTE</b></p>
       </div>
-      <!-- TICKET COMERCIO -->
+      <!-- TICKET COMERCIO ELECTRONICO -->
       <div class="ticket">
         <div class="center"><b>${neg.toUpperCase()}</b><br>Cupón de Pago<br>Carpeta Nº: ${credito.id}</div><div class="divider"></div>
         <p>Cliente: <b>${credito.cliente}</b></p>
