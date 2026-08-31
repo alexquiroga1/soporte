@@ -37,6 +37,9 @@ window.addPiezaToTicket = addPiezaToTicket; window.removePiezaFromTicket = remov
 window.enviarAFacturacion = enviarAFacturacion; window.addTicketNota = addTicketNota;
 window.changeTicketStage = changeTicketStage; window.createTicket = createTicket;
 window.renderTicketsTable = renderTicketsTable;
+window.fijarPresupuesto = fijarPresupuesto; 
+window.desbloquearPresupuesto = desbloquearPresupuesto;
+window.updatePiezaPrice = updatePiezaPrice;
 
 // Clientes
 window.renderClientesTable = renderClientesTable; window.switchClientTab = switchClientTab;

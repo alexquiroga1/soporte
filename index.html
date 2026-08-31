@@ -453,89 +453,126 @@
 <!-- ============ MODALES (Únicos y Limpios) ============ -->
 
 <!-- MODAL: TICKET DETALLE -->
+<!-- MODAL: TICKET DETALLE (NUEVO DISEÑO FULLSCREEN) -->
 <div class="modal-overlay" id="modal-ticket">
-  <div class="modal">
+  <div class="modal fullscreen">
+    
     <div class="modal-head">
-      <div><h3 id="mt-id">#TK-0000</h3><span class="mono" id="mt-ingreso"></span></div>
-      <button class="modal-close" onclick="closeModal('modal-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <div class="head-title">
+        <h3 id="mt-id">#TK-0000</h3>
+        <div class="head-meta">
+          <span id="mt-ingreso"></span>
+          <div id="mt-prioridad"></div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-ticket')">
+        Cerrar <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
-    <div class="modal-body">
-      <div class="mrow">
-        <div class="mfield"><div class="l">Cliente</div><div class="v" id="mt-cliente"></div></div>
-        <div class="mfield"><div class="l">Equipo</div><div class="v" id="mt-equipo"></div></div>
-        <div class="mfield"><div class="l">Prioridad</div><div class="v" id="mt-prioridad"></div></div>
-        <div class="mfield"><div class="l">Técnico asignado</div><div class="v" id="mt-tecnico"></div></div>
-      </div>
+
+    <div class="stepper" id="mt-stepper">
+      <div class="step" data-step="pendiente">Recibido</div>
+      <div class="step" data-step="diagnostico">En Diagnóstico</div>
+      <div class="step" data-step="reparacion">En Reparación</div>
+      <div class="step" data-step="repuesto">Esperando Repuesto</div>
+      <div class="step" data-step="listo">Listo / Entregado</div>
+    </div>
+
+    <div class="modal-body grid-3">
       
-      <div class="mrow" style="margin-bottom:16px; background: var(--bg); padding: 12px; border-radius: 8px;">
-        <div class="mfield"><div class="l">Accesorios recibidos</div><div class="v" id="mt-accesorios" style="font-size: 12px;"></div></div>
-        <div class="mfield"><div class="l">Condición física</div><div class="v" id="mt-condicion" style="font-size: 12px;"></div></div>
-      </div>
-
-      <div class="mrow" style="margin-bottom:16px; align-items:center;">
-        <div class="mfield">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
-            <input type="checkbox" id="mt-presupuesto-chk" onchange="togglePresupuesto()" style="width:16px; height:16px; accent-color: var(--copper);">
-            Presupuesto autorizado por el cliente
-          </label>
-        </div>
-      </div>
-
-      <div class="mfield" style="margin-bottom:16px;"><div class="l">Falla reportada</div><div class="v" id="mt-falla" style="font-weight:500;"></div></div>
-
-      <div class="mfield" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div>
-          <div class="l">Estado del ticket</div>
-          <select class="sel" id="mt-estado-select" style="width:220px;margin-top:4px;" onchange="changeTicketStage()">
-            <option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option>
-          </select>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="sendWhatsAppNotice()" style="margin-top:14px; background:#25D366; color:#fff; border:none;">💬 Enviar WhatsApp</button>
-      </div>
-<div class="msection">
-        <h4>Presupuesto Estimado</h4>
-        <div style="display:flex; gap:8px;">
-          <div style="position:relative; flex:1;">
-            <span style="position:absolute; left:12px; top:10px; color:var(--muted); font-weight:bold;">$</span>
-            <input type="number" class="inp" id="mt-presupuesto-input" placeholder="Ej. 15000" style="width:100%; padding-left:25px;">
+      <!-- COLUMNA 1 -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="m-card">
+          <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Información General</h4>
+          <div class="m-field"><div class="l">Cliente</div><div class="v" id="mt-cliente"></div></div>
+          <div class="m-field"><div class="l">Equipo</div><div class="v" id="mt-equipo"></div></div>
+          <div class="m-row">
+            <div class="m-field"><div class="l">Accesorios recibidos</div><div class="v" id="mt-accesorios"></div></div>
+            <div class="m-field"><div class="l">Condición física</div><div class="v" id="mt-condicion"></div></div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="savePresupuestoEstimado()">Fijar Presupuesto</button>
+          <div class="m-field" style="margin-top: 8px;">
+            <div class="l" style="color: var(--red);">Falla Reportada</div>
+            <div class="v" id="mt-falla" style="border-color: var(--red-dim); background: var(--red-dim);"></div>
+          </div>
         </div>
-        <p style="font-size:11px; color:var(--muted); margin-top:4px;">Guarda un valor aproximado para cotizarle al cliente. Podrás modificarlo si surgen cambios.</p>
-      </div>
-      <div class="msection">
-        <h4>Diagnóstico técnico</h4>
-        <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Escribe el diagnóstico técnico aquí..." style="width:100%; margin-bottom:6px;"></textarea>
-        <button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar diagnóstico</button>
-      </div>
 
-      <div class="msection">
-        <h4>Repuestos / Servicios utilizados</h4>
-        <div style="display:flex; gap:8px; margin-bottom: 10px;">
-          <select id="mt-repuesto-select" class="sel" style="flex:1;"></select>
-          <button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir al ticket</button>
+        <div class="m-card">
+          <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Diagnóstico del Técnico</h4>
+          <div class="m-field">
+            <textarea class="inp" id="mt-diagnostico-input" rows="4" placeholder="Detalla aquí el problema real..."></textarea>
+            <div style="text-align: right; margin-top: 8px;"><button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar diagnóstico</button></div>
+          </div>
         </div>
-        <table><thead><tr><th>Artículo</th><th>Cant.</th><th>Costo</th><th></th></tr></thead><tbody id="mt-piezas"></tbody></table>
       </div>
 
-      <div class="msection"><h4>Historial de estados</h4><div class="timeline" id="mt-historial"></div></div>
+      <!-- COLUMNA 2 (Zona Interna) -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="m-card internal-zone">
+          <div class="internal-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Uso Interno</div>
+          <h4>Finanzas y Materiales</h4>
+          <p style="font-size: 13px; color: var(--muted); margin: -4px 0 12px 0;">El presupuesto y repuestos se manejan internamente.</p>
 
-      <div class="msection"><h4>Notas internas</h4>
-        <div id="mt-notas"></div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <input class="inp" id="mt-nota-input" placeholder="Agregar una nota…" style="flex:1;">
-          <button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Agregar</button>
+          <div class="budget-container">
+            <div class="m-field"><div class="l">Presupuesto Estimado a Cobrar</div></div>
+            <div class="budget-edit" id="view-edit-budget">
+              <input type="number" class="inp" id="input-presupuesto" placeholder="Ej. 45000">
+              <button class="btn btn-primary" onclick="fijarPresupuesto()">Fijar y Aprobar Presupuesto</button>
+            </div>
+            <div class="budget-locked" id="view-locked-budget">
+              <div class="locked-value"><span id="txt-presupuesto-fijado"></span></div>
+              <div style="font-size: 12px; color: var(--teal); font-weight: 600; text-align: center; margin-bottom: 8px;">✓ PRESUPUESTO FIJADO</div>
+              <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()" style="color: var(--amber); border-color: var(--amber);">Modificar internamente</button>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <div class="m-field" style="margin-bottom: 8px;"><div class="l">Repuestos / Servicios Aplicados</div></div>
+            <div style="display:flex; gap:8px;">
+              <select id="mt-repuesto-select" class="sel" style="flex:1;"></select>
+              <button class="btn btn-ghost btn-sm" style="background:#fff;" onclick="addPiezaToTicket()">+ Añadir</button>
+            </div>
+            <table>
+              <thead><tr><th>Artículo</th><th>Cant.</th><th>Costo Int.</th><th></th></tr></thead>
+              <tbody id="mt-piezas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA 3 -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="m-card" style="border-top: 4px solid var(--copper);">
+          <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Control de Trabajo</h4>
+          <div class="m-field"><div class="l">Técnico Asignado</div><div class="v" id="mt-tecnico"></div></div>
+          <div class="m-field" style="margin-top: 8px;">
+            <div class="l">Fase / Estado del Ticket</div>
+            <select class="sel" id="mt-estado-select" onchange="changeTicketStage()">
+              <option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option>
+            </select>
+          </div>
+          <button class="btn btn-whatsapp" style="margin-top: 12px;" onclick="sendWhatsAppNotice()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Avisar por WhatsApp
+          </button>
+        </div>
+
+        <div class="m-card" style="flex: 1; display:flex; flex-direction:column; min-height: 250px;">
+          <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Bitácora Interna</h4>
+          <div class="note-list" id="mt-notas"></div>
+          <div style="display:flex; gap:8px; margin-top:16px; border-top:1px solid var(--line); padding-top:16px;">
+            <input class="inp" id="mt-nota-input" placeholder="Escribir una nota interna..." style="flex:1;">
+            <button class="btn btn-ghost" onclick="addTicketNota()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+          </div>
         </div>
       </div>
     </div>
     
     <div class="modal-foot">
-      <div style="margin-right:auto; font-size:16px; font-weight:bold; color:var(--copper); display:flex; align-items:center;">
-        Total: <span id="mt-total-costo" style="margin-left:6px;">$0.00</span>
+      <div class="total-box">Costos internos: <span class="total-price" id="mt-total-costo" style="color:var(--ink);">$0.00</span></div>
+      <div style="display: flex; gap: 16px;">
+        <button class="btn btn-primary" id="btn-facturar-ticket" style="display:none; font-size: 15px; padding: 12px 24px;" onclick="enviarAFacturacion()">Facturar y Cobrar</button>
       </div>
-      <button class="btn btn-ghost" onclick="closeModal('modal-ticket')">Cerrar</button>
-      <button class="btn btn-primary" id="btn-facturar-ticket" onclick="enviarAFacturacion()" style="display:none;">Facturar y enviar a Caja</button>
     </div>
+
   </div>
 </div>
 

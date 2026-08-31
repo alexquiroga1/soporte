@@ -68,7 +68,7 @@ export function renderTicketsTable(){
 
   document.getElementById('tickets-table-body').innerHTML = rows.map(t=>{
     const st = stageInfo(t.stage);
-    const presupBadge = t.presupuestoAprobado ? '<span style="color:var(--teal); font-size:10px; font-weight:700;">✓ Aprobado</span>' : '<span style="color:var(--amber); font-size:10px; font-weight:700;">⏳ Pendiente</span>';
+    const presupBadge = t.presupuestoFijado ? '<span style="color:var(--teal); font-size:10px; font-weight:700;">✓ Aprobado</span>' : '<span style="color:var(--amber); font-size:10px; font-weight:700;">⏳ Pendiente</span>';
     return `<tr class="tbl-row" onclick="openTicketModal('${t.id}')">
       <td><div class="prio ${t.prioridad.toLowerCase()}">${t.prioridad}</div></td>
       <td class="mono">#${t.id}</td>
@@ -114,7 +114,7 @@ export function printTicket(id){
     </head>
     <body>
       <h2>${DATA.negocio.nombre} · Orden de Servicio #${t.id}</h2>
-      <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Estado Presupuesto: ${t.presupuestoAprobado ? 'APROBADO' : 'PENDIENTE'}</div>
+      <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Presupuesto: ${t.presupuestoFijado ? 'APROBADO' : 'PENDIENTE'}</div>
       <div class="box">
         <p><b>Cliente:</b> ${t.cliente}</p><p><b>Equipo:</b> ${t.equipo}</p><p><b>Accesorios recibidos:</b> ${t.accesorios || 'Ninguno'}</p>
         <p><b>Condición física:</b> ${t.condicion || 'Sin registrar'}</p><p><b>Falla reportada:</b> ${t.falla}</p><p><b>Diagnóstico técnico:</b> ${t.diagnostico || 'Pendiente'}</p>
@@ -177,46 +177,61 @@ export function openTicketModal(id){
   document.getElementById('mt-equipo').textContent = t.equipo;
   document.getElementById('mt-accesorios').textContent = t.accesorios || 'Ninguno';
   document.getElementById('mt-condicion').textContent = t.condicion || 'Sin registrar';
-  document.getElementById('mt-prioridad').innerHTML = `<div class="prio ${t.prioridad.toLowerCase()}" style="display:inline-flex;">${t.prioridad}</div>`;
-  document.getElementById('mt-tecnico').textContent = t.tecnico;
+  document.getElementById('mt-prioridad').innerHTML = `<span class="badge ${t.prioridad.toLowerCase()}">${t.prioridad}</span>`;
+  document.getElementById('mt-tecnico').innerHTML = `<span style="background:var(--ink); color:#fff; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:11px; font-weight:bold;">${initials(t.tecnico)}</span> ${t.tecnico}`;
   document.getElementById('mt-falla').textContent = t.falla;
   document.getElementById('mt-estado-select').value = t.stage;
-  document.getElementById('mt-presupuesto-chk').checked = !!t.presupuestoAprobado;
-
-  // Cargar Presupuesto Estimado
-  const elPresupuesto = document.getElementById('mt-presupuesto-input');
-  if(elPresupuesto) elPresupuesto.value = t.presupuestoEstimado || '';
-
   document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
+  
+  // Renderizar Stepper visual
+  const stagesKeys = ['pendiente', 'diagnostico', 'reparacion', 'repuesto', 'listo'];
+  let reachedCurrent = false;
+  document.querySelectorAll('#mt-stepper .step').forEach(el => {
+    const stepKey = el.getAttribute('data-step');
+    el.className = 'step'; // Reset
+    if(t.stage === 'entregado') { el.classList.add('completed'); return; }
+    if(stepKey === t.stage) { el.classList.add('active'); reachedCurrent = true; }
+    else if (!reachedCurrent) { el.classList.add('completed'); }
+  });
+
+  // Lógica de Presupuesto
+  if(!t.presupuestoFijado) t.presupuestoFijado = false;
+  document.getElementById('input-presupuesto').value = t.presupuestoEstimado || '';
+  if(t.presupuestoFijado) {
+    document.getElementById('txt-presupuesto-fijado').textContent = fmt(t.presupuestoEstimado);
+    document.getElementById('view-edit-budget').style.display = 'none';
+    document.getElementById('view-locked-budget').style.display = 'flex';
+  } else {
+    document.getElementById('view-locked-budget').style.display = 'none';
+    document.getElementById('view-edit-budget').style.display = 'flex';
+  }
   
   populateRepuestosSelect();
   renderTicketPiezas(t);
   checkBillingButtonVisibility(t);
-
-  document.getElementById('mt-historial').innerHTML = t.historial.map(h=>`<div class="tl-item"><b>${h.estado}</b><span>${h.fecha} · ${h.autor}</span></div>`).join('');
   renderTicketNotas(t);
   openModal('modal-ticket');
 }
 
-export function togglePresupuesto(){
+export function fijarPresupuesto() {
   const t = DATA.tickets.find(x => x.id === currentTicketId);
-  if(!t) return;
-  t.presupuestoAprobado = document.getElementById('mt-presupuesto-chk').checked;
+  const val = parseFloat(document.getElementById('input-presupuesto').value);
+  if(!val || val <= 0) { toast('Ingresa un monto válido'); return; }
+  t.presupuestoEstimado = val;
+  t.presupuestoFijado = true;
   saveToLocal();
-  renderTicketsTable();
-  toast(t.presupuestoAprobado ? 'Presupuesto marcado como aprobado' : 'Presupuesto pendiente');
+  document.getElementById('txt-presupuesto-fijado').textContent = fmt(val);
+  document.getElementById('view-edit-budget').style.display = 'none';
+  document.getElementById('view-locked-budget').style.display = 'flex';
+  toast('Presupuesto fijado exitosamente');
 }
 
-// NUEVA FUNCIÓN: Guardar Presupuesto Estimado
-export function savePresupuestoEstimado(){
+export function desbloquearPresupuesto() {
   const t = DATA.tickets.find(x => x.id === currentTicketId);
-  if(!t) return;
-  
-  const valor = parseFloat(document.getElementById('mt-presupuesto-input').value) || 0;
-  t.presupuestoEstimado = valor;
-  
+  t.presupuestoFijado = false;
   saveToLocal();
-  toast('Presupuesto estimado guardado (' + fmt(valor) + ')');
+  document.getElementById('view-locked-budget').style.display = 'none';
+  document.getElementById('view-edit-budget').style.display = 'flex';
 }
 
 export function sendWhatsAppNotice(){
@@ -246,13 +261,11 @@ export function populateRepuestosSelect(){
   const sel = document.getElementById('mt-repuesto-select');
   if (!sel) return;
   
-  // Verificamos si hay productos creados en el catálogo
   if (!DATA.productos || DATA.productos.length === 0) {
       sel.innerHTML = '<option value="">(Catálogo vacío) Ve a la pestaña "Catálogo" y crea un producto/servicio</option>';
       return;
   }
   
-  // Si hay productos, los mostramos correctamente
   sel.innerHTML = '<option value="">Selecciona un repuesto o servicio...</option>' + 
                   DATA.productos.map(p => `<option value="${p.sku}">${p.nombre} (${fmt(p.precio)})</option>`).join('');
 }
@@ -260,11 +273,29 @@ export function populateRepuestosSelect(){
 export function renderTicketPiezas(t){
   if(!t.piezas) t.piezas = [];
   document.getElementById('mt-piezas').innerHTML = t.piezas.length ? t.piezas.map((p, idx)=>`
-    <tr><td>${p.nombre}</td><td class="mono">${p.cant}</td><td class="mono">${fmt(p.costo * p.cant)}</td><td><button class="btn btn-ghost btn-sm" onclick="removePiezaFromTicket(${idx})" style="color:var(--red); padding:2px 6px;">✕</button></td></tr>
-  `).join('') : '<tr><td colspan="4" style="color:var(--muted);">Sin repuestos o servicios añadidos.</td></tr>';
+    <tr>
+      <td>${p.nombre}</td>
+      <td><span class="tag">${p.cant}</span></td>
+      <td>
+        <input type="number" class="inp" style="width:90px; padding:6px; font-family:var(--font-mono); font-size:12px;" 
+               value="${p.costo}" onchange="updatePiezaPrice(${idx}, this.value)">
+      </td>
+      <td style="text-align: right;"><button class="btn btn-ghost btn-sm" onclick="removePiezaFromTicket(${idx})" style="color:var(--red); padding:4px 8px; border:none; background:transparent;">✕</button></td>
+    </tr>
+  `).join('') : '<tr><td colspan="4" style="color:var(--muted); text-align:center;">Sin repuestos o servicios añadidos.</td></tr>';
 
   const total = t.piezas.reduce((acc, p) => acc + (p.costo * p.cant), 0);
   document.getElementById('mt-total-costo').textContent = fmt(total);
+}
+
+export function updatePiezaPrice(idx, newPrice) {
+  const t = DATA.tickets.find(x => x.id === currentTicketId);
+  const val = parseFloat(newPrice);
+  if(isNaN(val) || val < 0) return;
+  t.piezas[idx].costo = val;
+  saveToLocal();
+  renderTicketPiezas(t);
+  toast('Costo del ítem actualizado para este ticket');
 }
 
 export function addPiezaToTicket(){
@@ -280,8 +311,6 @@ export function addPiezaToTicket(){
   saveToLocal();
   renderTicketPiezas(t);
   toast('Artículo añadido al ticket');
-  
-  // Restablecer el select al valor por defecto
   document.getElementById('mt-repuesto-select').value = '';
 }
 
@@ -300,7 +329,7 @@ export function enviarAFacturacion(){
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
   
   if(total <= 0){ 
-      alert('ATENCIÓN: El ticket está en $0.00. Debes agregar al menos un repuesto o servicio (ej. "Revisión") en la sección de Repuestos antes de enviarlo a Caja.'); 
+      alert('ATENCIÓN: El ticket está en $0.00. Debes agregar al menos un repuesto o servicio en la sección de Repuestos antes de enviarlo a Caja.'); 
       return; 
   }
 
@@ -322,7 +351,12 @@ export function enviarAFacturacion(){
 }
 
 export function renderTicketNotas(t){
-  document.getElementById('mt-notas').innerHTML = t.notas.length ? t.notas.map(n=>`<div class="note-item"><b>${n.autor}</b><span class="t">${n.fecha}</span><div>${n.texto}</div></div>`).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin notas todavía.</div>';
+  document.getElementById('mt-notas').innerHTML = t.notas.length ? t.notas.map(n=>`
+    <div class="note-item">
+      <div class="note-head"><b>${n.autor}</b> <span>${n.fecha}</span></div>
+      <div class="note-body">${n.texto}</div>
+    </div>
+  `).join('') : '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:10px;">Sin notas todavía.</div>';
 }
 
 export function addTicketNota(){
@@ -331,7 +365,9 @@ export function addTicketNota(){
   if(!texto) return;
   const t = DATA.tickets.find(x=>x.id===currentTicketId);
   const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
-  t.notas.push({autor:user, fecha:'Ahora', texto});
+  const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  
+  t.notas.push({autor:user, fecha:fechaStr, texto});
   saveToLocal();
   input.value = '';
   renderTicketNotas(t);
@@ -346,7 +382,7 @@ export function changeTicketStage(){
   const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
   t.historial.push({estado: stageInfo(newStage).label, fecha:fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user});
   saveToLocal();
-  document.getElementById('mt-historial').innerHTML = t.historial.map(h=>`<div class="tl-item"><b>${h.estado}</b><span>${h.fecha} · ${h.autor}</span></div>`).join('');
+  openTicketModal(currentTicketId); // Recargamos para actualizar el Stepper
   renderTicketsTable(); renderTicketsKanban(); 
   if(window.renderAll) window.renderAll();
   checkBillingButtonVisibility(t);
@@ -371,15 +407,16 @@ export function createTicket(){
   DATA.counters.tickets++; 
   
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
+  const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
   
   const t = {
     id, clienteId: cliente?cliente.id:null, cliente: clienteNombre,
-    equipo, accesorios, condicion, presupuestoAprobado: false,
-    presupuestoEstimado: 0, // Nuevo campo inicializado
+    equipo, accesorios, condicion, 
+    presupuestoFijado: false, presupuestoEstimado: 0,
     falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
-    tecnico: document.getElementById('nt-tecnico').value, ingreso: fDate(new Date().toISOString().split('T')[0]),
+    tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
     diagnostico:'Pendiente de revisión inicial.', piezas:[],
-    historial:[{estado:'Recibido', fecha:fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
+    historial:[{estado:'Recibido', fecha:fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
   };
   DATA.tickets.unshift(t);
   saveToLocal();

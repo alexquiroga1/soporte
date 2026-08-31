@@ -8,6 +8,12 @@
   --violet:#6D5DD3; --violet-dim:#EDE9FB;
   --blue:#4368E8; --blue-dim:#E2E9FC;
   --orange:#E17A2D; --orange-dim:#FCE7D2;
+  --bg: #F4F5F7; --surface: #FFFFFF; --line: #E4E6EC; --muted: #8891A3; --ink: #171A21;
+  --copper: #FF6A3D; --copper-dim: rgba(255,106,61,0.1);
+  --teal: #14B8A6; --teal-dim: rgba(20,184,166,0.1);
+  --amber: #F59E0B; --amber-dim: rgba(245,158,11,0.1);
+  --red: #EF4444; --red-dim: rgba(239,68,68,0.1);
+  --blue: #3B82F6; --internal: #FFFDF7;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh;-webkit-font-smoothing:antialiased;}
@@ -364,3 +370,25 @@ select.sel:focus, input.inp:focus, textarea.inp:focus{border-color:var(--copper)
   /* Ajuste de fuentes en inputs para evitar que iOS haga "Zoom" automático */
   .search input, input.inp, select.sel, textarea.inp { font-size: 14px; }
 }
+/* ================= MODAL FULLSCREEN ================= */
+.modal.fullscreen { background: var(--bg); width: 96vw; height: 96vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; max-width: none; }
+.stepper { display: flex; justify-content: space-between; padding: 20px 40px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.step { flex: 1; text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); position: relative; }
+.step::before { content: ''; display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--line); margin: 0 auto 8px auto; z-index: 2; position: relative; }
+.step::after { content: ''; position: absolute; top: 6px; left: -50%; width: 100%; height: 3px; background: var(--line); z-index: 1; }
+.step:first-child::after { display: none; }
+.step.active { color: var(--copper); }
+.step.active::before { background: var(--copper); box-shadow: 0 0 0 4px var(--copper-dim); }
+.step.completed { color: var(--ink); }
+.step.completed::before { background: var(--teal); } .step.completed::after { background: var(--teal); }
+.modal-body.grid-3 { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 24px; padding: 24px 30px; overflow-y: auto; }
+.m-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; }
+.m-card h4 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--ink); padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.internal-zone { border: 2px solid var(--amber); background: var(--internal); }
+.internal-badge { position: absolute; top: 22px; right: 24px; background: var(--amber); color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+.budget-container { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.budget-edit { display: flex; flex-direction: column; gap: 12px; }
+.budget-edit input { font-size: 24px; font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: var(--copper); }
+.budget-locked { display: none; flex-direction: column; gap: 12px; }
+.locked-value { display: flex; align-items: center; gap: 12px; font-size: 28px; font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: var(--teal); background: var(--teal-dim); padding: 16px; border-radius: 8px; border: 1px dashed var(--teal); }
+.btn-whatsapp { background: #25D366; color: #fff; width: 100%; justify-content: center; }
