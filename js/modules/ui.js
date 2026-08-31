@@ -21,7 +21,6 @@ export function goView(name){
   }
 }
 
-// Función para arrastrar tarjetas en los Kanban (Tickets y CRM)
 export function wireKanbanDrag(board, onDrop){
   board.querySelectorAll('.kanban-card').forEach(card=>{
     card.addEventListener('dragstart', e=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain', card.getAttribute('data-id')); });
@@ -39,8 +38,12 @@ export function wireKanbanDrag(board, onDrop){
 }
 
 export function initUI() {
+  // FIX: Se bloquea el cierre del modal al hacer clic afuera (fondo oscuro).
+  // El usuario DEBE usar los botones de "Cancelar" o la "X".
   document.querySelectorAll('.modal-overlay').forEach(ov=>{
-    ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('active'); });
+    ov.addEventListener('click', e=>{ 
+        // if(e.target===ov) ov.classList.remove('active'); // Línea comentada para evitar cierre accidental
+    });
   });
 
   document.getElementById('btn-notif').addEventListener('click', e=>{ 

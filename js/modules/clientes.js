@@ -2,7 +2,7 @@
 import { DATA, saveToLocal } from '../core/store.js';
 import { fmt, initials, fDate, toast, getFullName } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
-import { openTicketModal, stageInfo } from './tickets.js';
+import { stageInfo } from './tickets.js';
 
 let currentClientId = null;
 
@@ -10,7 +10,7 @@ export function renderClientesTable(){
   const q = (document.getElementById('cl-search').value || '').toLowerCase();
   const rows = DATA.clientes.filter(c => {
     const full = getFullName(c);
-    return !q || full.toLowerCase().includes(q) || c.tel.includes(q);
+    return !q || full.toLowerCase().includes(q) || c.tel.includes(q) || (c.dni && c.dni.includes(q));
   });
   
   document.getElementById('clientes-table-body').innerHTML = rows.map(c=>{
@@ -18,7 +18,7 @@ export function renderClientesTable(){
     const totalCompras = (c.compras || []).reduce((s,p)=>s+p.monto,0);
     
     return `<tr class="tbl-row" onclick="openClientModal('${c.id}')">
-      <td><div class="cust"><div class="ci">${initials(c.nombre)}</div><div><b>${getFullName(c)}</b><span>${c.direccion}</span></div></div></td>
+      <td><div class="cust"><div class="ci">${initials(c.nombre)}</div><div><b>${getFullName(c)}</b><span>${c.direccion} - ${c.localidad || ''}</span></div></div></td>
       <td class="mono">${c.tel}</td>
       <td class="mono">${nTickets}</td>
       <td class="mono">${fmt(totalCompras)}</td>
@@ -48,9 +48,15 @@ export function openClientModal(id){
   const fullName = getFullName(c);
   
   document.getElementById('mc-nombre').textContent = fullName;
-  document.getElementById('mc-email-header').textContent = c.email || 'Sin correo';
+  document.getElementById('mc-email-header').textContent = (c.dni ? 'DNI: ' + c.dni : '') + ' | ' + (c.email || 'Sin correo');
   document.getElementById('mc-tel').textContent = c.tel || '—';
-  document.getElementById('mc-direccion').textContent = c.direccion || '—';
+  
+  // Mostrar dirección completa
+  let dirCompleta = c.direccion || '—';
+  if(c.localidad) dirCompleta += `, ${c.localidad}`;
+  if(c.provincia) dirCompleta += ` (${c.provincia})`;
+  document.getElementById('mc-direccion').textContent = dirCompleta;
+  
   document.getElementById('mc-limite-input').value = c.limiteCredito || 0;
 
   const misTickets = DATA.tickets.filter(t => t.clienteId === id || t.cliente === fullName);
@@ -61,7 +67,7 @@ export function openClientModal(id){
   
   const renderTk = (arr) => arr.length ? arr.map(t=>{
     const st = stageInfo(t.stage);
-    return `<div class="note-item" style="cursor:pointer; display:flex; justify-content:space-between;" onclick="closeModal('modal-cliente');openTicketModal('${t.id}')">
+    return `<div class="note-item" style="cursor:pointer; display:flex; justify-content:space-between;" onclick="closeModal('modal-cliente'); if(window.openTicketModal) window.openTicketModal('${t.id}')">
       <span><b>#${t.id}</b> — ${t.equipo}</span> <span class="badge ${st.badge}">${st.label}</span>
     </div>`;
   }).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin tickets en esta categoría.</div>';
@@ -81,10 +87,10 @@ export function openClientModal(id){
   const renderCr = (arr) => arr.length ? arr.map(cr=>`
     <div class="note-item" style="border-left:3px solid ${cr.saldo>0?'var(--red)':'var(--teal)'}; border-radius:4px 9px 9px 4px;">
       <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-        <b>${cr.concepto}</b> <span class="mono">${fDate(cr.vence)}</span>
+        <b>${cr.concepto}</b> <span class="mono">Carpeta: ${cr.id || ''}</span>
       </div>
       <div style="font-size:11.5px; color:var(--muted);">
-        Monto original: ${fmt(cr.original)} | Saldo pendiente: <b style="color:${cr.saldo>0?'var(--red)':'var(--teal)'};">${fmt(cr.saldo)}</b>
+        Deuda Histórica: ${fmt(cr.original)} | Saldo actual: <b style="color:${cr.saldo>0?'var(--red)':'var(--teal)'};">${fmt(cr.saldo)}</b>
       </div>
     </div>
   `).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin préstamos.</div>';
@@ -116,24 +122,35 @@ export function createCliente(){
   
   const id = 'c' + (DATA.clientes.length + 1) + '_' + Date.now().toString().slice(-4);
   const nuevoCliente = {
-    id, nombre, apellido, tipo: 'Regular', contacto: nombre,
+    id, 
+    nombre, 
+    apellido, 
+    dni: document.getElementById('ncl-dni').value.trim() || '',
+    tipo: 'Regular', 
+    contacto: nombre,
     direccion: document.getElementById('ncl-direccion').value.trim() || '—',
+    provincia: document.getElementById('ncl-provincia').value.trim() || '',
+    localidad: document.getElementById('ncl-localidad').value.trim() || '',
+    barrio: document.getElementById('ncl-barrio').value.trim() || '',
     tel: document.getElementById('ncl-tel').value.trim() || '—',
     email: document.getElementById('ncl-email').value.trim() || '—',
-    equipos:[], compras:[], 
-    limiteCredito: parseFloat(document.getElementById('ncl-limite').value) || 0, notas:[]
+    equipos:[], 
+    compras:[], 
+    limiteCredito: parseFloat(document.getElementById('ncl-limite').value) || 0, 
+    notas:[]
   };
   
   DATA.clientes.unshift(nuevoCliente);
   saveToLocal();
 
-  ['ncl-nombre','ncl-apellido','ncl-direccion','ncl-tel','ncl-email','ncl-limite'].forEach(i=>document.getElementById(i).value='');
+  ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email','ncl-limite'].forEach(i=>{
+      if(document.getElementById(i)) document.getElementById(i).value='';
+  });
   closeModal('modal-nuevo-cliente');
-  renderClientesTable(); populateClienteSelectPOS();
+  renderClientesTable(); 
+  if(window.populateClienteSelectPOS) window.populateClienteSelectPOS();
   
-  // Si el modal de ticket está abierto, lo seleccionamos automáticamente
-  if(document.getElementById('modal-nuevo-ticket').classList.contains('active')){
-    // Importación implícita a través de window (evitamos dependencias circulares)
+  if(document.getElementById('modal-nuevo-ticket') && document.getElementById('modal-nuevo-ticket').classList.contains('active')){
     if(window.selectClientForTicket) window.selectClientForTicket(nuevoCliente.id, getFullName(nuevoCliente));
   }
   toast('Cliente guardado con éxito');

@@ -12,7 +12,7 @@ import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectCli
 import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
-import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, cerrarCorte, renderCreditosTable, openCreditModal, aplicarInteresMora, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, abrirModalCierre } from './modules/caja.js';
+import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, simularCredito, createCreditoManual, printCupones } from './modules/caja.js';
 import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
 import { renderDashboard, renderReportes } from './modules/dashboard.js';
@@ -54,15 +54,27 @@ window.setPayMethod = setPayMethod; window.addToCart = addToCart;
 window.changeQty = changeQty; window.removeFromCart = removeFromCart;
 window.checkout = checkout; window.renderVentasHistorial = renderVentasHistorial;
 
-// Caja y Créditos
+// Caja y Créditos (Módulo Financiero Avanzado)
 window.abrirModalCobro = abrirModalCobro; window.setCobroMetodo = setCobroMetodo;
 window.calcularCambio = calcularCambio; window.procesarCobroFinal = procesarCobroFinal;
-window.addMovimiento = addMovimiento; window.cerrarCorte = cerrarCorte;
-window.renderCajaView = renderCajaView; window.openCreditModal = openCreditModal;
-window.aplicarInteresMora = aplicarInteresMora; window.registerPayment = registerPayment;
-window.openNuevoCreditoModal = openNuevoCreditoModal; window.createCreditoManual = createCreditoManual;
-window.populateClienteSelectCredito = populateClienteSelectCredito;
-window.abrirModalCierre = abrirModalCierre; // FIX: Exponemos la nueva función
+window.addMovimiento = addMovimiento; window.abrirModalCierre = abrirModalCierre; 
+window.cerrarCorte = cerrarCorte; window.renderCajaView = renderCajaView; 
+window.renderCreditosTable = renderCreditosTable; window.openCreditModal = openCreditModal;
+window.registerPayment = registerPayment; window.openNuevoCreditoModal = openNuevoCreditoModal; 
+window.populateClienteSelectCredito = populateClienteSelectCredito; 
+window.simularCredito = simularCredito; window.createCreditoManual = createCreditoManual; 
+window.printCupones = printCupones;
+
+// Lógica para cambiar pestañas dentro del modal de créditos
+window.switchCreditoTab = function(tabId, el) {
+  const group = el.parentElement;
+  group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const container = document.getElementById('modal-credito').querySelector('.modal-body');
+  container.querySelectorAll('.credito-subview').forEach(sv=>{
+    sv.style.display = sv.id === tabId ? 'block' : 'none';
+  });
+};
 
 // CRM, Configuración y Otros
 window.createOportunidad = createOportunidad; window.saveConfigNegocio = saveConfigNegocio;
