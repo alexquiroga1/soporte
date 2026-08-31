@@ -38,11 +38,10 @@ export function wireKanbanDrag(board, onDrop){
 }
 
 export function initUI() {
-  // FIX: Se bloquea el cierre del modal al hacer clic afuera (fondo oscuro).
-  // El usuario DEBE usar los botones de "Cancelar" o la "X".
+  // FIX: El modal ya NO se cierra haciendo clic en la parte oscura
   document.querySelectorAll('.modal-overlay').forEach(ov=>{
     ov.addEventListener('click', e=>{ 
-        // if(e.target===ov) ov.classList.remove('active'); // Línea comentada para evitar cierre accidental
+        // LÍNEA ANULADA: if(e.target===ov) ov.classList.remove('active'); 
     });
   });
 

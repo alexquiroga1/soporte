@@ -329,55 +329,7 @@
           <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
         </div>
       </div>
-<!-- MODAL: CRÉDITO DETALLE (SISTEMA DE CUOTAS Y MORA) -->
-<div class="modal-overlay" id="modal-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <!-- NUEVOS BOTONES DE IMPRESIÓN -->
-        <button class="btn btn-ghost btn-sm" onclick="imprimirPagareCredito()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Pagaré</button>
-        <button class="btn btn-ghost btn-sm" onclick="imprimirReciboDoble()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Recibo Doble</button>
-        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      </div>
-    </div>
-    <div class="modal-body">
-      
-      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
-        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
-        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
-        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
-      </div>
 
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
-        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
-      </div>
-
-      <div id="cr-tab-cuotas" class="credito-subview">
-        <div class="panel">
-          <table>
-            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Punitorios</th><th>Pagado</th><th>Total a Pagar</th></tr></thead>
-            <tbody id="mcr-cuotas-body"></tbody>
-          </table>
-        </div>
-        
-        <div class="abono-form" style="margin-top:16px; background:var(--teal-dim); padding:16px; border-radius:12px;">
-          <div style="width:100%; font-size:12px; font-weight:700; color:var(--teal); margin-bottom:10px;">REGISTRAR PAGO (Imputa automáticamente a la cuota más vieja y sus punitorios)</div>
-          <div style="display:flex; gap:12px; align-items:flex-end;">
-            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
-            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
-        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
       <!-- ================= CRÉDITOS ================= -->
       <div class="view" id="view-creditos">
         <div class="page-head">
@@ -506,7 +458,7 @@
   </div>
 </div> <!-- CIERRE APP CONTAINER -->
 
-<!-- ============ MODALES (Tickets, Clientes, etc.) ============ -->
+<!-- ============ MODALES ============ -->
 
 <!-- MODAL: TICKET DETALLE -->
 <div class="modal-overlay" id="modal-ticket">
@@ -522,110 +474,51 @@
         <div class="mfield"><div class="l">Prioridad</div><div class="v" id="mt-prioridad"></div></div>
         <div class="mfield"><div class="l">Técnico asignado</div><div class="v" id="mt-tecnico"></div></div>
       </div>
-      
       <div class="mrow" style="margin-bottom:16px; background: var(--bg); padding: 12px; border-radius: 8px;">
         <div class="mfield"><div class="l">Accesorios recibidos</div><div class="v" id="mt-accesorios" style="font-size: 12px;"></div></div>
         <div class="mfield"><div class="l">Condición física</div><div class="v" id="mt-condicion" style="font-size: 12px;"></div></div>
       </div>
-
       <div class="mrow" style="margin-bottom:16px; align-items:center;">
-        <div class="mfield">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;">
-            <input type="checkbox" id="mt-presupuesto-chk" onchange="togglePresupuesto()" style="width:16px; height:16px; accent-color: var(--copper);">
-            Presupuesto autorizado por el cliente
-          </label>
-        </div>
+        <div class="mfield"><label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;"><input type="checkbox" id="mt-presupuesto-chk" onchange="togglePresupuesto()" style="width:16px; height:16px; accent-color: var(--copper);"> Presupuesto autorizado</label></div>
       </div>
-
       <div class="mfield" style="margin-bottom:16px;"><div class="l">Falla reportada</div><div class="v" id="mt-falla" style="font-weight:500;"></div></div>
-
       <div class="mfield" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div>
-          <div class="l">Estado del ticket</div>
-          <select class="sel" id="mt-estado-select" style="width:220px;margin-top:4px;" onchange="changeTicketStage()">
-            <option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option>
-          </select>
-        </div>
+        <div><div class="l">Estado del ticket</div><select class="sel" id="mt-estado-select" style="width:220px;margin-top:4px;" onchange="changeTicketStage()"><option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option></select></div>
         <button class="btn btn-ghost btn-sm" onclick="sendWhatsAppNotice()" style="margin-top:14px; background:#25D366; color:#fff; border:none;">💬 Enviar WhatsApp</button>
       </div>
-
       <div class="msection">
-        <h4>Checklist de Calidad Técnica</h4>
+        <h4>Checklist de Calidad</h4>
         <div style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
-          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-encendido" onchange="updateChecklist()"> Prueba de encendido y estabilidad inicial</label>
-          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-respaldo" onchange="updateChecklist()"> Respaldo de datos del usuario realizado</label>
-          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-memoria" onchange="updateChecklist()"> Test de estrés de memoria / hardware</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-encendido" onchange="updateChecklist()"> Prueba de encendido inicial</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-respaldo" onchange="updateChecklist()"> Respaldo de datos</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" id="chk-memoria" onchange="updateChecklist()"> Test de estrés</label>
         </div>
       </div>
-
-      <div class="msection">
-        <h4>Diagnóstico técnico</h4>
-        <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Escribe el diagnóstico técnico aquí..." style="width:100%; margin-bottom:6px;"></textarea>
-        <button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar diagnóstico</button>
-      </div>
-
-      <div class="msection">
-        <h4>Repuestos / Servicios utilizados</h4>
-        <div style="display:flex; gap:8px; margin-bottom: 10px;">
-          <select id="mt-repuesto-select" class="sel" style="flex:1;"></select>
-          <button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir al ticket</button>
-        </div>
-        <table><thead><tr><th>Artículo</th><th>Cant.</th><th>Costo</th><th></th></tr></thead><tbody id="mt-piezas"></tbody></table>
-      </div>
-
+      <div class="msection"><h4>Diagnóstico</h4><textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Escribe el diagnóstico..." style="width:100%; margin-bottom:6px;"></textarea><button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar</button></div>
+      <div class="msection"><h4>Repuestos / Servicios</h4><div style="display:flex; gap:8px; margin-bottom: 10px;"><select id="mt-repuesto-select" class="sel" style="flex:1;"></select><button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir</button></div><table><thead><tr><th>Artículo</th><th>Cant.</th><th>Costo</th><th></th></tr></thead><tbody id="mt-piezas"></tbody></table></div>
       <div class="msection"><h4>Historial de estados</h4><div class="timeline" id="mt-historial"></div></div>
-
-      <div class="msection"><h4>Notas internas</h4>
-        <div id="mt-notas"></div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <input class="inp" id="mt-nota-input" placeholder="Agregar una nota…" style="flex:1;">
-          <button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Agregar</button>
-        </div>
-      </div>
+      <div class="msection"><h4>Notas internas</h4><div id="mt-notas"></div><div style="display:flex;gap:8px;margin-top:10px;"><input class="inp" id="mt-nota-input" placeholder="Agregar una nota…" style="flex:1;"><button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Agregar</button></div></div>
     </div>
-    
     <div class="modal-foot">
-      <div style="margin-right:auto; font-size:16px; font-weight:bold; color:var(--copper); display:flex; align-items:center;">
-        Total: <span id="mt-total-costo" style="margin-left:6px;">$0.00</span>
-      </div>
-      <button class="btn btn-ghost" onclick="closeModal('modal-ticket')">Cerrar</button>
-      <button class="btn btn-primary" id="btn-facturar-ticket" onclick="enviarAFacturacion()" style="display:none;">Facturar y enviar a Caja</button>
+      <div style="margin-right:auto; font-size:16px; font-weight:bold; color:var(--copper); display:flex; align-items:center;">Total: <span id="mt-total-costo" style="margin-left:6px;">$0.00</span></div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-ticket')">Cerrar</button><button class="btn btn-primary" id="btn-facturar-ticket" onclick="enviarAFacturacion()" style="display:none;">Facturar y enviar a Caja</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: COBRO / PASARELA DE CAJA REAL -->
+<!-- MODAL: COBRO CAJA -->
 <div class="modal-overlay" id="modal-cobro-caja">
   <div class="modal narrow">
-    <div class="modal-head">
-      <div><h3>Facturación y Cobro</h3><span class="mono" id="mcc-referencia">REF-0000</span></div>
-      <button class="modal-close" onclick="closeModal('modal-cobro-caja')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </div>
+    <div class="modal-head"><div><h3>Facturación y Cobro</h3><span class="mono" id="mcc-referencia">REF-0000</span></div><button class="modal-close" onclick="closeModal('modal-cobro-caja')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
-      <div class="mrow" style="margin-bottom:12px;">
-        <div class="mfield"><div class="l">Cliente (Base de datos)</div><div class="v" id="mcc-cliente">Mostrador</div></div>
-        <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mcc-tel">—</div></div>
-      </div>
+      <div class="mrow" style="margin-bottom:12px;"><div class="mfield"><div class="l">Cliente</div><div class="v" id="mcc-cliente">Mostrador</div></div><div class="mfield"><div class="l">Teléfono</div><div class="v" id="mcc-tel">—</div></div></div>
       <div class="mfield" style="margin-bottom:14px;"><div class="l">Concepto / Artículos</div><div class="v" id="mcc-concepto" style="font-weight:500;">—</div></div>
-      <div class="mfield" style="margin-bottom:16px;">
-        <div class="l">Total a Pagar</div>
-        <div class="v" id="mcc-total" style="font-size:24px; font-family:'IBM Plex Mono',monospace; color:var(--copper);">$0.00</div>
-      </div>
-      
+      <div class="mfield" style="margin-bottom:16px;"><div class="l">Total a Pagar</div><div class="v" id="mcc-total" style="font-size:24px; font-family:'IBM Plex Mono',monospace; color:var(--copper);">$0.00</div></div>
       <div class="mfield" style="margin-bottom:12px;"><div class="l">Método de Pago</div></div>
-      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;" id="mcc-metodos-pago">
-        <div class="pay-btn active" onclick="setCobroMetodo(this, 'Efectivo')">Efectivo</div>
-        <div class="pay-btn" onclick="setCobroMetodo(this, 'Tarjeta')">Tarjeta</div>
-        <div class="pay-btn" onclick="setCobroMetodo(this, 'Transferencia')">Transferencia</div>
-        <div class="pay-btn" onclick="setCobroMetodo(this, 'Préstamo personal')">Préstamo personal</div>
-      </div>
-
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;" id="mcc-metodos-pago"><div class="pay-btn active" onclick="setCobroMetodo(this, 'Efectivo')">Efectivo</div><div class="pay-btn" onclick="setCobroMetodo(this, 'Tarjeta')">Tarjeta</div><div class="pay-btn" onclick="setCobroMetodo(this, 'Transferencia')">Transferencia</div><div class="pay-btn" onclick="setCobroMetodo(this, 'Préstamo personal')">Préstamo personal</div></div>
       <div id="mcc-dynamic-fields" style="background:var(--bg); padding:12px; border-radius:8px; margin-bottom:16px;"></div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modal-cobro-caja')">Cancelar</button>
-      <button class="btn btn-primary" id="btn-confirmar-cobro" onclick="procesarCobroFinal()">Confirmar y Cobrar</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-cobro-caja')">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-cobro" onclick="procesarCobroFinal()">Confirmar y Cobrar</button></div>
   </div>
 </div>
 
@@ -634,261 +527,60 @@
   <div class="modal">
     <div class="modal-head">
       <div><h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span></div>
-      <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <div class="mrow">
-        <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
-        <div class="mfield"><div class="l">Dirección / Localidad</div><div class="v" id="mc-direccion"></div></div>
-        <div class="mfield">
-          <div class="l">Límite de Crédito Disp ($)</div>
-          <div style="display:flex; gap:6px;">
-            <input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;">
-            <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
-          </div>
-        </div>
-        <div class="mfield"><div class="l">Tickets totales</div><div class="v" id="mc-ntickets"></div></div>
-      </div>
       
-      <div class="tabs" style="margin: 16px 0 12px;">
-        <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Carpetas / Créditos</div>
-        <div class="tab" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
-        <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
-      </div>
-
-      <div id="mc-tab-prestamos" class="client-subview">
-        <div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
-        <div class="msection"><h4>Carpetas Finalizadas</h4><div id="mc-prestamos-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-tickets" class="client-subview" style="display:none;">
-        <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
-        <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-ventas" class="client-subview" style="display:none;">
-        <div class="msection">
-          <h4>Historial de Compras / Facturación</h4>
-          <table>
-            <thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead>
-            <tbody id="mc-ventas-list"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: CRÉDITO DETALLE (SISTEMA DE CUOTAS Y MORA) -->
-<div class="modal-overlay" id="modal-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
+      <!-- ESTOS SON LOS BOTONES NUEVOS -->
       <div style="display:flex; gap:10px; align-items:center;">
-        <button class="btn btn-ghost btn-sm" onclick="printCupones()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Cupones</button>
-        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      </div>
-    </div>
-    <div class="modal-body">
-      
-      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
-        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
-        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
-        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
-      </div>
-
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
-        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
-      </div>
-
-      <div id="cr-tab-cuotas" class="credito-subview">
-        <div class="panel">
-          <table>
-            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Pagado</th><th>Saldo Restante</th></tr></thead>
-            <tbody id="mcr-cuotas-body"></tbody>
-          </table>
-        </div>
-        
-        <div class="abono-form" style="margin-top:16px; background:var(--teal-dim); padding:16px; border-radius:12px;">
-          <div style="width:100%; font-size:12px; font-weight:700; color:var(--teal); margin-bottom:10px;">REGISTRAR PAGO (Imputa automáticamente a la cuota más vieja)</div>
-          <div style="display:flex; gap:12px; align-items:flex-end;">
-            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
-            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
-        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: CLIENTE DETALLE -->
-<div class="modal-overlay" id="modal-cliente">
-  <div class="modal">
-    <div class="modal-head">
-      <div><h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span></div>
-      <div style="display:flex; gap:10px;">
-        <button class="btn btn-primary btn-sm" onclick="nuevoCreditoDesdePerfil()">+ Nuevo Crédito</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--copper); border-color:var(--copper);" onclick="refinanciarDeudaPerfil()">Refinanciar Deuda</button>
+        <button class="btn btn-primary btn-sm" onclick="nuevoCreditoDesdePerfil()">+ Préstamo</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--copper); border-color:var(--copper);" onclick="refinanciarDeudaPerfil()">Refinanciar</button>
         <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
+      
     </div>
     <div class="modal-body">
       <div class="mrow">
         <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
         <div class="mfield"><div class="l">Dirección / Localidad</div><div class="v" id="mc-direccion"></div></div>
-        <div class="mfield">
-          <div class="l">Límite de Crédito Disp ($)</div>
-          <div style="display:flex; gap:6px;">
-            <input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;">
-            <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
-          </div>
-        </div>
+        <div class="mfield"><div class="l">Límite de Crédito Disp ($)</div><div style="display:flex; gap:6px;"><input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;"><button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button></div></div>
         <div class="mfield"><div class="l">Tickets totales</div><div class="v" id="mc-ntickets"></div></div>
       </div>
-      
       <div class="tabs" style="margin: 16px 0 12px;">
         <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Carpetas / Créditos</div>
         <div class="tab" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
         <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
       </div>
-
-      <div id="mc-tab-prestamos" class="client-subview">
-        <div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
-        <div class="msection"><h4>Carpetas Finalizadas / Refinanciadas</h4><div id="mc-prestamos-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-tickets" class="client-subview" style="display:none;">
-        <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
-        <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-ventas" class="client-subview" style="display:none;">
-        <div class="msection">
-          <h4>Historial de Compras / Facturación</h4>
-          <table>
-            <thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead>
-            <tbody id="mc-ventas-list"></tbody>
-          </table>
-        </div>
-      </div>
+      <div id="mc-tab-prestamos" class="client-subview"><div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div><div class="msection"><h4>Carpetas Finalizadas / Refinanciadas</h4><div id="mc-prestamos-finalizados"></div></div></div>
+      <div id="mc-tab-tickets" class="client-subview" style="display:none;"><div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div><div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div></div>
+      <div id="mc-tab-ventas" class="client-subview" style="display:none;"><div class="msection"><h4>Historial de Compras</h4><table><thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead><tbody id="mc-ventas-list"></tbody></table></div></div>
     </div>
   </div>
 </div>
 
-<!-- MODAL: CRÉDITO DETALLE (COBRO CON PUNITORIOS) -->
+<!-- MODAL: CRÉDITO DETALLE -->
 <div class="modal-overlay" id="modal-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <button class="btn btn-ghost btn-sm" onclick="imprimirPagareCredito()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Pagaré</button>
-        <button class="btn btn-ghost btn-sm" onclick="imprimirReciboDoble()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Recibo Doble</button>
-        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      </div>
-    </div>
+  <div class="modal narrow">
+    <div class="modal-head"><div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div><button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
-      
-      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
-        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
-        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
-        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
-      </div>
-
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
-        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
-      </div>
-
-      <div id="cr-tab-cuotas" class="credito-subview">
-        <div class="panel" style="margin-bottom: 16px;">
-          <table>
-            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Punitorios</th><th>Pagado</th><th>Total a Pagar</th></tr></thead>
-            <tbody id="mcr-cuotas-body"></tbody>
-          </table>
-        </div>
-        
-        <div class="abono-form" style="background:var(--teal-dim); padding:16px; border-radius:12px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div style="font-size:12px; font-weight:700; color:var(--teal);">REGISTRAR PAGO</div>
-            <label style="font-size:12px; font-weight:600; cursor:pointer; color:var(--red);"><input type="checkbox" id="mcr-quitar-punitorios" onchange="renderCuotasCreditoActual()"> Quitar Punitorios</label>
-          </div>
-          <div style="display:flex; gap:12px; align-items:flex-end;">
-            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
-            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
-        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
-      </div>
+      <div class="mrow"><div class="mfield"><div class="l">Monto original</div><div class="v" id="mcr-original"></div></div><div class="mfield"><div class="l">Vence</div><div class="v" id="mcr-vence"></div></div></div>
+      <div class="mfield" style="margin-bottom:12px;"><div class="l">Saldo pendiente</div><div style="display:flex; align-items:center; justify-content:space-between;"><div class="v" id="mcr-saldo" style="font-size:20px;font-family:'IBM Plex Mono',monospace;"></div></div><div class="progress" style="margin-top:8px;"><i id="mcr-progress" style="width:0%;"></i></div></div>
+      <div class="abono-form"><div class="f"><label>Monto del abono</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div><div class="f"><label>Método</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div><button class="btn btn-primary btn-sm" onclick="registerPayment()">Registrar abono</button></div>
+      <div class="msection"><h4>Historial de abonos</h4><table><thead><tr><th>Fecha</th><th>Monto</th><th>Método</th></tr></thead><tbody id="mcr-abonos"></tbody></table></div>
     </div>
   </div>
 </div>
 
-<!-- MODAL: NUEVO CRÉDITO CON PLANES AUTOMÁTICOS -->
+<!-- MODAL: NUEVO CRÉDITO -->
 <div class="modal-overlay" id="modal-nuevo-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3>Ingreso de Nueva Carpeta</h3></div>
-      <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </div>
+  <div class="modal narrow">
+    <div class="modal-head"><div><h3>Otorgar Préstamo / Refinanciar</h3></div><button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full">
-          <label>Cliente (Acreedor)</label>
-          <select id="ncr-cliente" class="sel"></select>
-        </div>
-        <div class="full"><label>Concepto / Referencia</label><input id="ncr-concepto" class="inp" placeholder="Ej. Refinanciación o Préstamo"></div>
-        
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label>Monto a Refinanciar / Capital ($)</label>
-          <input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00">
-        </div>
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label>Anticipo en la venta ($)</label>
-          <input id="ncr-anticipo" type="number" class="inp" min="0" step="0.01" value="0">
-        </div>
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px; grid-column:1/-1;">
-          <label>Interés Financiero Global (%)</label>
-          <input id="ncr-interes" type="number" class="inp" min="0" step="0.1" value="0">
-        </div>
-        
-        <div class="full" style="text-align:center; margin-top:10px;">
-            <button class="btn btn-ghost" onclick="generarPlanesDePago()" style="border-color:var(--copper); color:var(--copper);">Calcular Planes de Pago</button>
-        </div>
-
-        <div class="full" id="contenedor-planes" style="display:none; margin-top:10px;">
-          <b style="font-size:12px; color:var(--copper); display:block; margin-bottom:8px;">PLANES DE PAGO POSIBLES</b>
-          <div class="panel">
-            <table>
-              <thead><tr><th>Plan</th><th>Cuotas</th><th>Importe Cuota</th><th>Acción</th></tr></thead>
-              <tbody id="ncr-tabla-planes"></tbody>
-            </table>
-          </div>
-          
-          <div style="margin-top:16px; display:flex; gap:12px;">
-            <div style="flex:1;"><label>Plan Seleccionado:</label><input id="ncr-plan-elegido" class="inp" readonly style="background:#f5f5f5;"></div>
-            <div style="flex:1;"><label>Fecha 1er Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
-          </div>
-          <!-- Variables ocultas para guardar la selección -->
-          <input type="hidden" id="ncr-cuotas-hidden">
-          <input type="hidden" id="ncr-importe-hidden">
-        </div>
-
+        <div class="full"><label>Cliente</label><select id="ncr-cliente" class="sel"></select></div>
+        <div class="full"><label>Concepto / Motivo</label><input id="ncr-concepto" class="inp" placeholder="Ej. Préstamo o Refinanciación"></div>
+        <div><label>Monto a otorgar ($)</label><input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label>Fecha de Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
       </div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button>
-      <button class="btn btn-primary" id="btn-otorgar" onclick="createCreditoManual()" disabled>Confirmar y Otorgar</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button><button class="btn btn-primary" onclick="createCreditoManual()">Guardar Operación</button></div>
   </div>
 </div>
 
@@ -898,21 +590,11 @@
     <div class="modal-head"><h3>Nuevo ticket de soporte</h3><button class="modal-close" onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full" style="position:relative;">
-          <label>Cliente (Buscar por nombre o apellido)</label>
-          <div style="display:flex; gap:6px;">
-            <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')" title="Crear cliente nuevo">+ Nuevo</button>
-          </div>
-          <input type="hidden" id="nt-cliente-id" value="">
-          <div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
-        </div>
-        
+        <div class="full" style="position:relative;"><label>Cliente</label><div style="display:flex; gap:6px;"><input id="nt-cliente-input" class="inp" placeholder="Buscar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;"><button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')">+ Nuevo</button></div><input type="hidden" id="nt-cliente-id" value=""><div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div></div>
         <div class="full"><label>Equipo</label><input class="inp" id="nt-equipo" placeholder="Ej. Laptop Dell Inspiron 15"></div>
-        <div class="full"><label>Accesorios recibidos (Ej. Cargador, funda, cables)</label><input class="inp" id="nt-accesorios" placeholder="¿Qué dejó el cliente junto con el equipo?"></div>
-        <div class="full"><label>Condición física (Ej. Pantalla rayada, sin tornillos)</label><input class="inp" id="nt-condicion" placeholder="Estado físico en el que ingresa..."></div>
-        <div class="full"><label>Falla reportada</label><textarea class="inp" id="nt-falla" rows="3" placeholder="Describe el problema…"></textarea></div>
-        
+        <div class="full"><label>Accesorios recibidos</label><input class="inp" id="nt-accesorios"></div>
+        <div class="full"><label>Condición física</label><input class="inp" id="nt-condicion"></div>
+        <div class="full"><label>Falla reportada</label><textarea class="inp" id="nt-falla" rows="3"></textarea></div>
         <div><label>Prioridad</label><select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select></div>
         <div><label>Técnico</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option></select></div>
       </div>
@@ -921,7 +603,7 @@
   </div>
 </div>
 
-<!-- MODAL: NUEVO CLIENTE (CON DNI Y LOCALIDAD) -->
+<!-- MODAL: NUEVO CLIENTE -->
 <div class="modal-overlay" id="modal-nuevo-cliente">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
@@ -949,14 +631,14 @@
     <div class="modal-head"><h3>Nuevo producto</h3><button class="modal-close" onclick="closeModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Nombre</label><input id="np-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
-        <div><label>SKU</label><input id="np-sku" class="inp" placeholder="SKU-0000"></div>
+        <div class="full"><label>Nombre</label><input id="np-nombre" class="inp"></div>
+        <div><label>SKU</label><input id="np-sku" class="inp"></div>
         <div><label>Categoría</label><select id="np-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
-        <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-        <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0" placeholder="0"></div>
+        <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01"></div>
+        <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-producto')">Cancelar</button><button class="btn btn-primary" onclick="createProducto()">Guardar producto</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-producto')">Cancelar</button><button class="btn btn-primary" onclick="createProducto()">Guardar</button></div>
   </div>
 </div>
 
@@ -966,14 +648,14 @@
     <div class="modal-head"><h3>Editar producto</h3><button class="modal-close" onclick="closeModal('modal-editar-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Nombre</label><input id="ep-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
-        <div><label>SKU</label><input id="ep-sku" class="inp" readonly style="background:#f5f5f5; color:#888; cursor:not-allowed;" title="El SKU no se puede modificar"></div>
+        <div class="full"><label>Nombre</label><input id="ep-nombre" class="inp"></div>
+        <div><label>SKU</label><input id="ep-sku" class="inp" readonly style="background:#f5f5f5;"></div>
         <div><label>Categoría</label><select id="ep-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
-        <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-        <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0" placeholder="0"></div>
+        <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01"></div>
+        <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-editar-producto')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProducto()">Guardar cambios</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-editar-producto')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProducto()">Guardar</button></div>
   </div>
 </div>
 
@@ -983,14 +665,14 @@
     <div class="modal-head"><h3>Nueva promoción</h3><button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Nombre / Etiqueta</label><input id="npr-nombre" class="inp" placeholder="Ej. CyberWeek -10%"></div>
+        <div class="full"><label>Nombre / Etiqueta</label><input id="npr-nombre" class="inp"></div>
         <div><label>Tipo de descuento</label><select id="npr-tipo" class="sel"><option>Porcentaje (%)</option><option>Monto Fijo ($)</option></select></div>
-        <div><label>Valor</label><input id="npr-valor" class="inp" type="number" min="1" placeholder="Ej. 10"></div>
+        <div><label>Valor</label><input id="npr-valor" class="inp" type="number" min="1"></div>
         <div class="full"><label>Aplica a la categoría</label><select id="npr-aplica" class="sel"><option>Todos</option><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
         <div class="full"><label>Válida hasta</label><input id="npr-vence" class="inp" type="date"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-promocion')">Cancelar</button><button class="btn btn-primary" onclick="createPromocion()">Guardar promoción</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-promocion')">Cancelar</button><button class="btn btn-primary" onclick="createPromocion()">Guardar</button></div>
   </div>
 </div>
 
@@ -1000,14 +682,14 @@
     <div class="modal-head"><h3>Nueva oportunidad</h3><button class="modal-close" onclick="closeModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Contacto</label><input id="no-contacto" class="inp" placeholder="Nombre del contacto"></div>
-        <div class="full"><label>Empresa</label><input id="no-empresa" class="inp" placeholder="Empresa (opcional)"></div>
-        <div class="full"><label>Interés</label><input id="no-interes" class="inp" placeholder="Ej. Contrato de mantenimiento"></div>
-        <div><label>Valor estimado</label><input id="no-valor" class="inp" type="number" min="0" placeholder="$0.00"></div>
-        <div><label>Próximo contacto</label><input id="no-fecha" class="inp" placeholder="Ej. 28 Ago"></div>
+        <div class="full"><label>Contacto</label><input id="no-contacto" class="inp"></div>
+        <div class="full"><label>Empresa</label><input id="no-empresa" class="inp"></div>
+        <div class="full"><label>Interés</label><input id="no-interes" class="inp"></div>
+        <div><label>Valor estimado</label><input id="no-valor" class="inp" type="number" min="0"></div>
+        <div><label>Próximo contacto</label><input id="no-fecha" class="inp"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-oportunidad')">Cancelar</button><button class="btn btn-primary" onclick="createOportunidad()">Crear oportunidad</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nueva-oportunidad')">Cancelar</button><button class="btn btn-primary" onclick="createOportunidad()">Crear</button></div>
   </div>
 </div>
 
@@ -1020,59 +702,53 @@
   </div>
 </div>
 
-<!-- MODAL: NUEVO USUARIO (CONFIGURACIÓN) -->
+<!-- MODAL: NUEVO USUARIO -->
 <div class="modal-overlay" id="modal-nuevo-usuario">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo Usuario</h3><button class="modal-close" onclick="closeModal('modal-nuevo-usuario')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Nombre Completo</label><input id="nu-nombre" class="inp" placeholder="Ej. Laura Gómez"></div>
-        <div class="full"><label>Correo Electrónico</label><input id="nu-email" class="inp" type="email" placeholder="laura@servix.com"></div>
-        <div class="full">
-          <label>Asignar Rol</label>
-          <select id="nu-rol" class="sel"></select>
-        </div>
+        <div class="full"><label>Nombre Completo</label><input id="nu-nombre" class="inp"></div>
+        <div class="full"><label>Correo Electrónico</label><input id="nu-email" class="inp" type="email"></div>
+        <div class="full"><label>Asignar Rol</label><select id="nu-rol" class="sel"></select></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button><button class="btn btn-primary" onclick="createUsuario()">Guardar Usuario</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button><button class="btn btn-primary" onclick="createUsuario()">Guardar</button></div>
   </div>
 </div>
 
-<!-- MODAL: NUEVO ROL Y PERMISOS -->
+<!-- MODAL: NUEVO ROL -->
 <div class="modal-overlay" id="modal-nuevo-rol">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo Rol de Sistema</h3><button class="modal-close" onclick="closeModal('modal-nuevo-rol')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="full"><label>Nombre del Rol</label><input id="nr-nombre" class="inp" placeholder="Ej. Supervisor de Ventas"></div>
-        <div class="full"><label>Descripción</label><input id="nr-desc" class="inp" placeholder="Breve descripción del rol"></div>
-        
+        <div class="full"><label>Nombre del Rol</label><input id="nr-nombre" class="inp"></div>
+        <div class="full"><label>Descripción</label><input id="nr-desc" class="inp"></div>
         <div class="full" style="margin-top:10px;">
           <label>Permisos de Acceso</label>
           <div style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Acceso total al sistema"> Acceso total al sistema</label>
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Gestionar usuarios y roles"> Gestionar usuarios y roles</label>
             <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes financieros</label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Editar catálogo de productos"> Editar catálogo de productos</label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Aprobar créditos y descuentos"> Aprobar créditos y descuentos</label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver y actualizar tickets asignados"> Ver y actualizar tickets asignados</label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Registrar ventas y cobros"> Registrar ventas y cobros</label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Abrir y cerrar corte de caja"> Abrir y cerrar corte de caja</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Editar catálogo"> Editar catálogo de productos</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Aprobar créditos"> Aprobar créditos y descuentos</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver tickets"> Ver y actualizar tickets</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Registrar ventas"> Registrar ventas y cobros</label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Corte de caja"> Abrir y cerrar corte de caja</label>
           </div>
         </div>
       </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-rol')">Cancelar</button><button class="btn btn-primary" onclick="createRol()">Guardar Rol</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-rol')">Cancelar</button><button class="btn btn-primary" onclick="createRol()">Guardar</button></div>
   </div>
 </div>
 
 <div id="toast-wrap"></div>
 
-<!-- ============ SDKs de Firebase (Versión Compat) ============ -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyDkku4IIoyYoRKWlpIuB7HRaC5fOVEoUws",
@@ -1082,13 +758,11 @@
     messagingSenderId: "470487622519",
     appId: "1:470487622519:web:da1b0304282c4bd2f97772"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const auth = firebase.auth();
 </script>
 
-<!-- Cargar JS como Módulo -->
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

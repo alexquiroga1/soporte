@@ -1,6 +1,6 @@
 // js/modules/clientes.js
 import { DATA, saveToLocal } from '../core/store.js';
-import { fmt, initials, fDate, toast, getFullName } from '../core/utils.js';
+import { fmt, initials, toast, getFullName } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
 import { stageInfo } from './tickets.js';
 
@@ -10,7 +10,6 @@ export function renderClientesTable(){
   const searchEl = document.getElementById('cl-search');
   const q = (searchEl ? searchEl.value : '').toLowerCase();
   
-  // Filtrado a prueba de fallos (Si un cliente no tiene teléfono o DNI, no se rompe)
   const rows = DATA.clientes.filter(c => {
     const full = getFullName(c) || '';
     const tel = c.tel || '';
@@ -22,7 +21,6 @@ export function renderClientesTable(){
   if(!tbody) return;
 
   tbody.innerHTML = rows.map(c=>{
-    // Verificaciones seguras por si la base de datos viene con errores
     const nTickets = DATA.tickets ? DATA.tickets.filter(t=>t.clienteId===c.id).length : 0;
     const totalCompras = (c.compras || []).reduce((s,p)=>s+p.monto,0);
     const nombreSeguro = c.nombre || 'Sin Nombre';
@@ -47,7 +45,6 @@ export function switchClientTab(tabId, el){
   const group = el.parentElement;
   group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  
   const container = group.parentElement;
   container.querySelectorAll('.client-subview').forEach(sv=>{
     sv.style.display = sv.id === tabId ? 'block' : 'none';
@@ -120,7 +117,7 @@ export function openClientModal(id){
   if(elCrFin) elCrFin.innerHTML = renderCr(crPagados);
 
   const primerTab = document.querySelector('#modal-cliente .tabs .tab');
-  if(primerTab) switchClientTab('mc-tab-prestamos', primerTab); // Por defecto mostramos Préstamos primero
+  if(primerTab) switchClientTab('mc-tab-prestamos', primerTab);
 
   openModal('modal-cliente');
 }
@@ -138,40 +135,25 @@ export function saveClientLimit(){
 
 export function createCliente(){
   const elNombre = document.getElementById('ncl-nombre');
-  const elApellido = document.getElementById('ncl-apellido');
-  
   if(!elNombre || !elNombre.value.trim()){ toast('El nombre es obligatorio'); return; }
   
-  const nombre = elNombre.value.trim();
-  const apellido = elApellido ? elApellido.value.trim() : '';
-  
-  // Función segura para extraer valores de inputs, evitando crashes si el HTML no existe
   const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
-  
+  const nombre = elNombre.value.trim();
   const id = 'c' + (DATA.clientes.length + 1) + '_' + Date.now().toString().slice(-4);
+  
   const nuevoCliente = {
-    id, 
-    nombre, 
-    apellido, 
-    dni: getVal('ncl-dni'),
-    tipo: 'Regular', 
-    contacto: nombre,
-    direccion: getVal('ncl-direccion') || '—',
-    provincia: getVal('ncl-provincia'),
-    localidad: getVal('ncl-localidad'),
-    barrio: getVal('ncl-barrio'),
-    tel: getVal('ncl-tel') || '—',
-    email: getVal('ncl-email') || '—',
-    equipos:[], 
-    compras:[], 
-    limiteCredito: parseFloat(getVal('ncl-limite')) || 0, 
-    notas:[]
+    id, nombre, apellido: getVal('ncl-apellido'), dni: getVal('ncl-dni'),
+    tipo: 'Regular', contacto: nombre,
+    direccion: getVal('ncl-direccion') || '—', provincia: getVal('ncl-provincia'),
+    localidad: getVal('ncl-localidad'), barrio: getVal('ncl-barrio'),
+    tel: getVal('ncl-tel') || '—', email: getVal('ncl-email') || '—',
+    equipos:[], compras:[], notas:[],
+    limiteCredito: parseFloat(getVal('ncl-limite')) || 0
   };
   
   DATA.clientes.unshift(nuevoCliente);
   saveToLocal();
 
-  // Limpiar campos de forma segura
   ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email','ncl-limite'].forEach(i=>{
       if(document.getElementById(i)) document.getElementById(i).value='';
   });
@@ -180,7 +162,6 @@ export function createCliente(){
   renderClientesTable(); 
   if(window.populateClienteSelectPOS) window.populateClienteSelectPOS();
   
-  // Vincular con ticket si venimos de ahí
   if(document.getElementById('modal-nuevo-ticket') && document.getElementById('modal-nuevo-ticket').classList.contains('active')){
     if(window.selectClientForTicket) window.selectClientForTicket(nuevoCliente.id, getFullName(nuevoCliente));
   }
@@ -192,4 +173,53 @@ export function populateClienteSelectPOS(){
   if(sel) {
       sel.innerHTML = '<option value="Mostrador">Cliente: Mostrador</option>' + DATA.clientes.map(c=>`<option>Cliente: ${getFullName(c)}</option>`).join('');
   }
+}
+
+// ====== NUEVAS FUNCIONES DE PRÉSTAMOS DESDE EL PERFIL ======
+
+export function nuevoCreditoDesdePerfil() {
+    const elNombre = document.getElementById('mc-nombre').textContent;
+    closeModal('modal-cliente');
+    if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
+    
+    setTimeout(() => {
+        const sel = document.getElementById('ncr-cliente');
+        if(sel) {
+            for(let i=0; i<sel.options.length; i++) {
+                if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+            }
+        }
+    }, 100);
+}
+
+export function refinanciarDeudaPerfil() {
+    const elNombre = document.getElementById('mc-nombre').textContent;
+    const activos = DATA.creditos.filter(cr => cr.cliente === elNombre && cr.saldo > 0);
+    
+    if(activos.length === 0) { toast('El cliente no tiene deuda activa para refinanciar'); return; }
+    
+    let deudaTotal = activos.reduce((s, c) => s + c.saldo, 0);
+    
+    activos.forEach(c => {
+        c.saldo = 0;
+        c.concepto += ' (Refinanciado)';
+    });
+    saveToLocal();
+
+    closeModal('modal-cliente');
+    if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
+    
+    setTimeout(() => {
+        const sel = document.getElementById('ncr-cliente');
+        if(sel) {
+            for(let i=0; i<sel.options.length; i++) {
+                if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+            }
+        }
+        const elConcepto = document.getElementById('ncr-concepto');
+        const elMonto = document.getElementById('ncr-monto');
+        if(elConcepto) elConcepto.value = 'Refinanciación de Deuda Anterior';
+        if(elMonto) elMonto.value = deudaTotal.toFixed(2);
+        toast('Deuda unificada. Genere el nuevo préstamo.');
+    }, 100);
 }

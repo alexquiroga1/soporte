@@ -27,7 +27,7 @@ const INITIAL_DATA = {
   caja: { fondo: 0, movs: [] }, cajaPendientes: []
 };
 
-// Nuestro estado global reactivo (simulado)
+// Nuestro estado global reactivo
 export let DATA = { ...INITIAL_DATA };
 
 // Inicializa la base de datos
@@ -50,12 +50,11 @@ export async function initStore(db, renderCallback) {
   }
 }
 
+// FIX: La función verifica que la BD exista para no trabar el programa
 export function saveToLocal() {
-    // FIX: Ahora utiliza la instancia global window.db para no crashear
     if (window.db) {
         window.db.collection("sistema").doc("servix_produccion").set(DATA)
             .catch(err => console.error("No se guardó en Firebase:", err));
     }
-    // El respaldo local ahora siempre se ejecuta
     localStorage.setItem('servix_prod_data', JSON.stringify(DATA));
 }
