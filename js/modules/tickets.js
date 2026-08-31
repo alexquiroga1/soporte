@@ -308,12 +308,6 @@ export function enviarAFacturacion(){
   alert('¡Éxito! El ticket #' + t.id + ' se envió a la pestaña de CAJA para su cobro.');
 }
 
-  saveToLocal();
-  closeModal('modal-ticket');
-  if(window.renderAll) window.renderAll(); // Para actualizar la vista de Caja
-  toast('Ticket #' + t.id + ' enviado a Caja como pendiente de cobro');
-
-
 export function renderTicketNotas(t){
   document.getElementById('mt-notas').innerHTML = t.notas.length ? t.notas.map(n=>`<div class="note-item"><b>${n.autor}</b><span class="t">${n.fecha}</span><div>${n.texto}</div></div>`).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin notas todavía.</div>';
 }
