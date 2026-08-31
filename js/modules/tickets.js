@@ -5,7 +5,7 @@ import { openModal, closeModal, wireKanbanDrag } from './ui.js';
 import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
-let nextTicketNum = 1000;
+
 
 export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key);
 
@@ -351,8 +351,13 @@ export function createTicket(){
   const condicion = document.getElementById('nt-condicion').value.trim();
   const falla = document.getElementById('nt-falla').value.trim();
   
-  if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
-  const id = 'TK-' + (nextTicketNum++);
+if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
+  
+  // Leemos el contador global
+  if(!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
+  const id = 'TK-' + DATA.counters.tickets;
+  DATA.counters.tickets++; // Aumentamos para el siguiente
+  
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   
   const t = {

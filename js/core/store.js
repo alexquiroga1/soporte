@@ -24,20 +24,27 @@ const INITIAL_DATA = {
   roles: [{nombre:'Administrador', desc:'Acceso total al sistema.', permisos:['Acceso total al sistema']}],
   usuarios: [{nombre:'Admin', rol:'Administrador', email:'admin@empresa.com', activo:true}],
   clientes: [], tickets: [], creditos: [], productos: [], promociones: [], crm: [], ventas: [],
-  caja: { fondo: 0, movs: [] }, cajaPendientes: []
+  caja: { fondo: 0, movs: [] }, cajaPendientes: [],
+  counters: { tickets: 1000, ventas: 1000 } // NUEVO: Contadores globales
 };
 
-// Nuestro estado global reactivo
 export let DATA = { ...INITIAL_DATA };
 
-// Inicializa la base de datos
-export async function initStore(db, renderCallback) {
-  try {
-    const doc = await db.collection("sistema").doc("servix_produccion").get();
+// Bandera para evitar que nuestro propio guardado dispare un bucle
+let isSaving = false;
+
+// Inicializa la base de datos en TIEMPO REAL
+export function initStore(db, renderCallback) {
+  const docRef = db.collection("sistema").doc("servix_produccion");
+
+  // onSnapshot escucha cambios en la nube al instante
+  docRef.onSnapshot((doc) => {
+    if (isSaving) return; // Si yo fui quien guardó, ignoro la alerta
+
     if (doc.exists) {
         DATA = doc.data(); 
         
-        // 🛡️ PARCHE DE SEGURIDAD: Asegurar que TODAS las listas existan siempre
+        // 🛡️ PARCHE DE SEGURIDAD: Estructura garantizada
         if (!DATA.cajaPendientes) DATA.cajaPendientes = [];
         if (!DATA.creditos) DATA.creditos = [];
         if (!DATA.ventas) DATA.ventas = [];
@@ -48,27 +55,38 @@ export async function initStore(db, renderCallback) {
         if (!DATA.crm) DATA.crm = [];
         if (!DATA.caja) DATA.caja = { fondo: 0, movs: [] };
         if (!DATA.caja.movs) DATA.caja.movs = [];
+        if (!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
         
-        console.log("☁️ Base de datos real sincronizada.");
+        console.log("☁️ Nube sincronizada en tiempo real.");
+        localStorage.setItem('servix_prod_data', JSON.stringify(DATA));
+        if (renderCallback) renderCallback();
     } else {
-        console.log("🌱 Creando nueva base de datos limpia...");
-        await db.collection("sistema").doc("servix_produccion").set(DATA);
+        console.log("🌱 Creando base de datos inicial...");
+        docRef.set(DATA);
     }
-    if (renderCallback) renderCallback();
-  } catch (error) {
+  }, (error) => {
     console.error("❌ Falló conexión a la nube.", error);
+    // Modo offline temporal
     DATA = JSON.parse(localStorage.getItem('servix_prod_data')) || INITIAL_DATA;
-    // Parche por si el error pasa en modo Offline
-    if (!DATA.cajaPendientes) DATA.cajaPendientes = []; 
+    if (!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
     if (renderCallback) renderCallback();
-  }
+  });
 }
 
-// FIX: La función verifica que la BD exista para no trabar el programa
+// Guarda en Firebase y avisa al sistema
 export function saveToLocal() {
+    isSaving = true; // Activo la bandera
     if (window.db) {
         window.db.collection("sistema").doc("servix_produccion").set(DATA)
-            .catch(err => console.error("No se guardó en Firebase:", err));
+            .then(() => {
+                setTimeout(() => isSaving = false, 500); // Apago la bandera
+            })
+            .catch(err => {
+                console.error("No se guardó en Firebase:", err);
+                isSaving = false;
+            });
+    } else {
+        isSaving = false;
     }
     localStorage.setItem('servix_prod_data', JSON.stringify(DATA));
 }
