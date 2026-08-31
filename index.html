@@ -329,7 +329,55 @@
           <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
         </div>
       </div>
+<!-- MODAL: CRÉDITO DETALLE (SISTEMA DE CUOTAS Y MORA) -->
+<div class="modal-overlay" id="modal-credito">
+  <div class="modal"> 
+    <div class="modal-head">
+      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <!-- NUEVOS BOTONES DE IMPRESIÓN -->
+        <button class="btn btn-ghost btn-sm" onclick="imprimirPagareCredito()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Pagaré</button>
+        <button class="btn btn-ghost btn-sm" onclick="imprimirReciboDoble()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Recibo Doble</button>
+        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      
+      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
+        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
+        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
+        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
+      </div>
 
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
+        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
+      </div>
+
+      <div id="cr-tab-cuotas" class="credito-subview">
+        <div class="panel">
+          <table>
+            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Punitorios</th><th>Pagado</th><th>Total a Pagar</th></tr></thead>
+            <tbody id="mcr-cuotas-body"></tbody>
+          </table>
+        </div>
+        
+        <div class="abono-form" style="margin-top:16px; background:var(--teal-dim); padding:16px; border-radius:12px;">
+          <div style="width:100%; font-size:12px; font-weight:700; color:var(--teal); margin-bottom:10px;">REGISTRAR PAGO (Imputa automáticamente a la cuota más vieja y sus punitorios)</div>
+          <div style="display:flex; gap:12px; align-items:flex-end;">
+            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
+            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
+        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
       <!-- ================= CRÉDITOS ================= -->
       <div class="view" id="view-creditos">
         <div class="page-head">
@@ -390,31 +438,30 @@
         </div>
       </div>
 
-      <!-- ================= REPORTES ================= -->
+     <!-- ================= REPORTES ================= -->
       <div class="view" id="view-reportes">
-        <div class="page-head"><div><h1>Reportes</h1><p>ANÁLISIS DEL NEGOCIO</p></div><button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar PDF</button></div>
+        <div class="page-head"><div><h1>Reportes Financieros</h1><p>BASADOS EN SISTEMA DE GESTIÓN Y COBRANZAS</p></div><button class="btn btn-ghost" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Imprimir Reportes</button></div>
         <div class="kpi-row" id="reportes-kpis"></div>
-        <div class="grid-2" style="margin-bottom:16px;">
-          <div class="panel">
-            <div class="panel-head"><h3>Ventas mensuales</h3><span class="meta">ÚLTIMOS 6 MESES</span></div>
-            <div class="panel-body" id="reportes-bar-ventas"></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h3>Tickets por técnico</h3><span class="meta">ESTE MES</span></div>
-            <div class="panel-body" id="reportes-bar-tecnico"></div>
-          </div>
+        
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Listado de Créditos Otorgados</h3></div>
+          <table><thead><tr><th>Fecha Origen</th><th>Nº Carpeta</th><th>Cliente</th><th>Concepto</th><th>Capital Otorgado</th></tr></thead>
+          <tbody id="reportes-lista-creditos"></tbody></table>
         </div>
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-head"><h3>Tickets por estado</h3></div>
-            <div class="panel-body"><div class="donut-wrap" id="reportes-donut"><div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div><div class="donut-legend"></div></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h3>Productos más vendidos</h3><span class="meta">ESTE MES</span></div>
-            <div class="panel-body" id="reportes-top-productos"></div>
-          </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Listado de Cobranzas</h3></div>
+          <table><thead><tr><th>Fecha / Hora</th><th>Concepto de Cobro</th><th>Capital Pagado</th><th>Punitorios / Gastos</th><th>Total Cobrado</th></tr></thead>
+          <tbody id="reportes-lista-cobranzas"></tbody></table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3 style="color:var(--red);">Listado de Clientes Morosos</h3><span class="meta">Ordenados por mayor atraso</span></div>
+          <table><thead><tr><th>Cliente</th><th>Teléfono (Reclamos)</th><th>Días de Mora</th><th>Monto a Reclamar (Saldo)</th></tr></thead>
+          <tbody id="reportes-lista-morosos"></tbody></table>
         </div>
       </div>
+
 
       <!-- ================= CONFIGURACIÓN ================= -->
       <div class="view" id="view-config">

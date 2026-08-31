@@ -7,6 +7,8 @@ let selectedCobroMetodo = 'Efectivo';
 let currentCobroIdx = null;
 let currentCreditIdx = null;
 
+const TASA_PUNITORIO_DIARIO = 0.01; // 1% diario de recargo por mora
+
 // ==========================================
 // SECCIÓN: CAJA Y PASARELA DE COBRO
 // ==========================================
@@ -123,21 +125,19 @@ export function renderCobroDynamicFields(){
     });
 
     const cond1 = available >= item.total;
-    const cond2 = numLoans < 2;
-    const cond3 = !overdue30;
-    const esEligible = cond1 && cond2 && cond3;
+    const cond2 = !overdue30;
+    const esEligible = cond1 && cond2;
 
     if(!esEligible) btnConfirm.disabled = true;
 
     container.innerHTML = `
       <div style="font-size:13px; line-height:1.4;">
-        <p><b>Evaluación de Elegibilidad:</b></p>
+        <p><b>Evaluación de Cupo:</b></p>
         <ul style="list-style:none; padding:0; margin:8px 0;">
-          <li style="color:${cond1?'var(--teal)':'var(--red)'}">${cond1?'✅':'❌'} Crédito disp: <b>${fmt(available)}</b> (Límite: ${fmt(limite)})</li>
-          <li style="color:${cond2?'var(--teal)':'var(--red)'}">${cond2?'✅':'❌'} Préstamos activos: <b>${numLoans}</b> / 2 máximo</li>
-          <li style="color:${cond3?'var(--teal)':'var(--red)'}">${cond3?'✅':'❌'} Historial de pagos (Sin atrasos > 30 días)</li>
+          <li style="color:${cond1?'var(--teal)':'var(--red)'}">${cond1?'✅':'❌'} Cupo disp: <b>${fmt(available)}</b> (Límite: ${fmt(limite)})</li>
+          <li style="color:${cond2?'var(--teal)':'var(--red)'}">${cond2?'✅':'❌'} Sin morosidad mayor a 30 días</li>
         </ul>
-        <p style="margin-top:6px;">Estado: <span class="badge ${esEligible ? 'done' : 'urg'}">${esEligible ? 'Elegible' : 'Rechazado'}</span></p>
+        <p style="margin-top:6px;">Estado: <span class="badge ${esEligible ? 'done' : 'urg'}">${esEligible ? 'Aprobado' : 'Rechazado por Falta de Cupo'}</span></p>
       </div>
     `;
   }
@@ -156,6 +156,7 @@ export function procesarCobroFinal(){
       id: 'CR-' + Date.now().toString().slice(-6),
       cliente: clienteObj ? getFullName(clienteObj) : item.cliente,
       concepto: 'Préstamo por ' + (item.origen === 'Ticket' ? 'Ticket #'+item.ref : 'Venta '+item.ref),
+      fechaOrigen: new Date().toISOString().split('T')[0],
       original: item.total, saldo: item.total, abonos: [], cuotas: cuotasArray
     });
   }
@@ -170,7 +171,7 @@ export function procesarCobroFinal(){
   if(selectedCobroMetodo !== 'Préstamo personal') {
     DATA.caja.movs.push({
       hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
-      concepto: `Cobro ${item.origen} #${item.ref} (${item.cliente})`, tipo: 'ingreso', monto: item.total
+      concepto: `Cobro ${item.origen} #${item.ref} (${item.cliente})`, tipo: 'ingreso', monto: item.total, subcategoria: 'Capital'
     });
   }
 
@@ -217,7 +218,7 @@ export function addMovimiento(){
   const tipo = document.getElementById('mov-tipo').value;
   const monto = parseFloat(document.getElementById('mov-monto').value);
   if(!concepto || !monto || monto<=0){ toast('Completa el concepto y un monto válido'); return; }
-  DATA.caja.movs.push({hora:new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto, tipo, monto});
+  DATA.caja.movs.push({hora:new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto, tipo, monto, subcategoria: 'Gastos'});
   saveToLocal();
   document.getElementById('mov-concepto').value=''; document.getElementById('mov-monto').value='';
   renderCajaView(); 
@@ -257,22 +258,20 @@ export function cerrarCorte(){
 }
 
 // ==========================================
-// SECCIÓN: MÓDULO FINANCIERO (CRÉDITOS Y CUOTAS)
+// SECCIÓN: MÓDULO FINANCIERO AVANZADO
 // ==========================================
 
 export function calcularDiasMora(cuotas) {
     if(!cuotas || cuotas.length === 0) return 0;
     const today = new Date();
     today.setHours(0,0,0,0);
-    
     let moraMaxima = 0;
     cuotas.forEach(cu => {
         if(cu.pagado < cu.importe) {
             const vDate = new Date(cu.vence);
             vDate.setHours(0,0,0,0);
             if(vDate < today) {
-                const diffTime = Math.abs(today - vDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffDays = Math.ceil(Math.abs(today - vDate) / (1000 * 60 * 60 * 24));
                 if(diffDays > moraMaxima) moraMaxima = diffDays;
             }
         }
@@ -280,17 +279,21 @@ export function calcularDiasMora(cuotas) {
     return moraMaxima;
 }
 
+export function calcularPunitorios(cuota) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const vDate = new Date(cuota.vence);
+    vDate.setHours(0,0,0,0);
+    
+    if(cuota.pagado >= cuota.importe || vDate >= today) return 0;
+    
+    const diffDays = Math.ceil(Math.abs(today - vDate) / (1000 * 60 * 60 * 24));
+    return (cuota.importe * TASA_PUNITORIO_DIARIO * diffDays);
+}
+
 export function creditEstado(c){
   if(c.saldo<=0) return {label:'Saldado', cls:'done', isOverdue:false};
-  
-  if(!c.cuotas){
-      const today = new Date();
-      const vDate = new Date(c.vence || '2099-01-01');
-      if(vDate < today) return {label:'Vencido', cls:'urg', isOverdue: true};
-      return {label:'En curso', cls:'prog', isOverdue: false};
-  }
-
-  const mora = calcularDiasMora(c.cuotas);
+  const mora = c.cuotas ? calcularDiasMora(c.cuotas) : 0;
   if(mora > 0){
       if(mora > 90) return {label:'Pre-Legal', cls:'urg', isOverdue: true};
       if(mora > 30) return {label:'Mora > 30 días', cls:'urg', isOverdue: true};
@@ -333,7 +336,6 @@ export function renderCreditosTable(){
 export function openCreditModal(idx){
   currentCreditIdx = idx;
   const c = DATA.creditos[idx];
-  
   if(!c.cuotas) { c.cuotas = [{ numero: 1, importe: c.original, pagado: c.original - c.saldo, vence: c.vence }]; }
 
   document.getElementById('mcr-cliente').textContent = c.cliente;
@@ -345,23 +347,32 @@ export function openCreditModal(idx){
   document.getElementById('mcr-mora-dias').textContent = diasMora;
   
   const today = new Date().toISOString().split('T')[0];
+  let totalPunitorios = 0;
+
   document.getElementById('mcr-cuotas-body').innerHTML = c.cuotas.map(cu => {
       let status = cu.pagado >= cu.importe ? 'S' : (cu.vence < today ? 'V' : 'N');
       let badge = status === 'S' ? '<span class="badge done">Saldada</span>' : (status === 'V' ? '<span class="badge urg">Vencida</span>' : '<span class="badge wait">A Vencer</span>');
+      let punitorios = calcularPunitorios(cu);
+      totalPunitorios += punitorios;
       
       return `<tr>
         <td class="mono">${fDate(cu.vence)}</td>
-        <td style="font-family:'IBM Plex Mono'; font-weight:bold; color:${status==='S'?'var(--teal)':(status==='V'?'var(--red)':'var(--muted)')}">${status}</td>
+        <td>${badge}</td>
         <td>Cuota ${cu.numero}</td>
         <td class="mono">${fmt(cu.importe)}</td>
+        <td class="mono" style="color:var(--red)">${punitorios > 0 ? fmt(punitorios) : '—'}</td>
         <td class="mono" style="color:var(--teal)">${fmt(cu.pagado)}</td>
-        <td class="mono">${fmt(cu.importe - cu.pagado)}</td>
+        <td class="mono" style="font-weight:bold;">${fmt((cu.importe + punitorios) - cu.pagado)}</td>
       </tr>`;
   }).join('');
 
   document.getElementById('mcr-abonos').innerHTML = c.abonos.length ? c.abonos.map(a=>`<tr><td class="mono">${a.fecha}</td><td class="mono">${fmt(a.monto)}</td><td>${a.metodo}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);text-align:center;">Sin abonos registrados.</td></tr>';
-  
   document.getElementById('mcr-monto-input').value = '';
+  
+  // Guardamos referencias para la impresión
+  window.imprimirReciboDoble = () => printReciboDoble(c);
+  window.imprimirPagareCredito = () => printPagare(c);
+  
   openModal('modal-credito');
 }
 
@@ -370,44 +381,47 @@ export function registerPayment(){
   const montoInput = parseFloat(document.getElementById('mcr-monto-input').value);
   if(!montoInput || montoInput <= 0){ toast('Ingresa un monto válido'); return; }
   
-  let restanteAPagar = Math.min(montoInput, c.saldo);
-  const montoRealAbonado = restanteAPagar;
+  let restanteAPagar = montoInput;
+  let montoCapitalAbonado = 0;
+  let montoPunitoriosAbonado = 0;
 
   for(let i=0; i<c.cuotas.length; i++){
       let cu = c.cuotas[i];
-      let deudaCuota = cu.importe - cu.pagado;
+      let punitorios = calcularPunitorios(cu);
+      let deudaCuotaTotal = (cu.importe + punitorios) - cu.pagado;
       
-      if(deudaCuota > 0 && restanteAPagar > 0){
-          if(restanteAPagar >= deudaCuota){
-              cu.pagado = cu.importe;
-              restanteAPagar -= deudaCuota;
+      if(deudaCuotaTotal > 0 && restanteAPagar > 0){
+          if(restanteAPagar >= deudaCuotaTotal){
+              cu.pagado += deudaCuotaTotal; // Paga toda la cuota y punitorios
+              montoCapitalAbonado += cu.importe;
+              montoPunitoriosAbonado += punitorios;
+              restanteAPagar -= deudaCuotaTotal;
           } else {
-              cu.pagado += restanteAPagar;
+              cu.pagado += restanteAPagar; // Paga parcial
+              montoCapitalAbonado += restanteAPagar; // Asumimos imputación a capital para simplificar
               restanteAPagar = 0;
           }
       }
   }
 
-  c.saldo = Math.max(0, c.saldo - montoRealAbonado);
-  c.abonos.push({
-      fecha: new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
-      monto: montoRealAbonado, 
-      metodo: document.getElementById('mcr-metodo-input').value
-  });
+  c.saldo = Math.max(0, c.saldo - montoCapitalAbonado);
   
-  DATA.caja.movs.push({
-      hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
-      concepto: 'Cobro de Cuota - Carpeta ' + (c.id||''), 
-      tipo: 'ingreso', 
-      monto: montoRealAbonado
-  });
+  const metodo = document.getElementById('mcr-metodo-input').value;
+  const fechaStr = new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  
+  c.abonos.push({ fecha: fechaStr, monto: montoInput, metodo: metodo });
+  
+  DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Cuota Capital - ' + c.cliente, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
+  if(montoPunitoriosAbonado > 0){
+      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - ' + c.cliente, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
+  }
   
   saveToLocal();
   openCreditModal(currentCreditIdx);
   renderCreditosTable(); 
   renderCajaView(); 
   if(window.renderAll) window.renderAll();
-  toast('Pago imputado automáticamente a las cuotas correspondientes');
+  toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
 }
 
 export function openNuevoCreditoModal(){
@@ -421,7 +435,12 @@ export function populateClienteSelectCredito(){
   const sel = document.getElementById('ncr-cliente');
   if(sel) {
       sel.innerHTML = '<option value="">Selecciona un cliente...</option>' + 
-        DATA.clientes.map(c => `<option value="${c.id}">${getFullName(c)} (Límite disp: ${fmt(c.limiteCredito||0)})</option>`).join('');
+        DATA.clientes.map(c => {
+            const activeLoans = DATA.creditos.filter(cr => cr.cliente === getFullName(c) && cr.saldo > 0);
+            const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
+            const available = (c.limiteCredito || 0) - currentDebt;
+            return `<option value="${c.id}">${getFullName(c)} (Cupo disp: ${fmt(available)})</option>`;
+        }).join('');
   }
 }
 
@@ -432,14 +451,11 @@ export function simularCredito(){
     const honorarios = parseFloat(document.getElementById('ncr-honorarios').value) || 0;
     const cantCuotas = parseInt(document.getElementById('ncr-cuotas').value) || 1;
     
-    // Total Financiado = (Capital + Gastos + Honorarios) - Anticipo
     let base = (capital + gastos + honorarios) - anticipo;
     if(base < 0) base = 0;
     
-    const valorCuota = base / cantCuotas;
-    
     document.getElementById('sim-total').textContent = fmt(base);
-    document.getElementById('sim-cuota').textContent = cantCuotas > 1 ? fmt(valorCuota) + ' c/u' : fmt(valorCuota);
+    document.getElementById('sim-cuota').textContent = cantCuotas > 1 ? fmt(base / cantCuotas) + ' c/u' : fmt(base / cantCuotas);
 }
 
 export function createCreditoManual(){
@@ -454,140 +470,136 @@ export function createCreditoManual(){
   let primerVence = document.getElementById('ncr-vence').value;
 
   if(!clienteId || capital <= 0) { toast('Completa el Cliente y la Deuda Histórica (Capital)'); return; }
-  if(!primerVence) primerVence = addDays(30);
-
+  
+  // Validación estricta de Cupo
   const clienteObj = DATA.clientes.find(c => c.id === clienteId);
   const cNombre = getFullName(clienteObj);
-  
   let base = (capital + gastos + honorarios) - anticipo;
   if(base < 0) base = 0;
+  
+  const activeLoans = DATA.creditos.filter(cr => cr.cliente === cNombre && cr.saldo > 0);
+  const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
+  const cupoDisponible = (clienteObj.limiteCredito || 0) - currentDebt;
+  
+  if(base > cupoDisponible){ 
+      toast(`OPERACIÓN RECHAZADA: Cupo insuficiente. Cupo disponible: ${fmt(cupoDisponible)}`); 
+      return; 
+  }
+
+  if(!primerVence) primerVence = addDays(30);
   const valorCuota = base / cantCuotas;
 
   let arrCuotas = [];
   let fechaActual = new Date(primerVence + 'T12:00:00');
   
   for(let i=1; i <= cantCuotas; i++){
-      arrCuotas.push({
-          numero: i, importe: valorCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0]
-      });
+      arrCuotas.push({ numero: i, importe: valorCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0] });
       fechaActual.setDate(fechaActual.getDate() + frecuencia);
   }
 
-  // Si hay anticipo, lo ingresamos a caja
   if(anticipo > 0){
-      DATA.caja.movs.push({
-          hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
-          concepto: `Anticipo Refinanciación - ${cNombre}`, tipo: 'ingreso', monto: anticipo
-      });
+      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Anticipo Crédito - ${cNombre}`, tipo: 'ingreso', monto: anticipo, subcategoria: 'Capital' });
+  }
+  if(gastos > 0 || honorarios > 0){
+      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Gastos/Honorarios Crédito - ${cNombre}`, tipo: 'ingreso', monto: gastos + honorarios, subcategoria: 'Intereses/Punitorios' });
   }
 
-  DATA.creditos.unshift({ 
+  const nuevoCredito = { 
       id: 'CR-' + Date.now().toString().slice(-6),
-      cliente: cNombre, 
-      concepto: concepto || 'Refinanciación / Plan de Pagos', 
-      original: base, 
-      saldo: base, 
-      abonos: [],
-      cuotas: arrCuotas
-  });
+      cliente: cNombre, concepto: concepto || 'Otorgamiento de Crédito', 
+      fechaOrigen: new Date().toISOString().split('T')[0],
+      original: base, saldo: base, abonos: [], cuotas: arrCuotas
+  };
   
+  DATA.creditos.unshift(nuevoCredito);
   saveToLocal();
 
-  document.getElementById('ncr-concepto').value = ''; 
-  document.getElementById('ncr-monto').value = ''; 
-  document.getElementById('ncr-anticipo').value = '0';
-  document.getElementById('ncr-gastos').value = '0';
-  document.getElementById('ncr-honorarios').value = '0';
-  document.getElementById('ncr-cuotas').value = '1';
+  document.getElementById('ncr-concepto').value = ''; document.getElementById('ncr-monto').value = ''; 
+  document.getElementById('ncr-anticipo').value = '0'; document.getElementById('ncr-gastos').value = '0';
+  document.getElementById('ncr-honorarios').value = '0'; document.getElementById('ncr-cuotas').value = '1';
   
   closeModal('modal-nuevo-credito');
   renderCreditosTable();
   if(window.renderCajaView) window.renderCajaView();
-  toast('Carpeta generada con éxito (' + cantCuotas + ' cuotas)');
+  toast('Carpeta generada con éxito');
+  
+  // Imprimir Pagaré Automáticamente
+  printPagare(nuevoCredito);
 }
 
-export function printCupones(){
-  if(currentCreditIdx === null) return;
-  const credito = DATA.creditos[currentCreditIdx];
-  if(!credito.cuotas || credito.cuotas.length === 0){ toast('No hay cuotas para imprimir'); return; }
+export function printPagare(credito){
+  const c = DATA.clientes.find(x => getFullName(x) === credito.cliente);
+  const neg = DATA.negocio.nombre || 'EMPRESA PRESTADORA';
+  const direccion = c ? `${c.direccion} ${c.localidad||''} ${c.provincia||''}` : '';
+  const dni = c ? c.dni : '';
+  const tel = c ? c.tel : '';
   
-  const clienteObj = DATA.clientes.find(c => getFullName(c) === credito.cliente);
-  let direccion = clienteObj ? clienteObj.direccion : 'DOMICILIO NO REGISTRADO';
-  if(clienteObj && clienteObj.localidad) direccion += `, ${clienteObj.localidad}`;
-  const telefono = clienteObj ? clienteObj.tel : '';
-  const dni = (clienteObj && clienteObj.dni) ? `D.N.I: ${clienteObj.dni}` : '';
-  const folderNum = credito.id || 'N/A';
-  
-  let cuponesHTML = credito.cuotas.map(cu => {
-      // Formato basado exactamente en la Foto 4 (Ticket de Venta / Cuota)
-      return `
-      <div class="cupon">
-          <div class="header">
-              <span>Nº Carpeta: <b>${folderNum}</b></span>
-              <span>Fecha Origen: ${fDate(new Date().toISOString().split('T')[0])}</span>
-              <span style="font-size:18px;"><b>CUPÓN DE PAGO</b></span>
-          </div>
-          
-          <div class="row" style="margin-top:15px;">
-              <div class="col" style="width:60%;">
-                  <p><b>${credito.cliente.toUpperCase()}</b></p>
-                  <p>${dni}</p>
-                  <p>${direccion.toUpperCase()}</p>
-                  <p>Tel: ${telefono}</p>
-                  
-                  <div class="info-box">
-                      <p><b>Concepto:</b> ${credito.concepto}</p>
-                      <p>Plan de pago: ${credito.cuotas.length} cuotas de ${fmt(credito.cuotas[0].importe)}</p>
-                  </div>
-              </div>
-              
-              <div class="col right" style="width:38%;">
-                  <div style="border:1px solid #000; padding:10px; margin-bottom:10px;">
-                      <p>Vencimiento de esta cuota:</p>
-                      <p><b style="font-size:18px;">${fDate(cu.vence)}</b></p>
-                  </div>
-                  <div style="border:1px solid #000; padding:10px;">
-                      <p>Cuota Nº: <b>${cu.numero}</b></p>
-                      <p>Deuda Total Restante: ${fmt(credito.saldo)}</p>
-                  </div>
-              </div>
-          </div>
-          
-          <div class="footer-amount">
-             IMPORTE A PAGAR: <span>${fmt(cu.importe)}</span>
-          </div>
-          
-          <div class="signature">
-              __________________________________<br>Firma / Sello de Caja
-          </div>
-      </div>
-      `;
-  }).join('');
-
-  const win = window.open('', '', 'width=850,height=800');
+  const win = window.open('', '', 'width=800,height=700');
   win.document.write(`
-    <html>
-    <head>
-      <title>Impresión de Cupones</title>
-      <style>
-        body { font-family: 'Courier New', Courier, monospace; background: #fff; padding: 20px; color: #000; }
-        .cupon { border: 2px dashed #000; padding: 20px; margin-bottom: 30px; page-break-inside: avoid; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
-        .row { display: flex; justify-content: space-between; }
-        .col p { margin: 4px 0; font-size: 14px; }
-        .info-box { border-top: 1px dashed #000; margin-top: 15px; padding-top: 15px; font-size:12px; }
-        .right { text-align: right; }
-        .footer-amount { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
-        .footer-amount span { border: 2px solid #000; padding: 5px 15px; display: inline-block; margin-left: 10px; font-size: 22px; }
-        .signature { margin-top: 40px; font-size: 12px; color: #555; text-align: right; }
-        @media print { body { padding: 0; } }
-      </style>
-    </head>
+    <html><head><title>Solicitud y Pagaré - ${credito.cliente}</title>
+    <style>body{font-family: Arial, sans-serif; padding:40px; font-size:13px; line-height:1.5;} h2{text-align:center;} .box{border:1px solid #000; padding:15px; margin-bottom:20px;} .legales{font-size:10px; text-align:justify;}</style></head>
     <body>
-      ${cuponesHTML}
+      <h2>SOLICITUD DE CRÉDITO Y PAGARÉ</h2>
+      <div class="box">
+        <p><b>Carpeta Nº:</b> ${credito.id} | <b>Fecha:</b> ${fDate(credito.fechaOrigen)}</p>
+        <p><b>Cliente:</b> ${credito.cliente.toUpperCase()} | <b>DNI:</b> ${dni}</p>
+        <p><b>Dirección:</b> ${direccion.toUpperCase()} | <b>Teléfono:</b> ${tel}</p>
+        <p><b>Plan de Pagos:</b> ${credito.cuotas.length} cuotas de ${fmt(credito.cuotas[0].importe)}</p>
+        <p><b>Monto Total Financiado:</b> ${fmt(credito.original)}</p>
+      </div>
+      <p class="legales">LOS DATOS CONSIGNADOS EN LA PRESENTE REVISTEN EL CARÁCTER DE DECLARACIÓN JURADA. CONDICIONES GENERALES DE ADHESIÓN AL SISTEMA DE CRÉDITOS ${neg.toUpperCase()}: 1. El solicitante deberá abonar sus créditos en la cantidad de cuotas indicadas en este comprobante en los vencimientos indicados. 2. Una vez vencido el plazo de cualquiera de las cuotas pactadas, el crédito será considerado de plazo vencido, haciéndose exigible en su totalidad más los intereses compensatorios y punitorios vigentes (1% diario), junto con los gastos ocasionados por gestiones extrajudiciales y/o judiciales. 3. Autorizo a ${neg.toUpperCase()} a que incluya mi apellido, nombre y mi número de documento de identidad en las bases de datos de clientes MOROSOS, una vez transcurridos 30 días corridos desde la fecha de vencimiento de cualquiera de las cuotas pactadas.</p>
+      <br>
+      <div class="box" style="background:#f9f9f9;">
+        <p><b>PAGARÉ A LA VISTA</b></p>
+        <p>Por: <b>${fmt(credito.original)}</b></p>
+        <p>Pagaremos a la vista a ${neg.toUpperCase()} o a su orden sin protesto (Art 50 D. Ley 5965/63) la cantidad de PESOS detallada arriba, por igual valor recibido a nuestra entera satisfacción. Dejamos expresamente aclarado en nuestro concepto de libradores que, de conformidad con lo dispuesto en el art. 36 del decreto ley 5965/63, ampliamos el plazo de presentaciones hasta un máximo de 10 años, a contar desde la fecha del libramiento del presente.</p>
+        <br><br><br>
+        <p style="text-align:right;">___________________________________<br>Firma, Aclaración y DNI del Deudor</p>
+      </div>
       <script>window.onload = function() { window.print(); }</script>
-    </body>
-    </html>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+export function printReciboDoble(credito){
+  const win = window.open('', '', 'width=850,height=500');
+  const proxVence = credito.cuotas.find(x=>x.pagado < x.importe);
+  const neg = DATA.negocio.nombre || 'EMPRESA';
+  
+  win.document.write(`
+    <html><head><title>Recibo de Cobro - Doble</title>
+    <style>
+      body{font-family: 'Courier New', monospace; font-size:12px; margin:0; padding:20px; display:flex;}
+      .ticket{width:48%; border:1px dashed #000; padding:15px; margin-right:2%;}
+      .center{text-align:center;} .divider{border-bottom:1px dashed #000; margin:10px 0;}
+    </style></head><body>
+      <!-- TICKET CLIENTE -->
+      <div class="ticket">
+        <div class="center"><b>${neg.toUpperCase()}</b><br>Cupón de Pago<br>Carpeta Nº: ${credito.id}</div><div class="divider"></div>
+        <p>Cliente: <b>${credito.cliente}</b></p>
+        <p>Fecha de Pago: ${fDate(new Date().toISOString().split('T')[0])}</p>
+        <p>Saldo Pendiente de la Carpeta: ${fmt(credito.saldo)}</p>
+        <div class="divider"></div>
+        <p>Próximos Vencimientos:</p>
+        ${credito.cuotas.filter(c=>c.pagado<c.importe).slice(0,3).map(c=>`<p>Cuota ${c.numero} - ${fDate(c.vence)} - ${fmt((c.importe+calcularPunitorios(c))-c.pagado)}</p>`).join('')}
+        <div class="divider"></div>
+        <p class="center" style="font-size:10px;">ATENCION: Su pago en término evitará la adición de intereses punitorios y gastos a las cuotas.<br><br><b>CUPON PARA EL CLIENTE</b></p>
+      </div>
+      <!-- TICKET COMERCIO -->
+      <div class="ticket">
+        <div class="center"><b>${neg.toUpperCase()}</b><br>Cupón de Pago<br>Carpeta Nº: ${credito.id}</div><div class="divider"></div>
+        <p>Cliente: <b>${credito.cliente}</b></p>
+        <p>Fecha de Pago: ${fDate(new Date().toISOString().split('T')[0])}</p>
+        <p>Saldo Pendiente de la Carpeta: ${fmt(credito.saldo)}</p>
+        <div class="divider"></div>
+        <p>Próximos Vencimientos:</p>
+        ${credito.cuotas.filter(c=>c.pagado<c.importe).slice(0,3).map(c=>`<p>Cuota ${c.numero} - ${fDate(c.vence)} - ${fmt((c.importe+calcularPunitorios(c))-c.pagado)}</p>`).join('')}
+        <div class="divider"></div>
+        <p class="center" style="font-size:10px;">ATENCION: Su pago en término evitará la adición de intereses punitorios y gastos a las cuotas.<br><br><b>CUPON PARA EL COMERCIO</b></p>
+      </div>
+      <script>window.onload = function() { window.print(); }</script>
+    </body></html>
   `);
   win.document.close();
 }
