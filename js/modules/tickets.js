@@ -282,16 +282,31 @@ export function removePiezaFromTicket(idx){
 export function enviarAFacturacion(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
-  const total = t.piezas.reduce((acc, p) => acc + (p.costo * p.cant), 0);
-  if(total <= 0){ toast('Agrega al menos un repuesto o servicio antes de facturar'); return; }
+  
+  const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
+  
+  // AHORA EL SISTEMA TE AVISARÁ SI EL TICKET ESTÁ EN CERO
+  if(total <= 0){ 
+      alert('ATENCIÓN: El ticket está en $0.00. Debes agregar al menos un repuesto o servicio (ej. "Revisión") en la sección de Repuestos antes de enviarlo a Caja.'); 
+      return; 
+  }
 
   const yaExiste = DATA.cajaPendientes.some(p => p.ref === t.id);
-  if(yaExiste){ toast('Este ticket ya fue enviado a facturación'); return; }
+  if(yaExiste){ 
+      alert('Este ticket ya fue enviado a facturación previamente.'); 
+      return; 
+  }
 
   DATA.cajaPendientes.push({
     origen: 'Ticket', ref: t.id, clienteId: t.clienteId, cliente: t.cliente,
     concepto: t.piezas.map(p => `${p.cant}x ${p.nombre}`).join(', '), total: total
   });
+
+  saveToLocal();
+  closeModal('modal-ticket');
+  if(window.renderAll) window.renderAll(); 
+  alert('¡Éxito! El ticket #' + t.id + ' se envió a la pestaña de CAJA para su cobro.');
+}
 
   saveToLocal();
   closeModal('modal-ticket');

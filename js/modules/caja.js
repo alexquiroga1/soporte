@@ -484,22 +484,31 @@ export function createCreditoManual(){
   const concepto = document.getElementById('ncr-concepto').value.trim();
   const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
   
-  const cantCuotas = parseInt(document.getElementById('ncr-cuotas-hidden').value);
+  const cuotasHidden = document.getElementById('ncr-cuotas-hidden').value;
+  const cantCuotas = parseInt(cuotasHidden);
   const importeCuota = parseFloat(document.getElementById('ncr-importe-hidden').value);
   let primerVence = document.getElementById('ncr-vence').value;
 
-  if(!clienteId || !cantCuotas) return;
+  // AVISOS EN LUGAR DE FALLAR EN SILENCIO
+  if(!clienteId) { 
+      alert("⚠️ Por favor, selecciona un cliente de la lista desplegable arriba."); 
+      return; 
+  }
+  if(!cuotasHidden || isNaN(cantCuotas)) { 
+      alert("⚠️ Debes hacer clic en 'Calcular Planes de Pago' y luego presionar 'Elegir' en el plan que prefieras."); 
+      return; 
+  }
+
   const clienteObj = DATA.clientes.find(c => c.id === clienteId);
   const cNombre = getFullName(clienteObj);
   const baseTotal = cantCuotas * importeCuota;
 
-  // Validación estricta de Cupo
   const activeLoans = DATA.creditos.filter(cr => cr.cliente === cNombre && cr.saldo > 0);
   const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
   const cupoDisponible = (clienteObj.limiteCredito || 0) - currentDebt;
   
   if(baseTotal > cupoDisponible){ 
-      toast(`OPERACIÓN RECHAZADA: Cupo insuficiente. Cupo disp: ${fmt(cupoDisponible)}`); 
+      alert(`OPERACIÓN RECHAZADA: Cupo insuficiente. El cliente solo tiene disponible $${cupoDisponible}`); 
       return; 
   }
 
@@ -510,7 +519,7 @@ export function createCreditoManual(){
   
   for(let i=1; i <= cantCuotas; i++){
       arrCuotas.push({ numero: i, importe: importeCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0] });
-      fechaActual.setDate(fechaActual.getDate() + 30); // Frecuencia fija a 30 días para simplificar planes SR
+      fechaActual.setDate(fechaActual.getDate() + 30); 
   }
 
   if(anticipo > 0){
@@ -530,8 +539,8 @@ export function createCreditoManual(){
   closeModal('modal-nuevo-credito');
   renderCreditosTable();
   if(window.renderCajaView) window.renderCajaView();
-  toast('Carpeta generada con éxito');
-  printPagare(nuevoCredito);
+  alert('¡Carpeta de crédito generada con éxito!');
+  if(window.printPagare) window.printPagare(nuevoCredito);
 }
 
 // ------ FUNCIONES PARA EL PERFIL DEL CLIENTE (REFINANCIACIÓN Y NUEVO) ------
