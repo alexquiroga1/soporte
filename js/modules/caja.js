@@ -279,20 +279,20 @@ export function calcularDiasMora(cuotas) {
     return moraMaxima;
 }
 
-export function calcularPunitorios(cuota) {
+export function calcularPunitorios(cuota, perdonar = false) {
+    if(perdonar) return 0;
     const today = new Date();
     today.setHours(0,0,0,0);
     const vDate = new Date(cuota.vence);
     vDate.setHours(0,0,0,0);
     
     if(cuota.pagado >= cuota.importe || vDate >= today) return 0;
-    
     const diffDays = Math.ceil(Math.abs(today - vDate) / (1000 * 60 * 60 * 24));
-    return (cuota.importe * TASA_PUNITORIO_DIARIO * diffDays);
+    return (cuota.importe * 0.01 * diffDays); // 1% diario
 }
 
 export function creditEstado(c){
-  if(c.saldo<=0) return {label:'Saldado', cls:'done', isOverdue:false};
+  if(c.saldo<=0) return {label: c.concepto.includes('Refinanciad') ? 'Refinanciado' : 'Saldado', cls:'done', isOverdue:false};
   const mora = c.cuotas ? calcularDiasMora(c.cuotas) : 0;
   if(mora > 0){
       if(mora > 90) return {label:'Pre-Legal', cls:'urg', isOverdue: true};
@@ -303,26 +303,28 @@ export function creditEstado(c){
 }
 
 export function renderCreditosTable(){
-  const totalSaldo = DATA.creditos.reduce((s,c)=>s+c.saldo,0);
-  const vencidos = DATA.creditos.filter(c=>creditEstado(c).isOverdue).length;
-  const alCorriente = DATA.creditos.filter(c=>c.saldo > 0 && !creditEstado(c).isOverdue).length;
+  const activos = DATA.creditos.filter(c => c.saldo > 0);
+  const totalSaldo = activos.reduce((s,c)=>s+c.saldo,0);
+  const vencidos = activos.filter(c=>creditEstado(c).isOverdue).length;
+  const alCorriente = activos.filter(c=>!creditEstado(c).isOverdue).length;
   
   const kpis = document.getElementById('creditos-kpis');
   if(kpis){
       kpis.innerHTML = `
-        <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/></svg></div><div class="label">Cartera Activa (Saldo)</div><div class="value">${fmt(totalSaldo)}</div><div class="delta flat">${DATA.creditos.length} carpetas</div></div>
-        <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></div><div class="label">Carpetas en Mora</div><div class="value">${vencidos}</div><div class="delta down">Requiere gestión de cobro</div></div>
+        <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/></svg></div><div class="label">Cartera Activa (Saldo)</div><div class="value">${fmt(totalSaldo)}</div><div class="delta flat">${activos.length} carpetas</div></div>
+        <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></div><div class="label">Carpetas en Mora</div><div class="value">${vencidos}</div><div class="delta down">Requiere gestión</div></div>
         <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div><div class="label">Al corriente</div><div class="value">${alCorriente}</div><div class="delta up">Pagos al día</div></div>`;
   }
-  const meta = document.getElementById('creditos-meta');
-  if(meta) meta.textContent = 'CARTERA ACTIVA: ' + fmt(totalSaldo);
 
-  document.getElementById('creditos-table-body').innerHTML = DATA.creditos.map((c,i)=>{
+  document.getElementById('creditos-table-body').innerHTML = activos.map((c,i)=>{
     const e = creditEstado(c);
     const mora = c.cuotas ? calcularDiasMora(c.cuotas) : 0;
     const proxVence = c.cuotas ? (c.cuotas.find(x=>x.pagado < x.importe)?.vence || '—') : c.vence;
     
-    return `<tr class="tbl-row" onclick="openCreditModal(${i})">
+    // Buscamos el índice real en el array global para abrir el modal correcto
+    const realIdx = DATA.creditos.findIndex(x => x.id === c.id);
+
+    return `<tr class="tbl-row" onclick="openCreditModal(${realIdx})">
       <td><b>${c.cliente}</b><br><span style="font-size:11px; color:var(--muted);">${mora > 0 ? mora + ' días de mora' : 'En regla'}</span></td>
       <td>Carpeta: ${c.id || 'N/A'}<br><span class="mono" style="font-size:10px;">${c.concepto}</span></td>
       <td class="mono">${fmt(c.original)}</td>
@@ -343,18 +345,35 @@ export function openCreditModal(idx){
   document.getElementById('mcr-original').textContent = fmt(c.original);
   document.getElementById('mcr-saldo').textContent = fmt(c.saldo);
   
-  const diasMora = calcularDiasMora(c.cuotas);
-  document.getElementById('mcr-mora-dias').textContent = diasMora;
-  
-  const today = new Date().toISOString().split('T')[0];
-  let totalPunitorios = 0;
+  const chkPunitorios = document.getElementById('mcr-quitar-punitorios');
+  if(chkPunitorios) chkPunitorios.checked = false;
 
+  renderCuotasCreditoActual();
+
+  document.getElementById('mcr-abonos').innerHTML = c.abonos.length ? c.abonos.map(a=>`<tr><td class="mono">${a.fecha}</td><td class="mono">${fmt(a.monto)}</td><td>${a.metodo}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);text-align:center;">Sin abonos registrados.</td></tr>';
+  document.getElementById('mcr-monto-input').value = '';
+  
+  window.imprimirReciboDoble = () => printReciboDoble(c);
+  window.imprimirPagareCredito = () => printPagare(c);
+  openModal('modal-credito');
+}
+
+export function renderCuotasCreditoActual() {
+  const c = DATA.creditos[currentCreditIdx];
+  if(!c) return;
+  const today = new Date().toISOString().split('T')[0];
+  const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
+
+  let deudaTotalConMora = 0;
+  
   document.getElementById('mcr-cuotas-body').innerHTML = c.cuotas.map(cu => {
       let status = cu.pagado >= cu.importe ? 'S' : (cu.vence < today ? 'V' : 'N');
       let badge = status === 'S' ? '<span class="badge done">Saldada</span>' : (status === 'V' ? '<span class="badge urg">Vencida</span>' : '<span class="badge wait">A Vencer</span>');
-      let punitorios = calcularPunitorios(cu);
-      totalPunitorios += punitorios;
+      let punitorios = calcularPunitorios(cu, perdonar);
       
+      const totalAPagar = (cu.importe + punitorios) - cu.pagado;
+      if(totalAPagar > 0) deudaTotalConMora += totalAPagar;
+
       return `<tr>
         <td class="mono">${fDate(cu.vence)}</td>
         <td>${badge}</td>
@@ -362,18 +381,11 @@ export function openCreditModal(idx){
         <td class="mono">${fmt(cu.importe)}</td>
         <td class="mono" style="color:var(--red)">${punitorios > 0 ? fmt(punitorios) : '—'}</td>
         <td class="mono" style="color:var(--teal)">${fmt(cu.pagado)}</td>
-        <td class="mono" style="font-weight:bold;">${fmt((cu.importe + punitorios) - cu.pagado)}</td>
+        <td class="mono" style="font-weight:bold;">${fmt(totalAPagar)}</td>
       </tr>`;
   }).join('');
 
-  document.getElementById('mcr-abonos').innerHTML = c.abonos.length ? c.abonos.map(a=>`<tr><td class="mono">${a.fecha}</td><td class="mono">${fmt(a.monto)}</td><td>${a.metodo}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);text-align:center;">Sin abonos registrados.</td></tr>';
-  document.getElementById('mcr-monto-input').value = '';
-  
-  // Guardamos referencias para la impresión
-  window.imprimirReciboDoble = () => printReciboDoble(c);
-  window.imprimirPagareCredito = () => printPagare(c);
-  
-  openModal('modal-credito');
+  document.getElementById('mcr-saldo').textContent = fmt(deudaTotalConMora);
 }
 
 export function registerPayment(){
@@ -381,54 +393,194 @@ export function registerPayment(){
   const montoInput = parseFloat(document.getElementById('mcr-monto-input').value);
   if(!montoInput || montoInput <= 0){ toast('Ingresa un monto válido'); return; }
   
+  const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
   let restanteAPagar = montoInput;
   let montoCapitalAbonado = 0;
   let montoPunitoriosAbonado = 0;
 
   for(let i=0; i<c.cuotas.length; i++){
       let cu = c.cuotas[i];
-      let punitorios = calcularPunitorios(cu);
+      let punitorios = calcularPunitorios(cu, perdonar);
       let deudaCuotaTotal = (cu.importe + punitorios) - cu.pagado;
       
       if(deudaCuotaTotal > 0 && restanteAPagar > 0){
           if(restanteAPagar >= deudaCuotaTotal){
-              cu.pagado += deudaCuotaTotal; // Paga toda la cuota y punitorios
-              montoCapitalAbonado += cu.importe;
+              cu.pagado += deudaCuotaTotal; 
+              montoCapitalAbonado += (deudaCuotaTotal - punitorios);
               montoPunitoriosAbonado += punitorios;
               restanteAPagar -= deudaCuotaTotal;
           } else {
-              cu.pagado += restanteAPagar; // Paga parcial
-              montoCapitalAbonado += restanteAPagar; // Asumimos imputación a capital para simplificar
+              cu.pagado += restanteAPagar; 
+              montoCapitalAbonado += restanteAPagar; 
               restanteAPagar = 0;
           }
       }
   }
 
   c.saldo = Math.max(0, c.saldo - montoCapitalAbonado);
-  
   const metodo = document.getElementById('mcr-metodo-input').value;
   const fechaStr = new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   
-  c.abonos.push({ fecha: fechaStr, monto: montoInput, metodo: metodo });
+  c.abonos.push({ fecha: fechaStr, monto: montoInput, metodo: metodo + (perdonar?' (Sin Punitorios)':'') });
+  DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Capital - Carpeta ' + c.id, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
   
-  DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Cuota Capital - ' + c.cliente, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
   if(montoPunitoriosAbonado > 0){
-      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - ' + c.cliente, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
+      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - Carpeta ' + c.id, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
   }
   
   saveToLocal();
   openCreditModal(currentCreditIdx);
-  renderCreditosTable(); 
-  renderCajaView(); 
+  renderCreditosTable(); renderCajaView(); 
   if(window.renderAll) window.renderAll();
   toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
 }
 
+// ---------------- FLUJO DE NUEVO CRÉDITO Y REFINANCIACIÓN ----------------
+
 export function openNuevoCreditoModal(){
   if(window.populateClienteSelectCredito) window.populateClienteSelectCredito();
   document.getElementById('ncr-vence').value = addDays(30);
-  simularCredito();
+  document.getElementById('contenedor-planes').style.display = 'none';
+  document.getElementById('btn-otorgar').disabled = true;
+  document.getElementById('ncr-concepto').value = '';
   openModal('modal-nuevo-credito');
+}
+
+export function generarPlanesDePago() {
+    const capital = parseFloat(document.getElementById('ncr-monto').value) || 0;
+    const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
+    const interesGlobal = parseFloat(document.getElementById('ncr-interes').value) || 0;
+    
+    let base = capital - anticipo;
+    if(base <= 0) { toast('El monto a refinanciar debe ser mayor al anticipo'); return; }
+    
+    const totalFinanciado = base * (1 + (interesGlobal / 100));
+    const tbody = document.getElementById('ncr-tabla-planes');
+    
+    let html = '';
+    for(let i=1; i<=6; i++) {
+        const valorCuota = totalFinanciado / i;
+        html += `<tr>
+            <td>Plan ${i} SR</td>
+            <td>${i} cuotas</td>
+            <td class="mono">${fmt(valorCuota)}</td>
+            <td><button class="btn btn-primary btn-sm" onclick="seleccionarPlanDePago(${i}, ${valorCuota}, ${totalFinanciado})">Elegir</button></td>
+        </tr>`;
+    }
+    
+    tbody.innerHTML = html;
+    document.getElementById('contenedor-planes').style.display = 'block';
+}
+
+export function seleccionarPlanDePago(cuotas, importe, total) {
+    document.getElementById('ncr-plan-elegido').value = `${cuotas} cuotas de ${fmt(importe)} (Total: ${fmt(total)})`;
+    document.getElementById('ncr-cuotas-hidden').value = cuotas;
+    document.getElementById('ncr-importe-hidden').value = importe;
+    document.getElementById('btn-otorgar').disabled = false;
+}
+
+export function createCreditoManual(){
+  const clienteId = document.getElementById('ncr-cliente').value;
+  const concepto = document.getElementById('ncr-concepto').value.trim();
+  const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
+  
+  const cantCuotas = parseInt(document.getElementById('ncr-cuotas-hidden').value);
+  const importeCuota = parseFloat(document.getElementById('ncr-importe-hidden').value);
+  let primerVence = document.getElementById('ncr-vence').value;
+
+  if(!clienteId || !cantCuotas) return;
+  const clienteObj = DATA.clientes.find(c => c.id === clienteId);
+  const cNombre = getFullName(clienteObj);
+  const baseTotal = cantCuotas * importeCuota;
+
+  // Validación estricta de Cupo
+  const activeLoans = DATA.creditos.filter(cr => cr.cliente === cNombre && cr.saldo > 0);
+  const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
+  const cupoDisponible = (clienteObj.limiteCredito || 0) - currentDebt;
+  
+  if(baseTotal > cupoDisponible){ 
+      toast(`OPERACIÓN RECHAZADA: Cupo insuficiente. Cupo disp: ${fmt(cupoDisponible)}`); 
+      return; 
+  }
+
+  if(!primerVence) primerVence = addDays(30);
+
+  let arrCuotas = [];
+  let fechaActual = new Date(primerVence + 'T12:00:00');
+  
+  for(let i=1; i <= cantCuotas; i++){
+      arrCuotas.push({ numero: i, importe: importeCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0] });
+      fechaActual.setDate(fechaActual.getDate() + 30); // Frecuencia fija a 30 días para simplificar planes SR
+  }
+
+  if(anticipo > 0){
+      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Anticipo Crédito - ${cNombre}`, tipo: 'ingreso', monto: anticipo, subcategoria: 'Capital' });
+  }
+
+  const nuevoCredito = { 
+      id: 'CR-' + Date.now().toString().slice(-6),
+      cliente: cNombre, concepto: concepto || 'Otorgamiento de Crédito', 
+      fechaOrigen: new Date().toISOString().split('T')[0],
+      original: baseTotal, saldo: baseTotal, abonos: [], cuotas: arrCuotas
+  };
+  
+  DATA.creditos.unshift(nuevoCredito);
+  saveToLocal();
+
+  closeModal('modal-nuevo-credito');
+  renderCreditosTable();
+  if(window.renderCajaView) window.renderCajaView();
+  toast('Carpeta generada con éxito');
+  printPagare(nuevoCredito);
+}
+
+// ------ FUNCIONES PARA EL PERFIL DEL CLIENTE (REFINANCIACIÓN Y NUEVO) ------
+
+export function nuevoCreditoDesdePerfil() {
+    const elNombre = document.getElementById('mc-nombre').textContent;
+    closeModal('modal-cliente');
+    openNuevoCreditoModal();
+    // Forzamos la selección del cliente en el select
+    setTimeout(() => {
+        const sel = document.getElementById('ncr-cliente');
+        for(let i=0; i<sel.options.length; i++) {
+            if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+        }
+    }, 100);
+}
+
+export function refinanciarDeudaPerfil() {
+    const elNombre = document.getElementById('mc-nombre').textContent;
+    const activos = DATA.creditos.filter(cr => cr.cliente === elNombre && cr.saldo > 0);
+    
+    if(activos.length === 0) { toast('El cliente no tiene deuda activa para refinanciar'); return; }
+    
+    // Calculamos deuda total (Capital + Punitorios)
+    let deudaConsolidada = 0;
+    activos.forEach(c => {
+        c.cuotas.forEach(cu => {
+            if(cu.pagado < cu.importe) {
+                deudaConsolidada += (cu.importe + calcularPunitorios(cu, false)) - cu.pagado;
+            }
+        });
+        // Cancelamos la carpeta vieja
+        c.saldo = 0;
+        c.concepto += ' (Refinanciado)';
+    });
+    saveToLocal();
+
+    closeModal('modal-cliente');
+    openNuevoCreditoModal();
+    
+    setTimeout(() => {
+        const sel = document.getElementById('ncr-cliente');
+        for(let i=0; i<sel.options.length; i++) {
+            if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+        }
+        document.getElementById('ncr-concepto').value = 'Refinanciación de Deuda Anterior';
+        document.getElementById('ncr-monto').value = deudaConsolidada.toFixed(2);
+        toast('Se consolidó la deuda. Generá el nuevo plan de pagos.');
+    }, 100);
 }
 
 export function populateClienteSelectCredito(){
@@ -444,95 +596,11 @@ export function populateClienteSelectCredito(){
   }
 }
 
-export function simularCredito(){
-    const capital = parseFloat(document.getElementById('ncr-monto').value) || 0;
-    const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
-    const gastos = parseFloat(document.getElementById('ncr-gastos').value) || 0;
-    const honorarios = parseFloat(document.getElementById('ncr-honorarios').value) || 0;
-    const cantCuotas = parseInt(document.getElementById('ncr-cuotas').value) || 1;
-    
-    let base = (capital + gastos + honorarios) - anticipo;
-    if(base < 0) base = 0;
-    
-    document.getElementById('sim-total').textContent = fmt(base);
-    document.getElementById('sim-cuota').textContent = cantCuotas > 1 ? fmt(base / cantCuotas) + ' c/u' : fmt(base / cantCuotas);
-}
-
-export function createCreditoManual(){
-  const clienteId = document.getElementById('ncr-cliente').value;
-  const concepto = document.getElementById('ncr-concepto').value.trim();
-  const capital = parseFloat(document.getElementById('ncr-monto').value) || 0;
-  const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
-  const gastos = parseFloat(document.getElementById('ncr-gastos').value) || 0;
-  const honorarios = parseFloat(document.getElementById('ncr-honorarios').value) || 0;
-  const cantCuotas = parseInt(document.getElementById('ncr-cuotas').value) || 1;
-  const frecuencia = parseInt(document.getElementById('ncr-frecuencia').value) || 30;
-  let primerVence = document.getElementById('ncr-vence').value;
-
-  if(!clienteId || capital <= 0) { toast('Completa el Cliente y la Deuda Histórica (Capital)'); return; }
-  
-  // Validación estricta de Cupo
-  const clienteObj = DATA.clientes.find(c => c.id === clienteId);
-  const cNombre = getFullName(clienteObj);
-  let base = (capital + gastos + honorarios) - anticipo;
-  if(base < 0) base = 0;
-  
-  const activeLoans = DATA.creditos.filter(cr => cr.cliente === cNombre && cr.saldo > 0);
-  const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
-  const cupoDisponible = (clienteObj.limiteCredito || 0) - currentDebt;
-  
-  if(base > cupoDisponible){ 
-      toast(`OPERACIÓN RECHAZADA: Cupo insuficiente. Cupo disponible: ${fmt(cupoDisponible)}`); 
-      return; 
-  }
-
-  if(!primerVence) primerVence = addDays(30);
-  const valorCuota = base / cantCuotas;
-
-  let arrCuotas = [];
-  let fechaActual = new Date(primerVence + 'T12:00:00');
-  
-  for(let i=1; i <= cantCuotas; i++){
-      arrCuotas.push({ numero: i, importe: valorCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0] });
-      fechaActual.setDate(fechaActual.getDate() + frecuencia);
-  }
-
-  if(anticipo > 0){
-      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Anticipo Crédito - ${cNombre}`, tipo: 'ingreso', monto: anticipo, subcategoria: 'Capital' });
-  }
-  if(gastos > 0 || honorarios > 0){
-      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Gastos/Honorarios Crédito - ${cNombre}`, tipo: 'ingreso', monto: gastos + honorarios, subcategoria: 'Intereses/Punitorios' });
-  }
-
-  const nuevoCredito = { 
-      id: 'CR-' + Date.now().toString().slice(-6),
-      cliente: cNombre, concepto: concepto || 'Otorgamiento de Crédito', 
-      fechaOrigen: new Date().toISOString().split('T')[0],
-      original: base, saldo: base, abonos: [], cuotas: arrCuotas
-  };
-  
-  DATA.creditos.unshift(nuevoCredito);
-  saveToLocal();
-
-  document.getElementById('ncr-concepto').value = ''; document.getElementById('ncr-monto').value = ''; 
-  document.getElementById('ncr-anticipo').value = '0'; document.getElementById('ncr-gastos').value = '0';
-  document.getElementById('ncr-honorarios').value = '0'; document.getElementById('ncr-cuotas').value = '1';
-  
-  closeModal('modal-nuevo-credito');
-  renderCreditosTable();
-  if(window.renderCajaView) window.renderCajaView();
-  toast('Carpeta generada con éxito');
-  
-  // Imprimir Pagaré Automáticamente
-  printPagare(nuevoCredito);
-}
-
 export function printPagare(credito){
   const c = DATA.clientes.find(x => getFullName(x) === credito.cliente);
   const neg = DATA.negocio.nombre || 'EMPRESA PRESTADORA';
   const direccion = c ? `${c.direccion} ${c.localidad||''} ${c.provincia||''}` : '';
   const dni = c ? c.dni : '';
-  const tel = c ? c.tel : '';
   
   const win = window.open('', '', 'width=800,height=700');
   win.document.write(`
@@ -543,16 +611,16 @@ export function printPagare(credito){
       <div class="box">
         <p><b>Carpeta Nº:</b> ${credito.id} | <b>Fecha:</b> ${fDate(credito.fechaOrigen)}</p>
         <p><b>Cliente:</b> ${credito.cliente.toUpperCase()} | <b>DNI:</b> ${dni}</p>
-        <p><b>Dirección:</b> ${direccion.toUpperCase()} | <b>Teléfono:</b> ${tel}</p>
+        <p><b>Dirección:</b> ${direccion.toUpperCase()}</p>
         <p><b>Plan de Pagos:</b> ${credito.cuotas.length} cuotas de ${fmt(credito.cuotas[0].importe)}</p>
         <p><b>Monto Total Financiado:</b> ${fmt(credito.original)}</p>
       </div>
-      <p class="legales">LOS DATOS CONSIGNADOS EN LA PRESENTE REVISTEN EL CARÁCTER DE DECLARACIÓN JURADA. CONDICIONES GENERALES DE ADHESIÓN AL SISTEMA DE CRÉDITOS ${neg.toUpperCase()}: 1. El solicitante deberá abonar sus créditos en la cantidad de cuotas indicadas en este comprobante en los vencimientos indicados. 2. Una vez vencido el plazo de cualquiera de las cuotas pactadas, el crédito será considerado de plazo vencido, haciéndose exigible en su totalidad más los intereses compensatorios y punitorios vigentes (1% diario), junto con los gastos ocasionados por gestiones extrajudiciales y/o judiciales. 3. Autorizo a ${neg.toUpperCase()} a que incluya mi apellido, nombre y mi número de documento de identidad en las bases de datos de clientes MOROSOS, una vez transcurridos 30 días corridos desde la fecha de vencimiento de cualquiera de las cuotas pactadas.</p>
+      <p class="legales">LOS DATOS CONSIGNADOS EN LA PRESENTE REVISTEN EL CARÁCTER DE DECLARACIÓN JURADA. CONDICIONES GENERALES DE ADHESIÓN AL SISTEMA DE CRÉDITOS ${neg.toUpperCase()}: 1. El solicitante deberá abonar sus créditos en la cantidad de cuotas indicadas en este comprobante. 2. Una vez vencido el plazo, el crédito será considerado de plazo vencido, haciéndose exigible en su totalidad más los intereses compensatorios y punitorios vigentes (1% diario). 3. Autorizo a ${neg.toUpperCase()} a que incluya mi apellido, nombre y mi número de documento de identidad en las bases de datos de clientes MOROSOS, una vez transcurridos 30 días corridos desde la fecha de vencimiento.</p>
       <br>
       <div class="box" style="background:#f9f9f9;">
         <p><b>PAGARÉ A LA VISTA</b></p>
         <p>Por: <b>${fmt(credito.original)}</b></p>
-        <p>Pagaremos a la vista a ${neg.toUpperCase()} o a su orden sin protesto (Art 50 D. Ley 5965/63) la cantidad de PESOS detallada arriba, por igual valor recibido a nuestra entera satisfacción. Dejamos expresamente aclarado en nuestro concepto de libradores que, de conformidad con lo dispuesto en el art. 36 del decreto ley 5965/63, ampliamos el plazo de presentaciones hasta un máximo de 10 años, a contar desde la fecha del libramiento del presente.</p>
+        <p>Pagaremos a la vista a ${neg.toUpperCase()} o a su orden sin protesto (Art 50 D. Ley 5965/63) la cantidad de PESOS detallada arriba, por igual valor recibido a nuestra entera satisfacción.</p>
         <br><br><br>
         <p style="text-align:right;">___________________________________<br>Firma, Aclaración y DNI del Deudor</p>
       </div>
@@ -564,7 +632,6 @@ export function printPagare(credito){
 
 export function printReciboDoble(credito){
   const win = window.open('', '', 'width=850,height=500');
-  const proxVence = credito.cuotas.find(x=>x.pagado < x.importe);
   const neg = DATA.negocio.nombre || 'EMPRESA';
   
   win.document.write(`
