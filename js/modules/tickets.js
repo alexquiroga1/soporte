@@ -364,7 +364,7 @@ export function renderTicketNotas(t){
   document.getElementById('mt-notas').innerHTML = t.notas.length ? t.notas.map(n=>`
     <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper);">
       <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;"><b>${n.autor}</b> <span style="color:var(--muted);">${n.fecha}</span></div>
-      <div style="font-size:12px;">${n.texto}</div>
+      <div style="font-size:12px; word-break: break-word; white-space: pre-wrap;">${n.texto}</div>
     </div>
   `).join('') : '<div style="color:var(--muted);font-size:11px;text-align:center;padding:10px;">Sin notas.</div>';
 }
