@@ -6,7 +6,6 @@ import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
 
-
 export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key);
 
 export function onClientSearchInput(){
@@ -115,10 +114,11 @@ export function printTicket(id){
     </head>
     <body>
       <h2>${DATA.negocio.nombre} · Orden de Servicio #${t.id}</h2>
-      <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Presupuesto: ${t.presupuestoAprobado ? 'APROBADO' : 'PENDIENTE'}</div>
+      <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Estado Presupuesto: ${t.presupuestoAprobado ? 'APROBADO' : 'PENDIENTE'}</div>
       <div class="box">
         <p><b>Cliente:</b> ${t.cliente}</p><p><b>Equipo:</b> ${t.equipo}</p><p><b>Accesorios recibidos:</b> ${t.accesorios || 'Ninguno'}</p>
         <p><b>Condición física:</b> ${t.condicion || 'Sin registrar'}</p><p><b>Falla reportada:</b> ${t.falla}</p><p><b>Diagnóstico técnico:</b> ${t.diagnostico || 'Pendiente'}</p>
+        <p><b>Presupuesto Estimado Cotizado:</b> ${fmt(t.presupuestoEstimado || 0)}</p>
       </div>
       <h3>Repuestos / Servicios aplicados</h3>
       <table>
@@ -127,7 +127,7 @@ export function printTicket(id){
           ${(t.piezas || []).length ? (t.piezas || []).map(p => `<tr><td>${p.nombre}</td><td>${p.cant}</td><td>$${(p.costo * p.cant).toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:#8891A3;">Sin repuestos registrados</td></tr>'}
         </tbody>
       </table>
-      <div class="total-section">Total estimado: $${total.toFixed(2)}</div>
+      <div class="total-section">Costo Final a Pagar: $${total.toFixed(2)}</div>
       <div class="footer-note">Presentar este ticket o comprobante al momento de retirar su equipo. No nos hacemos responsables por equipos con más de 90 días sin recoger. Firma de conformidad: ___________________________</div>
       <script>window.onload = function() { window.print(); }</script>
     </body>
@@ -160,7 +160,7 @@ export function renderTicketsKanban(){
       t.historial.push({estado: stageInfo(newStage).label, fecha: fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor: user});
       saveToLocal();
       renderTicketsKanban(); renderTicketsTable(); 
-      if(window.renderAll) window.renderAll(); // Para actualizar Dashboard
+      if(window.renderAll) window.renderAll(); 
       checkBillingButtonVisibility(t);
       toast('Ticket #'+id+' movido a "'+stageInfo(newStage).label+'"');
     }
@@ -183,10 +183,9 @@ export function openTicketModal(id){
   document.getElementById('mt-estado-select').value = t.stage;
   document.getElementById('mt-presupuesto-chk').checked = !!t.presupuestoAprobado;
 
-  if(!t.checklist) t.checklist = {encendido:false, respaldo:false, memoria:false};
-  document.getElementById('chk-encendido').checked = !!t.checklist.encendido;
-  document.getElementById('chk-respaldo').checked = !!t.checklist.respaldo;
-  document.getElementById('chk-memoria').checked = !!t.checklist.memoria;
+  // Cargar Presupuesto Estimado
+  const elPresupuesto = document.getElementById('mt-presupuesto-input');
+  if(elPresupuesto) elPresupuesto.value = t.presupuestoEstimado || '';
 
   document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
   
@@ -208,16 +207,16 @@ export function togglePresupuesto(){
   toast(t.presupuestoAprobado ? 'Presupuesto marcado como aprobado' : 'Presupuesto pendiente');
 }
 
-export function updateChecklist(){
+// NUEVA FUNCIÓN: Guardar Presupuesto Estimado
+export function savePresupuestoEstimado(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
-  t.checklist = {
-    encendido: document.getElementById('chk-encendido').checked,
-    respaldo: document.getElementById('chk-respaldo').checked,
-    memoria: document.getElementById('chk-memoria').checked
-  };
+  
+  const valor = parseFloat(document.getElementById('mt-presupuesto-input').value) || 0;
+  t.presupuestoEstimado = valor;
+  
   saveToLocal();
-  toast('Checklist actualizado');
+  toast('Presupuesto estimado guardado (' + fmt(valor) + ')');
 }
 
 export function sendWhatsAppNotice(){
@@ -245,7 +244,17 @@ export function saveDiagnostico(){
 
 export function populateRepuestosSelect(){
   const sel = document.getElementById('mt-repuesto-select');
-  sel.innerHTML = DATA.productos.map(p => `<option value="${p.sku}">${p.nombre} (${fmt(p.precio)})</option>`).join('');
+  if (!sel) return;
+  
+  // Verificamos si hay productos creados en el catálogo
+  if (!DATA.productos || DATA.productos.length === 0) {
+      sel.innerHTML = '<option value="">(Catálogo vacío) Ve a la pestaña "Catálogo" y crea un producto/servicio</option>';
+      return;
+  }
+  
+  // Si hay productos, los mostramos correctamente
+  sel.innerHTML = '<option value="">Selecciona un repuesto o servicio...</option>' + 
+                  DATA.productos.map(p => `<option value="${p.sku}">${p.nombre} (${fmt(p.precio)})</option>`).join('');
 }
 
 export function renderTicketPiezas(t){
@@ -260,6 +269,8 @@ export function renderTicketPiezas(t){
 
 export function addPiezaToTicket(){
   const sku = document.getElementById('mt-repuesto-select').value;
+  if(!sku) { toast('Por favor, selecciona un repuesto válido de la lista'); return; }
+  
   const prod = DATA.productos.find(p => p.sku === sku);
   if(!prod) return;
 
@@ -269,6 +280,9 @@ export function addPiezaToTicket(){
   saveToLocal();
   renderTicketPiezas(t);
   toast('Artículo añadido al ticket');
+  
+  // Restablecer el select al valor por defecto
+  document.getElementById('mt-repuesto-select').value = '';
 }
 
 export function removePiezaFromTicket(idx){
@@ -285,7 +299,6 @@ export function enviarAFacturacion(){
   
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
   
-  // AHORA EL SISTEMA TE AVISARÁ SI EL TICKET ESTÁ EN CERO
   if(total <= 0){ 
       alert('ATENCIÓN: El ticket está en $0.00. Debes agregar al menos un repuesto o servicio (ej. "Revisión") en la sección de Repuestos antes de enviarlo a Caja.'); 
       return; 
@@ -351,19 +364,18 @@ export function createTicket(){
   const condicion = document.getElementById('nt-condicion').value.trim();
   const falla = document.getElementById('nt-falla').value.trim();
   
-if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
+  if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
   
-  // Leemos el contador global
   if(!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
   const id = 'TK-' + DATA.counters.tickets;
-  DATA.counters.tickets++; // Aumentamos para el siguiente
+  DATA.counters.tickets++; 
   
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   
   const t = {
     id, clienteId: cliente?cliente.id:null, cliente: clienteNombre,
     equipo, accesorios, condicion, presupuestoAprobado: false,
-    checklist: {encendido:false, respaldo:false, memoria:false},
+    presupuestoEstimado: 0, // Nuevo campo inicializado
     falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
     tecnico: document.getElementById('nt-tecnico').value, ingreso: fDate(new Date().toISOString().split('T')[0]),
     diagnostico:'Pendiente de revisión inicial.', piezas:[],
