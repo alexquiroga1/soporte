@@ -68,13 +68,18 @@ export function renderTicketsTable(){
 
   document.getElementById('tickets-table-body').innerHTML = rows.map(t=>{
     const st = stageInfo(t.stage);
-    const presupBadge = t.presupuestoFijado ? '<span style="color:var(--teal); font-size:10px; font-weight:700;">✓ Aprobado</span>' : '<span style="color:var(--amber); font-size:10px; font-weight:700;">⏳ Pendiente</span>';
+    // NUEVO: Columna de Presupuesto en la tabla
+    const presupText = t.presupuestoFijado 
+        ? `<span style="color:var(--teal); font-family:'IBM Plex Mono',monospace; font-weight:700;">${fmt(t.presupuestoEstimado)}</span>` 
+        : `<span style="color:var(--amber); font-size:10.5px; font-weight:700;">PENDIENTE</span>`;
+        
     return `<tr class="tbl-row" onclick="openTicketModal('${t.id}')">
       <td><div class="prio ${t.prioridad.toLowerCase()}">${t.prioridad}</div></td>
       <td class="mono">#${t.id}</td>
-      <td>${t.cliente}<br>${presupBadge}</td>
+      <td>${t.cliente}</td>
       <td>${t.equipo}</td>
       <td class="mono">${t.ingreso}</td>
+      <td>${presupText}</td>
       <td><span class="badge ${st.badge}">${st.label}</span></td>
       <td>${t.tecnico}</td>
       <td onclick="event.stopPropagation()">
@@ -82,7 +87,7 @@ export function renderTicketsTable(){
         <button class="btn btn-ghost btn-sm" onclick="printTicket('${t.id}')" title="Imprimir / Exportar PDF" style="padding:4px 8px;">🖨️</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:26px;">No hay tickets con estos filtros.</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:26px;">No hay tickets con estos filtros.</td></tr>';
 
   const abiertos = DATA.tickets.filter(t=>t.stage!=='entregado').length;
   document.getElementById('tickets-meta').textContent = DATA.tickets.length + ' TOTALES · ' + abiertos + ' ABIERTOS';
@@ -138,6 +143,7 @@ export function printTicket(id){
 
 export function renderTicketsKanban(){
   const board = document.getElementById('tickets-kanban');
+  if(!board) return;
   board.innerHTML = TICKET_STAGES.map(s=>{
     const items = DATA.tickets.filter(t=>t.stage===s.key);
     const cards = items.map(t=>`
@@ -167,6 +173,7 @@ export function renderTicketsKanban(){
   });
 }
 
+// NUEVO: La función ya no abre un modal, sino que cambia a la vista "ticket-detalle"
 export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
@@ -178,7 +185,7 @@ export function openTicketModal(id){
   document.getElementById('mt-accesorios').textContent = t.accesorios || 'Ninguno';
   document.getElementById('mt-condicion').textContent = t.condicion || 'Sin registrar';
   document.getElementById('mt-prioridad').innerHTML = `<span class="badge ${t.prioridad.toLowerCase()}">${t.prioridad}</span>`;
-  document.getElementById('mt-tecnico').innerHTML = `<span style="background:var(--ink); color:#fff; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:11px; font-weight:bold;">${initials(t.tecnico)}</span> ${t.tecnico}`;
+  document.getElementById('mt-tecnico').innerHTML = `<span style="background:var(--ink); color:#fff; width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:9px; font-weight:bold; margin-right:6px;">${initials(t.tecnico)}</span> ${t.tecnico}`;
   document.getElementById('mt-falla').textContent = t.falla;
   document.getElementById('mt-estado-select').value = t.stage;
   document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
@@ -186,9 +193,9 @@ export function openTicketModal(id){
   // Renderizar Stepper visual
   const stagesKeys = ['pendiente', 'diagnostico', 'reparacion', 'repuesto', 'listo'];
   let reachedCurrent = false;
-  document.querySelectorAll('#mt-stepper .step').forEach(el => {
+  document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
     const stepKey = el.getAttribute('data-step');
-    el.className = 'step'; // Reset
+    el.className = 'step-sm'; // Reset
     if(t.stage === 'entregado') { el.classList.add('completed'); return; }
     if(stepKey === t.stage) { el.classList.add('active'); reachedCurrent = true; }
     else if (!reachedCurrent) { el.classList.add('completed'); }
@@ -200,7 +207,7 @@ export function openTicketModal(id){
   if(t.presupuestoFijado) {
     document.getElementById('txt-presupuesto-fijado').textContent = fmt(t.presupuestoEstimado);
     document.getElementById('view-edit-budget').style.display = 'none';
-    document.getElementById('view-locked-budget').style.display = 'flex';
+    document.getElementById('view-locked-budget').style.display = 'block';
   } else {
     document.getElementById('view-locked-budget').style.display = 'none';
     document.getElementById('view-edit-budget').style.display = 'flex';
@@ -210,7 +217,9 @@ export function openTicketModal(id){
   renderTicketPiezas(t);
   checkBillingButtonVisibility(t);
   renderTicketNotas(t);
-  openModal('modal-ticket');
+  
+  // Cambiamos a la vista
+  if(window.goView) window.goView('ticket-detalle');
 }
 
 export function fijarPresupuesto() {
@@ -222,7 +231,8 @@ export function fijarPresupuesto() {
   saveToLocal();
   document.getElementById('txt-presupuesto-fijado').textContent = fmt(val);
   document.getElementById('view-edit-budget').style.display = 'none';
-  document.getElementById('view-locked-budget').style.display = 'flex';
+  document.getElementById('view-locked-budget').style.display = 'block';
+  renderTicketsTable(); // Para que se actualice la columna
   toast('Presupuesto fijado exitosamente');
 }
 
@@ -232,6 +242,7 @@ export function desbloquearPresupuesto() {
   saveToLocal();
   document.getElementById('view-locked-budget').style.display = 'none';
   document.getElementById('view-edit-budget').style.display = 'flex';
+  renderTicketsTable();
 }
 
 export function sendWhatsAppNotice(){
@@ -262,11 +273,11 @@ export function populateRepuestosSelect(){
   if (!sel) return;
   
   if (!DATA.productos || DATA.productos.length === 0) {
-      sel.innerHTML = '<option value="">(Catálogo vacío) Ve a la pestaña "Catálogo" y crea un producto/servicio</option>';
+      sel.innerHTML = '<option value="">(Catálogo vacío)</option>';
       return;
   }
   
-  sel.innerHTML = '<option value="">Selecciona un repuesto o servicio...</option>' + 
+  sel.innerHTML = '<option value="">Selecciona repuesto...</option>' + 
                   DATA.productos.map(p => `<option value="${p.sku}">${p.nombre} (${fmt(p.precio)})</option>`).join('');
 }
 
@@ -274,15 +285,15 @@ export function renderTicketPiezas(t){
   if(!t.piezas) t.piezas = [];
   document.getElementById('mt-piezas').innerHTML = t.piezas.length ? t.piezas.map((p, idx)=>`
     <tr>
-      <td>${p.nombre}</td>
-      <td><span class="tag">${p.cant}</span></td>
-      <td>
-        <input type="number" class="inp" style="width:90px; padding:6px; font-family:var(--font-mono); font-size:12px;" 
+      <td style="padding:6px;">${p.nombre}</td>
+      <td style="padding:6px;"><b>${p.cant}</b></td>
+      <td style="padding:6px;">
+        <input type="number" class="inp" style="width:70px; padding:4px; font-family:var(--font-mono); font-size:11px;" 
                value="${p.costo}" onchange="updatePiezaPrice(${idx}, this.value)">
       </td>
-      <td style="text-align: right;"><button class="btn btn-ghost btn-sm" onclick="removePiezaFromTicket(${idx})" style="color:var(--red); padding:4px 8px; border:none; background:transparent;">✕</button></td>
+      <td style="text-align: right; padding:6px;"><button class="btn btn-ghost btn-sm" onclick="removePiezaFromTicket(${idx})" style="color:var(--red); padding:2px 6px; border:none; background:transparent;">✕</button></td>
     </tr>
-  `).join('') : '<tr><td colspan="4" style="color:var(--muted); text-align:center;">Sin repuestos o servicios añadidos.</td></tr>';
+  `).join('') : '<tr><td colspan="4" style="color:var(--muted); text-align:center; padding:10px;">Sin repuestos.</td></tr>';
 
   const total = t.piezas.reduce((acc, p) => acc + (p.costo * p.cant), 0);
   document.getElementById('mt-total-costo').textContent = fmt(total);
@@ -295,12 +306,12 @@ export function updatePiezaPrice(idx, newPrice) {
   t.piezas[idx].costo = val;
   saveToLocal();
   renderTicketPiezas(t);
-  toast('Costo del ítem actualizado para este ticket');
+  toast('Costo actualizado');
 }
 
 export function addPiezaToTicket(){
   const sku = document.getElementById('mt-repuesto-select').value;
-  if(!sku) { toast('Por favor, selecciona un repuesto válido de la lista'); return; }
+  if(!sku) { toast('Selecciona un repuesto válido'); return; }
   
   const prod = DATA.productos.find(p => p.sku === sku);
   if(!prod) return;
@@ -310,7 +321,7 @@ export function addPiezaToTicket(){
   if(existing){ existing.cant++; } else { t.piezas.push({ nombre: prod.nombre, cant: 1, costo: prod.precio }); }
   saveToLocal();
   renderTicketPiezas(t);
-  toast('Artículo añadido al ticket');
+  toast('Artículo añadido');
   document.getElementById('mt-repuesto-select').value = '';
 }
 
@@ -319,7 +330,6 @@ export function removePiezaFromTicket(idx){
   t.piezas.splice(idx, 1);
   saveToLocal();
   renderTicketPiezas(t);
-  toast('Artículo removido');
 }
 
 export function enviarAFacturacion(){
@@ -329,7 +339,7 @@ export function enviarAFacturacion(){
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
   
   if(total <= 0){ 
-      alert('ATENCIÓN: El ticket está en $0.00. Debes agregar al menos un repuesto o servicio en la sección de Repuestos antes de enviarlo a Caja.'); 
+      alert('ATENCIÓN: Debes agregar al menos un repuesto o servicio antes de enviarlo a Caja.'); 
       return; 
   }
 
@@ -345,18 +355,18 @@ export function enviarAFacturacion(){
   });
 
   saveToLocal();
-  closeModal('modal-ticket');
+  if(window.goView) window.goView('caja'); 
   if(window.renderAll) window.renderAll(); 
-  alert('¡Éxito! El ticket #' + t.id + ' se envió a la pestaña de CAJA para su cobro.');
+  toast('Enviado a CAJA para su cobro.');
 }
 
 export function renderTicketNotas(t){
   document.getElementById('mt-notas').innerHTML = t.notas.length ? t.notas.map(n=>`
-    <div class="note-item">
-      <div class="note-head"><b>${n.autor}</b> <span>${n.fecha}</span></div>
-      <div class="note-body">${n.texto}</div>
+    <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;"><b>${n.autor}</b> <span style="color:var(--muted);">${n.fecha}</span></div>
+      <div style="font-size:12px;">${n.texto}</div>
     </div>
-  `).join('') : '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:10px;">Sin notas todavía.</div>';
+  `).join('') : '<div style="color:var(--muted);font-size:11px;text-align:center;padding:10px;">Sin notas.</div>';
 }
 
 export function addTicketNota(){
