@@ -172,7 +172,6 @@
           <select class="sel" id="tk-filter-tecnico" onchange="renderTicketsTable()">
             <option value="">Todos los técnicos</option>
             <option value="Sin asignar">Sin asignar</option>
-            <!-- Técnicos llenados dinámicamente -->
           </select>
           <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
             <option value="">Todos los estados</option>
@@ -262,7 +261,8 @@
       <div class="view" id="view-caja">
         <div class="page-head">
           <div><h1>Caja</h1><p id="caja-meta">CORTE ABIERTO DESDE 08:00</p></div>
-<button class="btn btn-primary" onclick="abrirModalCierre()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Cerrar corte</button>        </div>
+          <button class="btn btn-primary" onclick="abrirModalCierre()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Cerrar corte</button>
+        </div>
 
         <div class="tabs" style="margin-bottom:16px;">
           <div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div>
@@ -316,186 +316,19 @@
         </div>
       </div>
 
-<!-- MODAL: CLIENTE DETALLE -->
-<div class="modal-overlay" id="modal-cliente">
-  <div class="modal">
-    <div class="modal-head">
-      <div><h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span></div>
-      <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <div class="mrow">
-        <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
-        <div class="mfield"><div class="l">Dirección / Localidad</div><div class="v" id="mc-direccion"></div></div>
-        <div class="mfield">
-          <div class="l">Límite de Crédito Disp ($)</div>
-          <div style="display:flex; gap:6px;">
-            <input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;">
-            <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
-          </div>
+      <!-- ================= CLIENTES (VISTA RESTAURADA) ================= -->
+      <div class="view" id="view-clientes">
+        <div class="page-head">
+          <div><h1>Clientes</h1><p id="clientes-meta">— REGISTRADOS</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuevo cliente</button>
         </div>
-        <div class="mfield"><div class="l">Tickets totales</div><div class="v" id="mc-ntickets"></div></div>
-      </div>
-      
-      <div class="tabs" style="margin: 16px 0 12px;">
-        <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Carpetas / Créditos</div>
-        <div class="tab" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
-        <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
-      </div>
-
-      <div id="mc-tab-prestamos" class="client-subview">
-        <div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
-        <div class="msection"><h4>Carpetas Finalizadas</h4><div id="mc-prestamos-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-tickets" class="client-subview" style="display:none;">
-        <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
-        <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
-      </div>
-
-      <div id="mc-tab-ventas" class="client-subview" style="display:none;">
-        <div class="msection">
-          <h4>Historial de Compras / Facturación</h4>
-          <table>
-            <thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead>
-            <tbody id="mc-ventas-list"></tbody>
-          </table>
+        <div class="toolbar">
+          <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono o DNI…" oninput="renderClientesTable()"></div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: NUEVO CLIENTE (CON DNI Y LOCALIDAD) -->
-<div class="modal-overlay" id="modal-nuevo-cliente">
-  <div class="modal narrow">
-    <div class="modal-head"><h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="full"><label>Nombre(s) / Razón social</label><input id="ncl-nombre" class="inp" placeholder="Ej. Juan"></div>
-        <div><label>Apellido(s)</label><input id="ncl-apellido" class="inp" placeholder="Ej. Pérez"></div>
-        <div><label>DNI / CUIT</label><input id="ncl-dni" class="inp" placeholder="Documento"></div>
-        <div class="full"><label>Dirección (Calle y Nro)</label><input id="ncl-direccion" class="inp" placeholder="Ej. Av. Siempre Viva 123"></div>
-        <div><label>Provincia</label><input id="ncl-provincia" class="inp" placeholder="Provincia"></div>
-        <div><label>Localidad</label><input id="ncl-localidad" class="inp" placeholder="Ciudad"></div>
-        <div class="full"><label>Barrio</label><input id="ncl-barrio" class="inp" placeholder="Barrio / Zona"></div>
-        <div><label>Teléfono</label><input id="ncl-tel" class="inp" placeholder="555-000-0000"></div>
-        <div><label>Correo electrónico</label><input id="ncl-email" class="inp" placeholder="correo@ejemplo.com"></div>
-        <div class="full"><label>Límite de Crédito Disp ($)</label><input id="ncl-limite" class="inp" type="number" placeholder="Ej. 1000" value="5000"></div>
-      </div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-cliente')">Cancelar</button><button class="btn btn-primary" onclick="createCliente()">Guardar cliente</button></div>
-  </div>
-</div>
-
-<!-- MODAL: CRÉDITO DETALLE (SISTEMA DE CUOTAS Y MORA) -->
-<div class="modal-overlay" id="modal-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <button class="btn btn-ghost btn-sm" onclick="printCupones()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Cupones</button>
-        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      </div>
-    </div>
-    <div class="modal-body">
-      
-      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
-        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
-        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
-        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
-      </div>
-
-      <div class="tabs" style="margin-bottom:16px;">
-        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
-        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
-      </div>
-
-      <div id="cr-tab-cuotas" class="credito-subview">
         <div class="panel">
-          <table>
-            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Pagado</th><th>Saldo Restante</th></tr></thead>
-            <tbody id="mcr-cuotas-body"></tbody>
-          </table>
-        </div>
-        
-        <div class="abono-form" style="margin-top:16px; background:var(--teal-dim); padding:16px; border-radius:12px;">
-          <div style="width:100%; font-size:12px; font-weight:700; color:var(--teal); margin-bottom:10px;">REGISTRAR PAGO (Imputa automáticamente a la cuota más vieja)</div>
-          <div style="display:flex; gap:12px; align-items:flex-end;">
-            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
-            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
-          </div>
+          <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
         </div>
       </div>
-
-      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
-        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: NUEVO CRÉDITO CON CALCULADORA (REFINANCIACIÓN) -->
-<div class="modal-overlay" id="modal-nuevo-credito">
-  <div class="modal"> 
-    <div class="modal-head">
-      <div><h3>Ingreso de Nueva Carpeta</h3></div>
-      <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="full">
-          <label>Cliente (Acreedor)</label>
-          <select id="ncr-cliente" class="sel"></select>
-        </div>
-        <div class="full"><label>Concepto / Referencia</label><input id="ncr-concepto" class="inp" placeholder="Ej. Refinanciación de Deuda"></div>
-        
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label>Deuda Histórica / Capital ($)</label>
-          <input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00" oninput="simularCredito()">
-        </div>
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label>Gastos Administrativos ($)</label>
-          <input id="ncr-gastos" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()">
-        </div>
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label>Honorarios / Punitorios ($)</label>
-          <input id="ncr-honorarios" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()">
-        </div>
-        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
-          <label style="color:var(--teal);">Anticipo del Cliente ($)</label>
-          <input id="ncr-anticipo" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()" title="Se descontará del total a financiar">
-        </div>
-        
-        <div style="grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 4px;">
-          <b style="font-size:12px; color:var(--copper);">PLAN DE PAGOS</b>
-        </div>
-
-        <div><label>Cant. de Cuotas</label><input id="ncr-cuotas" type="number" class="inp" min="1" step="1" value="1" oninput="simularCredito()"></div>
-        <div>
-          <label>Frecuencia de Pago</label>
-          <select id="ncr-frecuencia" class="sel" onchange="simularCredito()">
-            <option value="30">Mensual (30 días)</option>
-            <option value="15">Quincenal (15 días)</option>
-            <option value="7">Semanal (7 días)</option>
-          </select>
-        </div>
-        <div class="full"><label>Fecha 1er Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
-      </div>
-
-      <div id="ncr-simulacion" style="margin-top:16px; padding:16px; background:var(--copper-dim); border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
-        <div><div style="font-size:11px; font-weight:700; color:var(--copper);">VALOR DE CADA CUOTA</div><div id="sim-cuota" style="font-size:24px; font-family:'IBM Plex Mono'; font-weight:700;">$0.00</div></div>
-        <div style="text-align:right;"><div style="font-size:11px; font-weight:700; color:var(--copper);">DEUDA TOTAL A REFINANCIAR</div><div id="sim-total" style="font-size:18px; font-family:'IBM Plex Mono'; font-weight:700;">$0.00</div></div>
-      </div>
-
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button>
-      <button class="btn btn-primary" onclick="createCreditoManual()">Confirmar y Otorgar</button>
-    </div>
-  </div>
-</div>
 
       <!-- ================= CRÉDITOS ================= -->
       <div class="view" id="view-creditos">
@@ -627,6 +460,7 @@
 </div> <!-- CIERRE APP CONTAINER -->
 
 <!-- ============ MODALES (Tickets, Clientes, etc.) ============ -->
+
 <!-- MODAL: TICKET DETALLE -->
 <div class="modal-overlay" id="modal-ticket">
   <div class="modal">
@@ -758,9 +592,9 @@
     <div class="modal-body">
       <div class="mrow">
         <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
-        <div class="mfield"><div class="l">Dirección</div><div class="v" id="mc-direccion"></div></div>
+        <div class="mfield"><div class="l">Dirección / Localidad</div><div class="v" id="mc-direccion"></div></div>
         <div class="mfield">
-          <div class="l">Límite de Crédito ($)</div>
+          <div class="l">Límite de Crédito Disp ($)</div>
           <div style="display:flex; gap:6px;">
             <input type="number" id="mc-limite-input" class="inp" style="width:100px; padding:4px 8px;">
             <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
@@ -770,12 +604,17 @@
       </div>
       
       <div class="tabs" style="margin: 16px 0 12px;">
-        <div class="tab active" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
+        <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Carpetas / Créditos</div>
+        <div class="tab" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
         <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
-        <div class="tab" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Préstamos</div>
       </div>
 
-      <div id="mc-tab-tickets" class="client-subview">
+      <div id="mc-tab-prestamos" class="client-subview">
+        <div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
+        <div class="msection"><h4>Carpetas Finalizadas</h4><div id="mc-prestamos-finalizados"></div></div>
+      </div>
+
+      <div id="mc-tab-tickets" class="client-subview" style="display:none;">
         <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
         <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
       </div>
@@ -789,70 +628,115 @@
           </table>
         </div>
       </div>
-
-      <div id="mc-tab-prestamos" class="client-subview" style="display:none;">
-        <div class="msection"><h4>Préstamos Activos (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
-        <div class="msection"><h4>Préstamos Finalizados (Liquidados)</h4><div id="mc-prestamos-finalizados"></div></div>
-      </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL: CRÉDITO DETALLE -->
+<!-- MODAL: CRÉDITO DETALLE (SISTEMA DE CUOTAS Y MORA) -->
 <div class="modal-overlay" id="modal-credito">
-  <div class="modal narrow">
+  <div class="modal"> 
     <div class="modal-head">
       <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
-      <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn btn-ghost btn-sm" onclick="printCupones()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Imprimir Cupones</button>
+        <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
     </div>
     <div class="modal-body">
-      <div class="mrow">
-        <div class="mfield"><div class="l">Monto original</div><div class="v" id="mcr-original"></div></div>
-        <div class="mfield"><div class="l">Vence</div><div class="v" id="mcr-vence"></div></div>
-      </div>
       
-      <div class="mfield" style="margin-bottom:12px;">
-        <div class="l">Saldo pendiente</div>
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div class="v" id="mcr-saldo" style="font-size:20px;font-family:'IBM Plex Mono',monospace;"></div>
-          <button class="btn btn-ghost btn-sm" id="btn-aplicar-mora" onclick="aplicarInteresMora()" style="color:var(--red); display:none;">+ Aplicar Interés (Mora)</button>
-        </div>
-        <div class="progress" style="margin-top:8px;"><i id="mcr-progress" style="width:0%;"></i></div>
+      <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
+        <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
+        <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
+        <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
       </div>
 
-      <div class="abono-form">
-        <div class="f"><label>Monto del abono</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-        <div class="f"><label>Método</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
-        <button class="btn btn-primary btn-sm" onclick="registerPayment()">Registrar abono</button>
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
+        <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
       </div>
-      <div class="msection"><h4>Historial de abonos</h4>
-        <table><thead><tr><th>Fecha</th><th>Monto</th><th>Método</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
+
+      <div id="cr-tab-cuotas" class="credito-subview">
+        <div class="panel">
+          <table>
+            <thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Pagado</th><th>Saldo Restante</th></tr></thead>
+            <tbody id="mcr-cuotas-body"></tbody>
+          </table>
+        </div>
+        
+        <div class="abono-form" style="margin-top:16px; background:var(--teal-dim); padding:16px; border-radius:12px;">
+          <div style="width:100%; font-size:12px; font-weight:700; color:var(--teal); margin-bottom:10px;">REGISTRAR PAGO (Imputa automáticamente a la cuota más vieja)</div>
+          <div style="display:flex; gap:12px; align-items:flex-end;">
+            <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+            <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
+            <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
+        <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL: NUEVO CRÉDITO -->
+<!-- MODAL: NUEVO CRÉDITO CON CALCULADORA (REFINANCIACIÓN) -->
 <div class="modal-overlay" id="modal-nuevo-credito">
-  <div class="modal narrow">
+  <div class="modal"> 
     <div class="modal-head">
-      <div><h3>Otorgar Préstamo Manual</h3></div>
+      <div><h3>Ingreso de Nueva Carpeta</h3></div>
       <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="full">
-          <label>Cliente</label>
+          <label>Cliente (Acreedor)</label>
           <select id="ncr-cliente" class="sel"></select>
         </div>
-        <div class="full"><label>Concepto / Motivo</label><input id="ncr-concepto" class="inp" placeholder="Ej. Préstamo para repuestos"></div>
-        <div><label>Monto a otorgar ($)</label><input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00"></div>
-        <div><label>Fecha de Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
+        <div class="full"><label>Concepto / Referencia</label><input id="ncr-concepto" class="inp" placeholder="Ej. Refinanciación de Deuda"></div>
+        
+        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
+          <label>Deuda Histórica / Capital ($)</label>
+          <input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00" oninput="simularCredito()">
+        </div>
+        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
+          <label>Gastos Administrativos ($)</label>
+          <input id="ncr-gastos" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()">
+        </div>
+        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
+          <label>Honorarios / Punitorios ($)</label>
+          <input id="ncr-honorarios" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()">
+        </div>
+        <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
+          <label style="color:var(--teal);">Anticipo del Cliente ($)</label>
+          <input id="ncr-anticipo" type="number" class="inp" min="0" step="0.01" value="0" oninput="simularCredito()" title="Se descontará del total a financiar">
+        </div>
+        
+        <div style="grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 4px;">
+          <b style="font-size:12px; color:var(--copper);">PLAN DE PAGOS</b>
+        </div>
+
+        <div><label>Cant. de Cuotas</label><input id="ncr-cuotas" type="number" class="inp" min="1" step="1" value="1" oninput="simularCredito()"></div>
+        <div>
+          <label>Frecuencia de Pago</label>
+          <select id="ncr-frecuencia" class="sel" onchange="simularCredito()">
+            <option value="30">Mensual (30 días)</option>
+            <option value="15">Quincenal (15 días)</option>
+            <option value="7">Semanal (7 días)</option>
+          </select>
+        </div>
+        <div class="full"><label>Fecha 1er Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
       </div>
+
+      <div id="ncr-simulacion" style="margin-top:16px; padding:16px; background:var(--copper-dim); border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+        <div><div style="font-size:11px; font-weight:700; color:var(--copper);">VALOR DE CADA CUOTA</div><div id="sim-cuota" style="font-size:24px; font-family:'IBM Plex Mono'; font-weight:700;">$0.00</div></div>
+        <div style="text-align:right;"><div style="font-size:11px; font-weight:700; color:var(--copper);">DEUDA TOTAL A REFINANCIAR</div><div id="sim-total" style="font-size:18px; font-family:'IBM Plex Mono'; font-weight:700;">$0.00</div></div>
+      </div>
+
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button>
-      <button class="btn btn-primary" onclick="createCreditoManual()">Otorgar Préstamo</button>
+      <button class="btn btn-primary" onclick="createCreditoManual()">Confirmar y Otorgar</button>
     </div>
   </div>
 </div>
@@ -886,18 +770,22 @@
   </div>
 </div>
 
-<!-- MODAL: NUEVO CLIENTE -->
+<!-- MODAL: NUEVO CLIENTE (CON DNI Y LOCALIDAD) -->
 <div class="modal-overlay" id="modal-nuevo-cliente">
   <div class="modal narrow">
     <div class="modal-head"><h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="full"><label>Nombre(s) / Razón social</label><input id="ncl-nombre" class="inp" placeholder="Ej. Juan"></div>
-        <div class="full"><label>Apellido(s)</label><input id="ncl-apellido" class="inp" placeholder="Ej. Pérez"></div>
-        <div class="full"><label>Dirección</label><input id="ncl-direccion" class="inp" placeholder="Ej. Av. Siempre Viva 123"></div>
+        <div><label>Apellido(s)</label><input id="ncl-apellido" class="inp" placeholder="Ej. Pérez"></div>
+        <div><label>DNI / CUIT</label><input id="ncl-dni" class="inp" placeholder="Documento"></div>
+        <div class="full"><label>Dirección (Calle y Nro)</label><input id="ncl-direccion" class="inp" placeholder="Ej. Av. Siempre Viva 123"></div>
+        <div><label>Provincia</label><input id="ncl-provincia" class="inp" placeholder="Provincia"></div>
+        <div><label>Localidad</label><input id="ncl-localidad" class="inp" placeholder="Ciudad"></div>
+        <div class="full"><label>Barrio</label><input id="ncl-barrio" class="inp" placeholder="Barrio / Zona"></div>
         <div><label>Teléfono</label><input id="ncl-tel" class="inp" placeholder="555-000-0000"></div>
         <div><label>Correo electrónico</label><input id="ncl-email" class="inp" placeholder="correo@ejemplo.com"></div>
-        <div class="full"><label>Límite de Crédito ($)</label><input id="ncl-limite" class="inp" type="number" placeholder="Ej. 1000" value="500"></div>
+        <div class="full"><label>Límite de Crédito Disp ($)</label><input id="ncl-limite" class="inp" type="number" placeholder="Ej. 1000" value="5000"></div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-nuevo-cliente')">Cancelar</button><button class="btn btn-primary" onclick="createCliente()">Guardar cliente</button></div>
