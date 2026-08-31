@@ -147,10 +147,32 @@ export function procesarCobroFinal(){
   if(currentCobroIdx === null || currentCobroIdx === undefined) return;
   const item = DATA.cajaPendientes[currentCobroIdx];
 
+  // Descuento de stock: primero validamos toda la operación para evitar vender
+  // más unidades de las disponibles o dejar el inventario en valores incorrectos.
+  // La validación ocurre antes de crear crédito/venta para que una operación
+  // rechazada no deje datos financieros a medio registrar.
+  const stockItems = [];
+  if(item.articulosCart){
+    for(const c of item.articulosCart){
+      let p = c.sku ? DATA.productos.find(x=>x.sku===c.sku) : null;
+      if(!p && c.nombre) p = DATA.productos.find(x=>x.nombre===c.nombre);
+      if(!p || p.categoria === 'Servicios') continue;
+
+      const cantidad = Number(c.cantidad) || 0;
+      if(cantidad <= 0) continue;
+      const stockActual = Number(p.stock) || 0;
+      if(stockActual < cantidad){
+        toast(`Stock insuficiente para ${p.nombre}. Disponible: ${stockActual}, solicitado: ${cantidad}`);
+        return;
+      }
+      stockItems.push({ producto: p, cantidad });
+    }
+  }
+
   if(selectedCobroMetodo === 'Préstamo personal'){
     let clienteObj = item.clienteId ? DATA.clientes.find(c => c.id === item.clienteId) : DATA.clientes.find(c => getFullName(c) === item.cliente || c.nombre === item.cliente);
     const fechaVence = addDays(30);
-    const cuotasArray = [{ numero: 1, importe: item.total, pagado: 0, vence: fechaVence }];
+    const cuotasArray = [{ numero: 1, importe: item.total, pagado: 0, capitalPagado: 0, punitoriosPagados: 0, vence: fechaVence }];
     
     DATA.creditos.unshift({
       id: 'CR-' + Date.now().toString().slice(-6),
@@ -161,12 +183,9 @@ export function procesarCobroFinal(){
     });
   }
 
-  if(item.articulosCart){
-    item.articulosCart.forEach(c=>{
-      const p = DATA.productos.find(x=>x.sku===c.sku);
-      if(p && p.categoria!=='Servicios') p.stock = Math.max(0, p.stock - c.cantidad);
-    });
-  }
+  stockItems.forEach(({producto, cantidad}) => {
+    producto.stock = (Number(producto.stock) || 0) - cantidad;
+  });
 
   if(selectedCobroMetodo !== 'Préstamo personal') {
     DATA.caja.movs.push({
@@ -248,18 +267,61 @@ export function abrirModalCierre(){
 
 export function cerrarCorte(){
   const nuevoFondo = parseFloat(document.getElementById('cierre-nuevo-fondo').value) || 0;
+  if(nuevoFondo < 0){ toast('El nuevo fondo no puede ser negativo'); return; }
+
+  const movsActuales = Array.isArray(DATA.caja.movs) ? DATA.caja.movs : [];
+  const ingresos = movsActuales.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+(Number(m.monto)||0),0);
+  const egresos = movsActuales.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+(Number(m.monto)||0),0);
+  const fondoInicial = Number(DATA.caja.fondo) || 0;
+  const efectivoEsperado = fondoInicial + ingresos - egresos;
+  const fecha = new Date();
+
+  if(!Array.isArray(DATA.caja.cortes)) DATA.caja.cortes = [];
+  DATA.caja.cortes.unshift({
+    id: 'COR-' + fecha.getTime(),
+    apertura: DATA.caja.sesion?.inicio || null,
+    cierre: fecha.toISOString(),
+    usuario: currentUserProfile ? currentUserProfile.nombre : 'Usuario',
+    fondoInicial,
+    ingresos,
+    egresos,
+    efectivoEsperado,
+    nuevoFondo,
+    movs: movsActuales.map(m => ({...m}))
+  });
+
+  // Solo se limpia la sesión ACTIVA. Los movimientos históricos quedan dentro de cortes.
   DATA.caja.movs = [];
   DATA.caja.fondo = nuevoFondo;
+  DATA.caja.sesion = { inicio: fecha.toISOString(), fondoInicial: nuevoFondo };
+
   saveToLocal();
   closeModal('modal-cierre');
   renderCajaView();
   if(window.renderAll) window.renderAll();
-  toast('Corte cerrado. Nuevo fondo: ' + fmt(nuevoFondo));
+  toast('Corte cerrado. Historial guardado. Nuevo fondo: ' + fmt(nuevoFondo));
 }
 
 // ==========================================
 // SECCIÓN: MÓDULO FINANCIERO AVANZADO
 // ==========================================
+
+export function normalizarCuota(cuota){
+  if(!cuota) return cuota;
+  const importe = Number(cuota.importe) || 0;
+
+  // Compatibilidad con datos anteriores: `pagado` representaba pagos acumulados.
+  if(!Object.prototype.hasOwnProperty.call(cuota, 'capitalPagado')){
+    cuota.capitalPagado = Math.min(importe, Math.max(0, Number(cuota.pagado) || 0));
+  }
+  if(!Object.prototype.hasOwnProperty.call(cuota, 'punitoriosPagados')){
+    cuota.punitoriosPagados = 0;
+  }
+  cuota.capitalPagado = Math.min(importe, Math.max(0, Number(cuota.capitalPagado) || 0));
+  cuota.punitoriosPagados = Math.max(0, Number(cuota.punitoriosPagados) || 0);
+  cuota.pagado = cuota.capitalPagado + cuota.punitoriosPagados;
+  return cuota;
+}
 
 export function calcularDiasMora(cuotas) {
     if(!cuotas || cuotas.length === 0) return 0;
@@ -267,7 +329,8 @@ export function calcularDiasMora(cuotas) {
     today.setHours(0,0,0,0);
     let moraMaxima = 0;
     cuotas.forEach(cu => {
-        if(cu.pagado < cu.importe) {
+        normalizarCuota(cu);
+        if(cu.capitalPagado < (Number(cu.importe)||0)) {
             const vDate = new Date(cu.vence);
             vDate.setHours(0,0,0,0);
             if(vDate < today) {
@@ -280,15 +343,17 @@ export function calcularDiasMora(cuotas) {
 }
 
 export function calcularPunitorios(cuota, perdonar = false) {
+    normalizarCuota(cuota);
     if(perdonar) return 0;
     const today = new Date();
     today.setHours(0,0,0,0);
     const vDate = new Date(cuota.vence);
     vDate.setHours(0,0,0,0);
-    
-    if(cuota.pagado >= cuota.importe || vDate >= today) return 0;
+    const capitalPendiente = Math.max(0, (Number(cuota.importe)||0) - cuota.capitalPagado);
+    if(capitalPendiente <= 0 || vDate >= today) return 0;
     const diffDays = Math.ceil(Math.abs(today - vDate) / (1000 * 60 * 60 * 24));
-    return (cuota.importe * 0.01 * diffDays); // 1% diario
+    const generado = capitalPendiente * 0.01 * diffDays;
+    return Math.max(0, generado - cuota.punitoriosPagados);
 }
 
 export function creditEstado(c){
@@ -365,15 +430,17 @@ export function renderCuotasCreditoActual() {
   const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
 
   let deudaTotalConMora = 0;
-  
-  document.getElementById('mcr-cuotas-body').innerHTML = c.cuotas.map(cu => {
-      let status = cu.pagado >= cu.importe ? 'S' : (cu.vence < today ? 'V' : 'N');
-      let badge = status === 'S' ? '<span class="badge done">Saldada</span>' : (status === 'V' ? '<span class="badge urg">Vencida</span>' : '<span class="badge wait">A Vencer</span>');
-      let punitorios = calcularPunitorios(cu, perdonar);
-      
-      const totalAPagar = (cu.importe + punitorios) - cu.pagado;
-      if(totalAPagar > 0) deudaTotalConMora += totalAPagar;
+  let saldoCapital = 0;
 
+  document.getElementById('mcr-cuotas-body').innerHTML = c.cuotas.map(cu => {
+      normalizarCuota(cu);
+      const capitalPendiente = Math.max(0, (Number(cu.importe)||0) - cu.capitalPagado);
+      saldoCapital += capitalPendiente;
+      const status = capitalPendiente <= 0 ? 'S' : (cu.vence < today ? 'V' : 'N');
+      const badge = status === 'S' ? '<span class="badge done">Saldada</span>' : (status === 'V' ? '<span class="badge urg">Vencida</span>' : '<span class="badge wait">A Vencer</span>');
+      const punitorios = calcularPunitorios(cu, perdonar);
+      const totalAPagar = Math.max(0, capitalPendiente + punitorios);
+      deudaTotalConMora += totalAPagar;
       return `<tr>
         <td class="mono">${fDate(cu.vence)}</td>
         <td>${badge}</td>
@@ -385,54 +452,83 @@ export function renderCuotasCreditoActual() {
       </tr>`;
   }).join('');
 
+  c.saldo = saldoCapital;
   document.getElementById('mcr-saldo').textContent = fmt(deudaTotalConMora);
 }
 
 export function registerPayment(){
   const c = DATA.creditos[currentCreditIdx];
   const montoInput = parseFloat(document.getElementById('mcr-monto-input').value);
+  if(!c){ toast('No se encontró el crédito'); return; }
   if(!montoInput || montoInput <= 0){ toast('Ingresa un monto válido'); return; }
-  
+
   const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
-  let restanteAPagar = montoInput;
+  let restante = montoInput;
   let montoCapitalAbonado = 0;
   let montoPunitoriosAbonado = 0;
 
-  for(let i=0; i<c.cuotas.length; i++){
-      let cu = c.cuotas[i];
-      let punitorios = calcularPunitorios(cu, perdonar);
-      let deudaCuotaTotal = (cu.importe + punitorios) - cu.pagado;
-      
-      if(deudaCuotaTotal > 0 && restanteAPagar > 0){
-          if(restanteAPagar >= deudaCuotaTotal){
-              cu.pagado += deudaCuotaTotal; 
-              montoCapitalAbonado += (deudaCuotaTotal - punitorios);
-              montoPunitoriosAbonado += punitorios;
-              restanteAPagar -= deudaCuotaTotal;
-          } else {
-              cu.pagado += restanteAPagar; 
-              montoCapitalAbonado += restanteAPagar; 
-              restanteAPagar = 0;
-          }
-      }
+  for(const cu of c.cuotas){
+    if(restante <= 0) break;
+    normalizarCuota(cu);
+
+    const capitalPendiente = Math.max(0, (Number(cu.importe)||0) - cu.capitalPagado);
+    if(capitalPendiente <= 0) continue;
+
+    const punitoriosPendientes = calcularPunitorios(cu, perdonar);
+    const pagarPunitorios = Math.min(restante, punitoriosPendientes);
+    if(pagarPunitorios > 0){
+      cu.punitoriosPagados += pagarPunitorios;
+      montoPunitoriosAbonado += pagarPunitorios;
+      restante -= pagarPunitorios;
+    }
+
+    if(restante > 0){
+      const pagarCapital = Math.min(restante, capitalPendiente);
+      cu.capitalPagado += pagarCapital;
+      montoCapitalAbonado += pagarCapital;
+      restante -= pagarCapital;
+    }
+
+    cu.pagado = cu.capitalPagado + cu.punitoriosPagados;
   }
 
-  c.saldo = Math.max(0, c.saldo - montoCapitalAbonado);
+  // El saldo de la carpeta representa solo capital pendiente.
+  c.saldo = c.cuotas.reduce((sum, cu) => {
+    normalizarCuota(cu);
+    return sum + Math.max(0, (Number(cu.importe)||0) - cu.capitalPagado);
+  }, 0);
+
   const metodo = document.getElementById('mcr-metodo-input').value;
-  const fechaStr = new Date().toLocaleDateString('es-MX') + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-  
-  c.abonos.push({ fecha: fechaStr, monto: montoInput, metodo: metodo + (perdonar?' (Sin Punitorios)':'') });
-  DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Capital - Carpeta ' + c.id, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
-  
-  if(montoPunitoriosAbonado > 0){
-      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - Carpeta ' + c.id, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  const montoImputado = montoCapitalAbonado + montoPunitoriosAbonado;
+  c.abonos.push({
+    fecha: fechaStr,
+    monto: montoImputado,
+    capital: montoCapitalAbonado,
+    punitorios: montoPunitoriosAbonado,
+    saldoCapital: c.saldo,
+    metodo: metodo + (perdonar?' (Sin Punitorios)':'')
+  });
+
+  if(montoCapitalAbonado > 0){
+    DATA.caja.movs.push({ hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Capital - Carpeta ' + c.id, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
   }
-  
+  if(montoPunitoriosAbonado > 0){
+    DATA.caja.movs.push({ hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - Carpeta ' + c.id, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
+  }
+
   saveToLocal();
   openCreditModal(currentCreditIdx);
-  renderCreditosTable(); renderCajaView(); 
+  renderCreditosTable(); renderCajaView();
   if(window.renderAll) window.renderAll();
-  toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
+
+  if(restante > 0){
+    toast('Pago registrado. Quedaron ' + fmt(restante) + ' sin imputar porque la deuda quedó saldada.');
+  } else {
+    toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
+  }
 }
 
 // ---------------- FLUJO DE NUEVO CRÉDITO Y REFINANCIACIÓN ----------------
@@ -518,7 +614,7 @@ export function createCreditoManual(){
   let fechaActual = new Date(primerVence + 'T12:00:00');
   
   for(let i=1; i <= cantCuotas; i++){
-      arrCuotas.push({ numero: i, importe: importeCuota, pagado: 0, vence: fechaActual.toISOString().split('T')[0] });
+      arrCuotas.push({ numero: i, importe: importeCuota, pagado: 0, capitalPagado: 0, punitoriosPagados: 0, vence: fechaActual.toISOString().split('T')[0] });
       fechaActual.setDate(fechaActual.getDate() + 30); 
   }
 

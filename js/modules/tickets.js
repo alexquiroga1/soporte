@@ -317,8 +317,13 @@ export function addPiezaToTicket(){
   if(!prod) return;
 
   const t = DATA.tickets.find(x => x.id === currentTicketId);
-  const existing = t.piezas.find(p => p.nombre === prod.nombre);
-  if(existing){ existing.cant++; } else { t.piezas.push({ nombre: prod.nombre, cant: 1, costo: prod.precio }); }
+  const existing = t.piezas.find(p => (p.sku && p.sku === prod.sku) || (!p.sku && p.nombre === prod.nombre));
+  if(existing){
+    existing.cant++;
+    existing.sku = existing.sku || prod.sku;
+  } else {
+    t.piezas.push({ sku: prod.sku, nombre: prod.nombre, cant: 1, costo: prod.precio });
+  }
   saveToLocal();
   renderTicketPiezas(t);
   toast('Artículo añadido');
@@ -351,7 +356,15 @@ export function enviarAFacturacion(){
 
   DATA.cajaPendientes.push({
     origen: 'Ticket', ref: t.id, clienteId: t.clienteId, cliente: t.cliente,
-    concepto: t.piezas.map(p => `${p.cant}x ${p.nombre}`).join(', '), total: total
+    concepto: t.piezas.map(p => `${p.cant}x ${p.nombre}`).join(', '),
+    total: total,
+    // Snapshot de los artículos usados en el ticket para que CAJA pueda actualizar stock.
+    articulosCart: t.piezas.map(p => ({
+      sku: p.sku || null,
+      nombre: p.nombre,
+      cantidad: Number(p.cant) || 0,
+      precio: Number(p.costo) || 0
+    }))
   });
 
   saveToLocal();
