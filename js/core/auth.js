@@ -16,7 +16,7 @@ export function initAuth(authInstance, onAppReady) {
       
       currentUserProfile = DATA.usuarios.find(u => u.email === user.email);
       const uName = currentUserProfile ? currentUserProfile.nombre : user.email;
-      const uRole = currentUserProfile ? currentUserProfile.rol : 'Admin';
+      const uRole = currentUserProfile ? currentUserProfile.rol : 'Usuario';
       
       document.getElementById('sidebar-avatar').textContent = initials(uName);
       document.getElementById('sidebar-user-name').textContent = uName;
@@ -25,6 +25,9 @@ export function initAuth(authInstance, onAppReady) {
       
       toast(`Bienvenido, ${uName.split(' ')[0]}`);
       
+      // NUEVO: Ocultamos las pestañas a las que no tiene permiso
+      aplicarPermisosEnUI();
+      
       // Ejecutamos la lógica de renderizado principal
       if(typeof onAppReady === 'function') onAppReady();
     } else {
@@ -32,6 +35,37 @@ export function initAuth(authInstance, onAppReady) {
       appContainer.style.display = 'none';
     }
   });
+}
+
+// Función que aplica la seguridad visual
+export function aplicarPermisosEnUI() {
+    if(!currentUserProfile) return;
+    
+    // Buscamos el rol del usuario en la base de datos
+    const roleObj = DATA.roles.find(r => r.nombre === currentUserProfile.rol);
+    const perms = roleObj ? roleObj.permisos : [];
+    const isAdmin = perms.includes('Acceso total al sistema');
+
+    // Función auxiliar para mostrar/ocultar botones del menú
+    const setAcceso = (view, condition) => {
+        const btn = document.querySelector(`.nav-item[data-view="${view}"]`);
+        if (btn) btn.style.display = (isAdmin || condition) ? 'flex' : 'none';
+    };
+
+    // Dashboard, Clientes y CRM lo ven todos por defecto
+    setAcceso('dashboard', true);
+    setAcceso('clientes', true);
+    setAcceso('crm', true);
+
+    // Ocultar o mostrar según los permisos específicos
+    setAcceso('tickets', perms.includes('Ver y actualizar tickets asignados'));
+    setAcceso('ventas', perms.includes('Registrar ventas y cobros'));
+    setAcceso('caja', perms.includes('Abrir y cerrar corte de caja') || perms.includes('Registrar ventas y cobros'));
+    setAcceso('creditos', perms.includes('Aprobar créditos y descuentos'));
+    setAcceso('productos', perms.includes('Editar catálogo de productos') || perms.includes('Registrar ventas y cobros'));
+    setAcceso('erp', perms.includes('Ver reportes financieros'));
+    setAcceso('reportes', perms.includes('Ver reportes financieros'));
+    setAcceso('config', perms.includes('Gestionar usuarios y roles'));
 }
 
 // Iniciar sesión
@@ -64,6 +98,7 @@ export function doLogin(authInstance) {
 export function doLogout(authInstance, closeDropdownsCallback) {
   authInstance.signOut().then(() => {
     if(closeDropdownsCallback) closeDropdownsCallback();
+    window.location.reload(); // Forzar recarga para limpiar memoria
   }).catch((error) => {
     toast('No se pudo cerrar la sesión');
   });
