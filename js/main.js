@@ -132,3 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
         initAuth(window.auth, window.renderAll);
     });
 });
+
+// En js/main.js, asegurate de importar y exponer estas funciones de caja.js:
+
+import { generarPlanesDePago, seleccionarPlanDePago, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil, renderCuotasCreditoActual } from './modules/caja.js';
+
+window.generarPlanesDePago = generarPlanesDePago;
+window.seleccionarPlanDePago = seleccionarPlanDePago;
+window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil;
+window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
+window.renderCuotasCreditoActual = renderCuotasCreditoActual;
