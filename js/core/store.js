@@ -36,6 +36,19 @@ export async function initStore(db, renderCallback) {
     const doc = await db.collection("sistema").doc("servix_produccion").get();
     if (doc.exists) {
         DATA = doc.data(); 
+        
+        // 🛡️ PARCHE DE SEGURIDAD: Asegurar que TODAS las listas existan siempre
+        if (!DATA.cajaPendientes) DATA.cajaPendientes = [];
+        if (!DATA.creditos) DATA.creditos = [];
+        if (!DATA.ventas) DATA.ventas = [];
+        if (!DATA.tickets) DATA.tickets = [];
+        if (!DATA.clientes) DATA.clientes = [];
+        if (!DATA.productos) DATA.productos = [];
+        if (!DATA.promociones) DATA.promociones = [];
+        if (!DATA.crm) DATA.crm = [];
+        if (!DATA.caja) DATA.caja = { fondo: 0, movs: [] };
+        if (!DATA.caja.movs) DATA.caja.movs = [];
+        
         console.log("☁️ Base de datos real sincronizada.");
     } else {
         console.log("🌱 Creando nueva base de datos limpia...");
@@ -45,7 +58,8 @@ export async function initStore(db, renderCallback) {
   } catch (error) {
     console.error("❌ Falló conexión a la nube.", error);
     DATA = JSON.parse(localStorage.getItem('servix_prod_data')) || INITIAL_DATA;
-    toast("Modo Offline activado", "warning");
+    // Parche por si el error pasa en modo Offline
+    if (!DATA.cajaPendientes) DATA.cajaPendientes = []; 
     if (renderCallback) renderCallback();
   }
 }
