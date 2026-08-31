@@ -8,8 +8,7 @@ import { initAuth, doLogin, doLogout } from './core/auth.js';
 import { initUI, openModal, closeModal, goView, closeDropdowns } from './modules/ui.js';
 
 // 2. IMPORTACIONES: MÓDULOS DE NEGOCIO
-// ¡AQUÍ ESTÁN LOS NOMBRES CORREGIDOS DE LOS TICKETS!
-import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, togglePresupuesto, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
+import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
 import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
@@ -32,7 +31,6 @@ window.closeDropdowns = closeDropdowns;
 // Tickets
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
-window.togglePresupuesto = togglePresupuesto; 
 window.fijarPresupuesto = fijarPresupuesto; 
 window.desbloquearPresupuesto = desbloquearPresupuesto;
 window.updatePiezaPrice = updatePiezaPrice;
