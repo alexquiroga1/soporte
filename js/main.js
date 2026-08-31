@@ -16,7 +16,7 @@ import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
 import { renderDashboard, renderReportes } from './modules/dashboard.js';
 
-// 3. IMPORTACIONES CORREGIDAS DE CAJA (Se agruparon y se quitaron las inexistentes)
+// 3. IMPORTACIONES DE CAJA Y CRÉDITOS
 import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil, renderCuotasCreditoActual } from './modules/caja.js';
 
 // =========================================================
@@ -31,7 +31,8 @@ window.closeDropdowns = closeDropdowns;
 // Tickets
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
-window.togglePresupuesto = togglePresupuesto; window.savePresupuestoEstimado = savePresupuestoEstimado;window.sendWhatsAppNotice = sendWhatsAppNotice; window.saveDiagnostico = saveDiagnostico;
+window.togglePresupuesto = togglePresupuesto; window.savePresupuestoEstimado = savePresupuestoEstimado;
+window.sendWhatsAppNotice = sendWhatsAppNotice; window.saveDiagnostico = saveDiagnostico;
 window.addPiezaToTicket = addPiezaToTicket; window.removePiezaFromTicket = removePiezaFromTicket;
 window.enviarAFacturacion = enviarAFacturacion; window.addTicketNota = addTicketNota;
 window.changeTicketStage = changeTicketStage; window.createTicket = createTicket;
@@ -123,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // FIX: Se invirtió el orden. Primero autenticamos, luego descargamos la BD.
     initAuth(window.auth, () => {
         initStore(window.db, window.renderAll);
     });
