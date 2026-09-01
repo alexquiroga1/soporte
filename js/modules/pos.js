@@ -1,8 +1,7 @@
 // js/modules/pos.js
-import { DATA, saveToLocal } from '../core/store.js';
+import { DATA } from '../core/store.js';
 import { fmt, toast, getFullName } from '../core/utils.js';
 
-// NUEVO: El carrito ahora recupera su estado si se recarga la página
 let cart = JSON.parse(localStorage.getItem('servix_cart_temp')) || [];
 export let payMethod = 'Efectivo';
 const PAY_OPTIONS = ['Efectivo','Tarjeta','Transferencia','Préstamo personal'];
@@ -50,6 +49,7 @@ export function addToCart(sku){
     if(p.categoria!=='Servicios' && existing.cantidad>=p.stock){ toast('Sin más stock disponible'); return; }
     existing.cantidad++;
   } else {
+    // PUNTO 21: Guardamos un snapshot del precio en el momento de la venta
     cart.push({sku:p.sku, nombre:p.nombre, precio:p.precio, cantidad:1});
   }
   renderCart();
@@ -68,7 +68,6 @@ export function changeQty(sku, delta){
 export function removeFromCart(sku){ cart = cart.filter(c=>c.sku!==sku); renderCart(); }
 
 export function renderCart(){
-  // NUEVO: Guardamos el carrito en la memoria del navegador cada vez que se actualiza
   localStorage.setItem('servix_cart_temp', JSON.stringify(cart));
 
   const wrap = document.getElementById('cart-items');
@@ -105,7 +104,10 @@ export function renderCart(){
 
   if(descuentoTotal > subtotal) descuentoTotal = subtotal;
   const base = subtotal - descuentoTotal;
-  const iva = base * 0.16;
+  
+  // PUNTO 8: Impuesto dinámico (por defecto 21% para Argentina si no hay config)
+  const impuestoGral = DATA.negocio?.impuesto || 21; 
+  const iva = base * (impuestoGral / 100);
   const total = base + iva;
 
   document.getElementById('ct-subtotal').textContent = fmt(subtotal);
@@ -120,7 +122,8 @@ export function renderCart(){
   document.getElementById('ct-total').textContent = fmt(total);
 }
 
-export function checkout(){
+// Envío a caja Atómico
+export async function checkout(){
   if(!cart.length){ toast('Agrega productos al carrito'); return; }
   
   const subtotal = cart.reduce((s,c)=>s+c.precio*c.cantidad,0);
@@ -150,42 +153,57 @@ export function checkout(){
   
   if(descuentoTotal > subtotal) descuentoTotal = subtotal;
   const base = subtotal - descuentoTotal;
-  const total = base * 1.16; 
+  const impuestoGral = DATA.negocio?.impuesto || 21; 
+  const total = base * (1 + (impuestoGral / 100)); 
 
   const clienteSel = document.getElementById('pos-cliente');
   const clienteNombre = clienteSel.options[clienteSel.selectedIndex].text.replace('Cliente: ','');
   const clienteObj = DATA.clientes.find(c => getFullName(c) === clienteNombre || c.nombre === clienteNombre);
   
-  // NUEVO: Usamos el contador global de Firebase para el folio de la venta
-  if(!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
-  const folio = 'V-' + DATA.counters.ventas;
-  DATA.counters.ventas++; 
+  try {
+      let nuevoFolio;
+      const contadoresRef = window.db.collection('negocio').doc('contadores');
+      
+      await window.db.runTransaction(async (transaction) => {
+          const doc = await transaction.get(contadoresRef);
+          if (!doc.exists) {
+              nuevoFolio = 1000;
+              transaction.set(contadoresRef, { tickets: 1000, ventas: 1001 });
+          } else {
+              nuevoFolio = doc.data().ventas || 1000;
+              transaction.update(contadoresRef, { ventas: nuevoFolio + 1 });
+          }
+      });
 
-  DATA.cajaPendientes.push({
-    origen: 'Venta', ref: folio, clienteId: clienteObj ? clienteObj.id : null,
-    cliente: clienteNombre,
-    concepto: cart.map(c => `${c.cantidad}x ${c.nombre}`).join(', ') + descuentoTexto,
-    total: total, articulosCart: [...cart]
-  });
+      const folio = 'V-' + nuevoFolio;
+      const cobroPendiente = {
+        origen: 'Venta', ref: folio, clienteId: clienteObj ? clienteObj.id : null,
+        cliente: clienteNombre,
+        concepto: cart.map(c => `${c.cantidad}x ${c.nombre}`).join(', ') + descuentoTexto,
+        total: total, articulosCart: [...cart]
+      };
 
-  saveToLocal();
-  cart = [];
-  
-  // NUEVO: Limpiamos la memoria temporal del carrito una vez que se envía a caja
-  localStorage.removeItem('servix_cart_temp');
-  
-  document.getElementById('pos-promo').value = ''; 
-  renderCart();
-  
-  // Disparamos actualizaciones en otros módulos
-  if(window.renderCajaView) window.renderCajaView();
-  toast('Venta ' + folio + ' enviada a Caja para su cobro');
+      await window.db.collection('caja_pendientes').add(cobroPendiente);
+      
+      cart = [];
+      localStorage.removeItem('servix_cart_temp');
+      document.getElementById('pos-promo').value = ''; 
+      renderCart();
+      
+      if(window.goView) window.goView('caja');
+      toast('Venta ' + folio + ' enviada a Caja para su cobro');
+      
+  } catch (error) {
+      console.error("Error al enviar a caja", error);
+      toast('Error al enviar orden a la caja');
+  }
 }
 
 export function renderVentasHistorial(){
   document.getElementById('ventas-historial-body').innerHTML = DATA.ventas.map(v=>{
     const badgeClass = v.pago==='Efectivo'?'done':v.pago==='Tarjeta'?'prog':v.pago==='Préstamo personal'?'wait':'pend';
     return `<tr class="tbl-row"><td class="mono">${v.folio}</td><td>${v.cliente}</td><td>${v.articulos}</td><td><span class="badge ${badgeClass}">${v.pago}</span></td><td class="mono">${fmt(v.total)}</td><td class="mono">${v.hora}</td></tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:16px;">Sin ventas registradas.</td></tr>';
+  
   document.getElementById('ventas-meta').textContent = DATA.ventas.length + ' TRANSACCIONES HOY';
 }

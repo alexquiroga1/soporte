@@ -1,35 +1,34 @@
 // js/modules/caja.js
-import { DATA, saveToLocal } from '../core/store.js';
+import { DATA } from '../core/store.js';
 import { fmt, fDate, addDays, toast, getFullName } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
+import { currentUserProfile } from '../core/auth.js';
 
 let selectedCobroMetodo = 'Efectivo';
-let currentCobroIdx = null;
-let currentCreditIdx = null;
+let currentCobroId = null; // Cambiado a ID de Firebase
+let currentCreditId = null; // Cambiado a ID de Firebase
 
-const TASA_PUNITORIO_DIARIO = 0.01; // 1% diario de recargo por mora
-
-// ==========================================
-// SECCIÓN: CAJA Y PASARELA DE COBRO
-// ==========================================
 export function renderCajaPendientes(){
   const container = document.getElementById('caja-pendientes-body');
   if(!container) return;
-  container.innerHTML = DATA.cajaPendientes.length ? DATA.cajaPendientes.map((p, idx)=>`
+  const pendientes = DATA.caja_pendientes || [];
+  
+  container.innerHTML = pendientes.length ? pendientes.map((p)=>`
     <tr>
       <td><span class="badge ${p.origen==='Ticket'?'prog':'done'}">${p.origen}</span></td>
       <td class="mono">#${p.ref}</td>
       <td><b>${p.cliente}</b></td>
       <td>${p.concepto}</td>
       <td class="mono">${fmt(p.total)}</td>
-      <td><button class="btn btn-primary btn-sm" onclick="abrirModalCobro(${idx})">Cobrar</button></td>
+      <td><button class="btn btn-primary btn-sm" onclick="abrirModalCobro('${p.id}')">Cobrar</button></td>
     </tr>
   `).join('') : '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:16px;">No hay facturaciones pendientes de cobro.</td></tr>';
 }
 
-export function abrirModalCobro(idx){
-  currentCobroIdx = idx;
-  const item = DATA.cajaPendientes[idx];
+export function abrirModalCobro(id){
+  currentCobroId = id;
+  const item = (DATA.caja_pendientes || []).find(p => p.id === id);
+  if(!item) return;
   
   let clienteTel = '—';
   if(item.clienteId){
@@ -70,7 +69,7 @@ export function calcularCambio(total){
 
 export function renderCobroDynamicFields(){
   const container = document.getElementById('mcc-dynamic-fields');
-  const item = DATA.cajaPendientes[currentCobroIdx];
+  const item = (DATA.caja_pendientes || []).find(p => p.id === currentCobroId);
   if(!item) return;
 
   const btnConfirm = document.getElementById('btn-confirmar-cobro');
@@ -106,7 +105,6 @@ export function renderCobroDynamicFields(){
     const cNombre = clienteObj ? getFullName(clienteObj) : item.cliente;
     const activeLoans = DATA.creditos.filter(cr => cr.cliente === cNombre && cr.saldo > 0);
     
-    const numLoans = activeLoans.length;
     const currentDebt = activeLoans.reduce((s, cr) => s + cr.saldo, 0);
     const limite = clienteObj ? (clienteObj.limiteCredito || 0) : 0;
     const available = limite - currentDebt;
@@ -143,14 +141,12 @@ export function renderCobroDynamicFields(){
   }
 }
 
-export function procesarCobroFinal(){
-  if(currentCobroIdx === null || currentCobroIdx === undefined) return;
-  const item = DATA.cajaPendientes[currentCobroIdx];
+// PUNTO 5, 11 Y 24: Transacción Batch para descontar stock, registrar venta/factura y cobrar.
+export async function procesarCobroFinal(){
+  if(!currentCobroId) return;
+  const item = (DATA.caja_pendientes || []).find(p => p.id === currentCobroId);
+  if(!item) return;
 
-  // Descuento de stock: primero validamos toda la operación para evitar vender
-  // más unidades de las disponibles o dejar el inventario en valores incorrectos.
-  // La validación ocurre antes de crear crédito/venta para que una operación
-  // rechazada no deje datos financieros a medio registrar.
   const stockItems = [];
   if(item.articulosCart){
     for(const c of item.articulosCart){
@@ -169,90 +165,126 @@ export function procesarCobroFinal(){
     }
   }
 
-  if(selectedCobroMetodo === 'Préstamo personal'){
-    let clienteObj = item.clienteId ? DATA.clientes.find(c => c.id === item.clienteId) : DATA.clientes.find(c => getFullName(c) === item.cliente || c.nombre === item.cliente);
-    const fechaVence = addDays(30);
-    const cuotasArray = [{ numero: 1, importe: item.total, pagado: 0, capitalPagado: 0, punitoriosPagados: 0, vence: fechaVence }];
-    
-    DATA.creditos.unshift({
-      id: 'CR-' + Date.now().toString().slice(-6),
-      cliente: clienteObj ? getFullName(clienteObj) : item.cliente,
-      concepto: 'Préstamo por ' + (item.origen === 'Ticket' ? 'Ticket #'+item.ref : 'Venta '+item.ref),
-      fechaOrigen: new Date().toISOString().split('T')[0],
-      original: item.total, saldo: item.total, abonos: [], cuotas: cuotasArray
-    });
+  try {
+      const batch = window.db.batch();
+      
+      // 1. Restar Stock
+      stockItems.forEach(({producto, cantidad}) => {
+          const pRef = window.db.collection('productos').doc(producto.id || producto.sku);
+          batch.update(pRef, { stock: window.firebase.firestore.FieldValue.increment(-cantidad) });
+      });
+
+      // 2. Si es préstamo, generar la carpeta de crédito
+      if(selectedCobroMetodo === 'Préstamo personal'){
+        let clienteObj = item.clienteId ? DATA.clientes.find(c => c.id === item.clienteId) : DATA.clientes.find(c => getFullName(c) === item.cliente || c.nombre === item.cliente);
+        const fechaVence = addDays(30);
+        const cuotasArray = [{ numero: 1, importe: item.total, pagado: 0, capitalPagado: 0, punitoriosPagados: 0, vence: fechaVence }];
+        
+        const crRef = window.db.collection('creditos').doc();
+        batch.set(crRef, {
+          id: crRef.id,
+          cliente: clienteObj ? getFullName(clienteObj) : item.cliente,
+          concepto: 'Préstamo por ' + (item.origen === 'Ticket' ? 'Ticket #'+item.ref : 'Venta '+item.ref),
+          fechaOrigen: new Date().toISOString().split('T')[0],
+          original: item.total, saldo: item.total, abonos: [], cuotas: cuotasArray
+        });
+      }
+
+      // 3. Registrar Movimiento en Caja (Si no es préstamo)
+      if(selectedCobroMetodo !== 'Préstamo personal') {
+        const mov = {
+          id: window.db.collection('negocio').doc().id, // ID local
+          hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
+          concepto: `Cobro ${item.origen} #${item.ref} (${item.cliente})`, tipo: 'ingreso', monto: item.total, subcategoria: 'Capital'
+        };
+        const cajaRef = window.db.collection('negocio').doc('caja_activa');
+        batch.set(cajaRef, {
+            movs: window.firebase.firestore.FieldValue.arrayUnion(mov),
+            fondo: DATA.caja?.fondo || 0
+        }, { merge: true });
+      }
+
+      // 4. Módulo Facturación y Ventas (Punto 11)
+      const fRef = window.db.collection('ventas').doc();
+      batch.set(fRef, {
+        id: fRef.id,
+        folio: item.origen === 'Ticket' ? 'FAC-' + item.ref : item.ref,
+        cliente: item.cliente, articulos: item.concepto,
+        pago: selectedCobroMetodo, total: item.total,
+        hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})
+      });
+
+      // 5. Eliminar el pendiente
+      const pendRef = window.db.collection('caja_pendientes').doc(currentCobroId);
+      batch.delete(pendRef);
+
+      // EJECUTAR TODO
+      await batch.commit();
+
+      currentCobroId = null;
+      closeModal('modal-cobro-caja');
+      toast('Cobro procesado con éxito vía ' + selectedCobroMetodo);
+
+  } catch (error) {
+      console.error("Error en cobro batch", error);
+      toast('Hubo un error al procesar el cobro. No se debitó stock.');
   }
-
-  stockItems.forEach(({producto, cantidad}) => {
-    producto.stock = (Number(producto.stock) || 0) - cantidad;
-  });
-
-  if(selectedCobroMetodo !== 'Préstamo personal') {
-    DATA.caja.movs.push({
-      hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
-      concepto: `Cobro ${item.origen} #${item.ref} (${item.cliente})`, tipo: 'ingreso', monto: item.total, subcategoria: 'Capital'
-    });
-  }
-
-  DATA.ventas.unshift({
-    folio: item.origen === 'Ticket' ? 'FAC-' + item.ref : item.ref,
-    cliente: item.cliente, articulos: item.concepto,
-    pago: selectedCobroMetodo, total: item.total,
-    hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})
-  });
-
-  DATA.cajaPendientes.splice(currentCobroIdx, 1);
-  currentCobroIdx = null;
-
-  saveToLocal();
-  closeModal('modal-cobro-caja');
-  
-  renderCajaView();
-  if(window.renderCreditosTable) window.renderCreditosTable();
-  if(window.renderVentasHistorial) window.renderVentasHistorial();
-  if(window.renderProductosTable) window.renderProductosTable();
-  if(window.renderAll) window.renderAll(); 
-  toast('Cobro procesado con éxito vía ' + selectedCobroMetodo);
 }
 
 export function renderCajaView(){
   renderCajaPendientes();
-  document.getElementById('caja-mov-body').innerHTML = DATA.caja.movs.slice().reverse().map(m=>{
+  const movs = DATA.caja?.movs || [];
+  document.getElementById('caja-mov-body').innerHTML = movs.slice().reverse().map(m=>{
     const badge = m.tipo==='ingreso'?'done':m.tipo==='egreso'?'urg':'prog';
     const sign = m.tipo==='egreso'?'-':m.tipo==='ingreso'?'+':'';
     return `<tr class="tbl-row"><td class="mono">${m.hora}</td><td>${m.concepto}</td><td><span class="badge ${badge}">${m.tipo.charAt(0).toUpperCase()+m.tipo.slice(1)}</span></td><td class="mono">${sign}${fmt(m.monto)}</td></tr>`;
   }).join('');
-  const ingresos = DATA.caja.movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
-  const egresos = DATA.caja.movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
-  const total = DATA.caja.fondo + ingresos - egresos;
+  const ingresos = movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
+  const egresos = movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
+  const total = (DATA.caja?.fondo || 0) + ingresos - egresos;
+  
   document.getElementById('caja-resumen').innerHTML = `
-    <div class="caja-line"><span class="l">Fondo inicial</span><span class="v">${fmt(DATA.caja.fondo)}</span></div>
+    <div class="caja-line"><span class="l">Fondo inicial</span><span class="v">${fmt(DATA.caja?.fondo || 0)}</span></div>
     <div class="caja-line"><span class="l">Ingresos</span><span class="v">${fmt(ingresos)}</span></div>
     <div class="caja-line"><span class="l">Egresos</span><span class="v">-${fmt(egresos)}</span></div>
     <div class="caja-total"><span class="l">Efectivo esperado</span><span class="v">${fmt(total)}</span></div>`;
 }
 
-export function addMovimiento(){
+// NUEVO: Movimientos manuales Atómicos
+export async function addMovimiento(){
   const concepto = document.getElementById('mov-concepto').value.trim();
   const tipo = document.getElementById('mov-tipo').value;
   const monto = parseFloat(document.getElementById('mov-monto').value);
   if(!concepto || !monto || monto<=0){ toast('Completa el concepto y un monto válido'); return; }
-  DATA.caja.movs.push({hora:new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto, tipo, monto, subcategoria: 'Gastos'});
-  saveToLocal();
-  document.getElementById('mov-concepto').value=''; document.getElementById('mov-monto').value='';
-  renderCajaView(); 
-  if(window.renderAll) window.renderAll();
-  toast('Movimiento registrado');
+  
+  const mov = {
+      id: window.db.collection('negocio').doc().id,
+      hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
+      concepto, tipo, monto, subcategoria: 'Gastos'
+  };
+
+  try {
+      await window.db.collection('negocio').doc('caja_activa').set({
+          movs: window.firebase.firestore.FieldValue.arrayUnion(mov),
+          fondo: DATA.caja?.fondo || 0
+      }, { merge: true });
+      
+      document.getElementById('mov-concepto').value=''; document.getElementById('mov-monto').value='';
+      toast('Movimiento registrado');
+  } catch (error) {
+      toast('Error al registrar movimiento');
+  }
 }
 
 export function abrirModalCierre(){
-  const ingresos = DATA.caja.movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
-  const egresos = DATA.caja.movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
-  const total = DATA.caja.fondo + ingresos - egresos;
+  const movs = DATA.caja?.movs || [];
+  const ingresos = movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
+  const egresos = movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
+  const total = (DATA.caja?.fondo || 0) + ingresos - egresos;
   
   document.getElementById('cierre-resumen').innerHTML = `
     <div class="caja-box">
-      <div class="caja-line"><span class="l">Fondo inicial</span><span class="v">${fmt(DATA.caja.fondo)}</span></div>
+      <div class="caja-line"><span class="l">Fondo inicial</span><span class="v">${fmt(DATA.caja?.fondo || 0)}</span></div>
       <div class="caja-line"><span class="l">Ingresos totales</span><span class="v" style="color:var(--teal);">${fmt(ingresos)}</span></div>
       <div class="caja-line"><span class="l">Egresos totales</span><span class="v" style="color:var(--red);">-${fmt(egresos)}</span></div>
       <div class="caja-total" style="margin-top:16px;"><span class="l">Efectivo a retirar</span><span class="v">${fmt(total)}</span></div>
@@ -265,52 +297,65 @@ export function abrirModalCierre(){
   openModal('modal-cierre');
 }
 
-export function cerrarCorte(){
+// PUNTO 4: Cierre de caja auditable. No borra datos, crea un "Corte" histórico.
+export async function cerrarCorte(){
   const nuevoFondo = parseFloat(document.getElementById('cierre-nuevo-fondo').value) || 0;
   if(nuevoFondo < 0){ toast('El nuevo fondo no puede ser negativo'); return; }
 
-  const movsActuales = Array.isArray(DATA.caja.movs) ? DATA.caja.movs : [];
+  const movsActuales = DATA.caja?.movs || [];
   const ingresos = movsActuales.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+(Number(m.monto)||0),0);
   const egresos = movsActuales.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+(Number(m.monto)||0),0);
-  const fondoInicial = Number(DATA.caja.fondo) || 0;
+  const fondoInicial = Number(DATA.caja?.fondo) || 0;
   const efectivoEsperado = fondoInicial + ingresos - egresos;
   const fecha = new Date();
 
-  if(!Array.isArray(DATA.caja.cortes)) DATA.caja.cortes = [];
-  DATA.caja.cortes.unshift({
+  const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
+
+  const corte = {
     id: 'COR-' + fecha.getTime(),
-    apertura: DATA.caja.sesion?.inicio || null,
+    apertura: DATA.caja?.sesion?.inicio || null,
     cierre: fecha.toISOString(),
-    usuario: currentUserProfile ? currentUserProfile.nombre : 'Usuario',
+    usuario: user,
     fondoInicial,
     ingresos,
     egresos,
     efectivoEsperado,
     nuevoFondo,
-    movs: movsActuales.map(m => ({...m}))
-  });
+    movs: movsActuales
+  };
 
-  // Solo se limpia la sesión ACTIVA. Los movimientos históricos quedan dentro de cortes.
-  DATA.caja.movs = [];
-  DATA.caja.fondo = nuevoFondo;
-  DATA.caja.sesion = { inicio: fecha.toISOString(), fondoInicial: nuevoFondo };
+  try {
+      const batch = window.db.batch();
+      
+      // 1. Guardamos el historial en la colección de cortes
+      const corteRef = window.db.collection('caja_cortes').doc(corte.id);
+      batch.set(corteRef, corte);
 
-  saveToLocal();
-  closeModal('modal-cierre');
-  renderCajaView();
-  if(window.renderAll) window.renderAll();
-  toast('Corte cerrado. Historial guardado. Nuevo fondo: ' + fmt(nuevoFondo));
+      // 2. Reiniciamos la caja activa
+      const cajaActivaRef = window.db.collection('negocio').doc('caja_activa');
+      batch.set(cajaActivaRef, {
+          movs: [],
+          fondo: nuevoFondo,
+          sesion: { inicio: fecha.toISOString(), fondoInicial: nuevoFondo, usuario: user }
+      });
+
+      await batch.commit();
+
+      closeModal('modal-cierre');
+      toast('Corte cerrado. Historial guardado. Nuevo fondo: ' + fmt(nuevoFondo));
+  } catch (error) {
+      console.error("Error al cerrar caja", error);
+      toast('No se pudo procesar el cierre de caja');
+  }
 }
 
 // ==========================================
-// SECCIÓN: MÓDULO FINANCIERO AVANZADO
+// SECCIÓN: FINANZAS Y CRÉDITOS (PUNTO 6 y 7)
 // ==========================================
 
 export function normalizarCuota(cuota){
   if(!cuota) return cuota;
   const importe = Number(cuota.importe) || 0;
-
-  // Compatibilidad con datos anteriores: `pagado` representaba pagos acumulados.
   if(!Object.prototype.hasOwnProperty.call(cuota, 'capitalPagado')){
     cuota.capitalPagado = Math.min(importe, Math.max(0, Number(cuota.pagado) || 0));
   }
@@ -381,15 +426,12 @@ export function renderCreditosTable(){
         <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div><div class="label">Al corriente</div><div class="value">${alCorriente}</div><div class="delta up">Pagos al día</div></div>`;
   }
 
-  document.getElementById('creditos-table-body').innerHTML = activos.map((c,i)=>{
+  document.getElementById('creditos-table-body').innerHTML = activos.map((c)=>{
     const e = creditEstado(c);
     const mora = c.cuotas ? calcularDiasMora(c.cuotas) : 0;
     const proxVence = c.cuotas ? (c.cuotas.find(x=>x.pagado < x.importe)?.vence || '—') : c.vence;
-    
-    // Buscamos el índice real en el array global para abrir el modal correcto
-    const realIdx = DATA.creditos.findIndex(x => x.id === c.id);
 
-    return `<tr class="tbl-row" onclick="openCreditModal(${realIdx})">
+    return `<tr class="tbl-row" onclick="openCreditModal('${c.id}')">
       <td><b>${c.cliente}</b><br><span style="font-size:11px; color:var(--muted);">${mora > 0 ? mora + ' días de mora' : 'En regla'}</span></td>
       <td>Carpeta: ${c.id || 'N/A'}<br><span class="mono" style="font-size:10px;">${c.concepto}</span></td>
       <td class="mono">${fmt(c.original)}</td>
@@ -400,15 +442,15 @@ export function renderCreditosTable(){
   }).join('');
 }
 
-export function openCreditModal(idx){
-  currentCreditIdx = idx;
-  const c = DATA.creditos[idx];
+export function openCreditModal(id){
+  currentCreditId = id;
+  const c = DATA.creditos.find(x => x.id === id);
+  if(!c) return;
   if(!c.cuotas) { c.cuotas = [{ numero: 1, importe: c.original, pagado: c.original - c.saldo, vence: c.vence }]; }
 
   document.getElementById('mcr-cliente').textContent = c.cliente;
   document.getElementById('mcr-concepto').textContent = 'Carpeta: ' + (c.id || 'N/A');
   document.getElementById('mcr-original').textContent = fmt(c.original);
-  document.getElementById('mcr-saldo').textContent = fmt(c.saldo);
   
   const chkPunitorios = document.getElementById('mcr-quitar-punitorios');
   if(chkPunitorios) chkPunitorios.checked = false;
@@ -424,7 +466,7 @@ export function openCreditModal(idx){
 }
 
 export function renderCuotasCreditoActual() {
-  const c = DATA.creditos[currentCreditIdx];
+  const c = DATA.creditos.find(x => x.id === currentCreditId);
   if(!c) return;
   const today = new Date().toISOString().split('T')[0];
   const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
@@ -453,21 +495,25 @@ export function renderCuotasCreditoActual() {
   }).join('');
 
   c.saldo = saldoCapital;
-  document.getElementById('mcr-saldo').textContent = fmt(deudaTotalConMora);
+  // PUNTO 7: Separamos visualmente Capital restante del total
+  document.getElementById('mcr-saldo').innerHTML = `${fmt(saldoCapital)} <span style="font-size:12px; color:var(--muted); font-weight:normal; display:block;">+ ${fmt(deudaTotalConMora - saldoCapital)} intereses</span>`;
 }
 
-export function registerPayment(){
-  const c = DATA.creditos[currentCreditIdx];
-  const montoInput = parseFloat(document.getElementById('mcr-monto-input').value);
+// NUEVO: Cobro de crédito Atómico separando capital de intereses
+export async function registerPayment(){
+  const c = DATA.creditos.find(x => x.id === currentCreditId);
   if(!c){ toast('No se encontró el crédito'); return; }
+  const montoInput = parseFloat(document.getElementById('mcr-monto-input').value);
   if(!montoInput || montoInput <= 0){ toast('Ingresa un monto válido'); return; }
 
   const perdonar = document.getElementById('mcr-quitar-punitorios').checked;
   let restante = montoInput;
   let montoCapitalAbonado = 0;
   let montoPunitoriosAbonado = 0;
+  
+  const cuotasNuevas = JSON.parse(JSON.stringify(c.cuotas));
 
-  for(const cu of c.cuotas){
+  for(const cu of cuotasNuevas){
     if(restante <= 0) break;
     normalizarCuota(cu);
 
@@ -492,9 +538,7 @@ export function registerPayment(){
     cu.pagado = cu.capitalPagado + cu.punitoriosPagados;
   }
 
-  // El saldo de la carpeta representa solo capital pendiente.
-  c.saldo = c.cuotas.reduce((sum, cu) => {
-    normalizarCuota(cu);
+  const saldoReal = cuotasNuevas.reduce((sum, cu) => {
     return sum + Math.max(0, (Number(cu.importe)||0) - cu.capitalPagado);
   }, 0);
 
@@ -502,36 +546,52 @@ export function registerPayment(){
   const now = new Date();
   const fechaStr = now.toLocaleDateString('es-AR') + ' ' + now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 
-  const montoImputado = montoCapitalAbonado + montoPunitoriosAbonado;
-  c.abonos.push({
-    fecha: fechaStr,
-    monto: montoImputado,
-    capital: montoCapitalAbonado,
-    punitorios: montoPunitoriosAbonado,
-    saldoCapital: c.saldo,
-    metodo: metodo + (perdonar?' (Sin Punitorios)':'')
-  });
+  const abono = {
+    fecha: fechaStr, monto: montoCapitalAbonado + montoPunitoriosAbonado,
+    capital: montoCapitalAbonado, punitorios: montoPunitoriosAbonado,
+    saldoCapital: saldoReal, metodo: metodo + (perdonar?' (Sin Punitorios)':'')
+  };
 
+  const movsCaja = [];
   if(montoCapitalAbonado > 0){
-    DATA.caja.movs.push({ hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Capital - Carpeta ' + c.id, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
+    movsCaja.push({ id: window.db.collection('negocio').doc().id, hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Capital - Carpeta ' + c.id, tipo: 'ingreso', monto: montoCapitalAbonado, subcategoria: 'Capital' });
   }
   if(montoPunitoriosAbonado > 0){
-    DATA.caja.movs.push({ hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - Carpeta ' + c.id, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
+    movsCaja.push({ id: window.db.collection('negocio').doc().id, hora: now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}), concepto: 'Cobro Punitorios - Carpeta ' + c.id, tipo: 'ingreso', monto: montoPunitoriosAbonado, subcategoria: 'Intereses/Punitorios' });
   }
 
-  saveToLocal();
-  openCreditModal(currentCreditIdx);
-  renderCreditosTable(); renderCajaView();
-  if(window.renderAll) window.renderAll();
+  try {
+      const batch = window.db.batch();
+      
+      const crRef = window.db.collection('creditos').doc(c.id);
+      batch.update(crRef, {
+          cuotas: cuotasNuevas,
+          saldo: saldoReal,
+          abonos: window.firebase.firestore.FieldValue.arrayUnion(abono)
+      });
 
-  if(restante > 0){
-    toast('Pago registrado. Quedaron ' + fmt(restante) + ' sin imputar porque la deuda quedó saldada.');
-  } else {
-    toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
+      if (movsCaja.length > 0) {
+          const cajaRef = window.db.collection('negocio').doc('caja_activa');
+          movsCaja.forEach(mov => {
+              batch.update(cajaRef, {
+                  movs: window.firebase.firestore.FieldValue.arrayUnion(mov)
+              });
+          });
+      }
+
+      await batch.commit();
+
+      if(restante > 0){
+        toast('Pago registrado. Quedaron ' + fmt(restante) + ' sin imputar porque la deuda quedó saldada.');
+      } else {
+        toast('Pago imputado. Capital: ' + fmt(montoCapitalAbonado) + ' | Punitorios: ' + fmt(montoPunitoriosAbonado));
+      }
+
+  } catch(error) {
+      console.error(error);
+      toast('Error al registrar el pago de cuota');
   }
 }
-
-// ---------------- FLUJO DE NUEVO CRÉDITO Y REFINANCIACIÓN ----------------
 
 export function openNuevoCreditoModal(){
   if(window.populateClienteSelectCredito) window.populateClienteSelectCredito();
@@ -575,25 +635,17 @@ export function seleccionarPlanDePago(cuotas, importe, total) {
     document.getElementById('btn-otorgar').disabled = false;
 }
 
-export function createCreditoManual(){
+export async function createCreditoManual(){
   const clienteId = document.getElementById('ncr-cliente').value;
   const concepto = document.getElementById('ncr-concepto').value.trim();
   const anticipo = parseFloat(document.getElementById('ncr-anticipo').value) || 0;
   
-  const cuotasHidden = document.getElementById('ncr-cuotas-hidden').value;
-  const cantCuotas = parseInt(cuotasHidden);
+  const cantCuotas = parseInt(document.getElementById('ncr-cuotas-hidden').value);
   const importeCuota = parseFloat(document.getElementById('ncr-importe-hidden').value);
   let primerVence = document.getElementById('ncr-vence').value;
 
-  // AVISOS EN LUGAR DE FALLAR EN SILENCIO
-  if(!clienteId) { 
-      alert("⚠️ Por favor, selecciona un cliente de la lista desplegable arriba."); 
-      return; 
-  }
-  if(!cuotasHidden || isNaN(cantCuotas)) { 
-      alert("⚠️ Debes hacer clic en 'Calcular Planes de Pago' y luego presionar 'Elegir' en el plan que prefieras."); 
-      return; 
-  }
+  if(!clienteId) { alert("⚠️ Selecciona un cliente."); return; }
+  if(!cantCuotas || isNaN(cantCuotas)) { alert("⚠️ Elige un plan de pago."); return; }
 
   const clienteObj = DATA.clientes.find(c => c.id === clienteId);
   const cNombre = getFullName(clienteObj);
@@ -604,7 +656,7 @@ export function createCreditoManual(){
   const cupoDisponible = (clienteObj.limiteCredito || 0) - currentDebt;
   
   if(baseTotal > cupoDisponible){ 
-      alert(`OPERACIÓN RECHAZADA: Cupo insuficiente. El cliente solo tiene disponible $${cupoDisponible}`); 
+      alert(`OPERACIÓN RECHAZADA: Cupo insuficiente. Disp: $${cupoDisponible}`); 
       return; 
   }
 
@@ -618,74 +670,37 @@ export function createCreditoManual(){
       fechaActual.setDate(fechaActual.getDate() + 30); 
   }
 
-  if(anticipo > 0){
-      DATA.caja.movs.push({ hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Anticipo Crédito - ${cNombre}`, tipo: 'ingreso', monto: anticipo, subcategoria: 'Capital' });
+  try {
+      const batch = window.db.batch();
+      
+      const crRef = window.db.collection('creditos').doc();
+      const nuevoCredito = { 
+          id: crRef.id,
+          cliente: cNombre, concepto: concepto || 'Otorgamiento de Crédito', 
+          fechaOrigen: new Date().toISOString().split('T')[0],
+          original: baseTotal, saldo: baseTotal, abonos: [], cuotas: arrCuotas
+      };
+      batch.set(crRef, nuevoCredito);
+
+      if(anticipo > 0){
+          const mov = { id: window.db.collection('negocio').doc().id, hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), concepto: `Anticipo Crédito - ${cNombre}`, tipo: 'ingreso', monto: anticipo, subcategoria: 'Capital' };
+          const cajaRef = window.db.collection('negocio').doc('caja_activa');
+          batch.set(cajaRef, {
+              movs: window.firebase.firestore.FieldValue.arrayUnion(mov),
+              fondo: DATA.caja?.fondo || 0
+          }, { merge: true });
+      }
+
+      await batch.commit();
+
+      closeModal('modal-nuevo-credito');
+      alert('¡Carpeta de crédito generada con éxito!');
+      if(window.printPagare) window.printPagare(nuevoCredito);
+
+  } catch(error) {
+      console.error(error);
+      toast('Error al crear crédito');
   }
-
-  const nuevoCredito = { 
-      id: 'CR-' + Date.now().toString().slice(-6),
-      cliente: cNombre, concepto: concepto || 'Otorgamiento de Crédito', 
-      fechaOrigen: new Date().toISOString().split('T')[0],
-      original: baseTotal, saldo: baseTotal, abonos: [], cuotas: arrCuotas
-  };
-  
-  DATA.creditos.unshift(nuevoCredito);
-  saveToLocal();
-
-  closeModal('modal-nuevo-credito');
-  renderCreditosTable();
-  if(window.renderCajaView) window.renderCajaView();
-  alert('¡Carpeta de crédito generada con éxito!');
-  if(window.printPagare) window.printPagare(nuevoCredito);
-}
-
-// ------ FUNCIONES PARA EL PERFIL DEL CLIENTE (REFINANCIACIÓN Y NUEVO) ------
-
-export function nuevoCreditoDesdePerfil() {
-    const elNombre = document.getElementById('mc-nombre').textContent;
-    closeModal('modal-cliente');
-    openNuevoCreditoModal();
-    // Forzamos la selección del cliente en el select
-    setTimeout(() => {
-        const sel = document.getElementById('ncr-cliente');
-        for(let i=0; i<sel.options.length; i++) {
-            if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
-        }
-    }, 100);
-}
-
-export function refinanciarDeudaPerfil() {
-    const elNombre = document.getElementById('mc-nombre').textContent;
-    const activos = DATA.creditos.filter(cr => cr.cliente === elNombre && cr.saldo > 0);
-    
-    if(activos.length === 0) { toast('El cliente no tiene deuda activa para refinanciar'); return; }
-    
-    // Calculamos deuda total (Capital + Punitorios)
-    let deudaConsolidada = 0;
-    activos.forEach(c => {
-        c.cuotas.forEach(cu => {
-            if(cu.pagado < cu.importe) {
-                deudaConsolidada += (cu.importe + calcularPunitorios(cu, false)) - cu.pagado;
-            }
-        });
-        // Cancelamos la carpeta vieja
-        c.saldo = 0;
-        c.concepto += ' (Refinanciado)';
-    });
-    saveToLocal();
-
-    closeModal('modal-cliente');
-    openNuevoCreditoModal();
-    
-    setTimeout(() => {
-        const sel = document.getElementById('ncr-cliente');
-        for(let i=0; i<sel.options.length; i++) {
-            if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
-        }
-        document.getElementById('ncr-concepto').value = 'Refinanciación de Deuda Anterior';
-        document.getElementById('ncr-monto').value = deudaConsolidada.toFixed(2);
-        toast('Se consolidó la deuda. Generá el nuevo plan de pagos.');
-    }, 100);
 }
 
 export function populateClienteSelectCredito(){
@@ -703,7 +718,7 @@ export function populateClienteSelectCredito(){
 
 export function printPagare(credito){
   const c = DATA.clientes.find(x => getFullName(x) === credito.cliente);
-  const neg = DATA.negocio.nombre || 'EMPRESA PRESTADORA';
+  const neg = DATA.negocio?.nombre || 'EMPRESA PRESTADORA';
   const direccion = c ? `${c.direccion} ${c.localidad||''} ${c.provincia||''}` : '';
   const dni = c ? c.dni : '';
   
@@ -737,7 +752,7 @@ export function printPagare(credito){
 
 export function printReciboDoble(credito){
   const win = window.open('', '', 'width=850,height=500');
-  const neg = DATA.negocio.nombre || 'EMPRESA';
+  const neg = DATA.negocio?.nombre || 'EMPRESA';
   
   win.document.write(`
     <html><head><title>Recibo de Cobro - Doble</title>
