@@ -11,7 +11,6 @@ export function renderFacturasTable() {
     const tbody = document.getElementById('facturacion-table-body');
     if(!tbody) return;
 
-    // Leemos de DATA.ventas que es donde se guardan los cobros procesados
     const facturas = (DATA.ventas || []).filter(v => 
         !search || (v.folio||'').toLowerCase().includes(search) || (v.cliente||'').toLowerCase().includes(search)
     ).sort((a, b) => b.folio.localeCompare(a.folio));
@@ -63,11 +62,11 @@ export async function anularFactura() {
     try {
         const batch = window.db.batch();
         
-        // 1. Marcamos la venta como Anulada
+        // Marcamos la venta como Anulada
         const fRef = window.db.collection('ventas').doc(f.id);
         batch.update(fRef, { estado: 'Anulada' });
 
-        // 2. Registramos la Nota de Crédito como egreso en la Caja Activa
+        // Registramos la Nota de Crédito en la Caja Activa
         const mov = {
             id: window.db.collection('negocio').doc().id,
             hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
