@@ -19,6 +19,9 @@ import { renderDashboard, renderReportes } from './modules/dashboard.js';
 // 3. IMPORTACIONES DE CAJA Y CRÉDITOS
 import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual } from './modules/caja.js';
 
+// 4. NUEVO MÓDULO: FACTURACIÓN
+import { renderFacturasTable, openFacturaModal, anularFactura, imprimirFactura } from './modules/facturacion.js';
+
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
 // =========================================================
@@ -31,14 +34,12 @@ window.closeDropdowns = closeDropdowns;
 // Tickets
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
-window.fijarPresupuesto = fijarPresupuesto; 
-window.desbloquearPresupuesto = desbloquearPresupuesto;
-window.updatePiezaPrice = updatePiezaPrice;
-window.sendWhatsAppNotice = sendWhatsAppNotice; window.saveDiagnostico = saveDiagnostico;
-window.addPiezaToTicket = addPiezaToTicket; window.removePiezaFromTicket = removePiezaFromTicket;
-window.enviarAFacturacion = enviarAFacturacion; window.addTicketNota = addTicketNota;
-window.changeTicketStage = changeTicketStage; window.createTicket = createTicket;
-window.renderTicketsTable = renderTicketsTable;
+window.fijarPresupuesto = fijarPresupuesto; window.desbloquearPresupuesto = desbloquearPresupuesto;
+window.updatePiezaPrice = updatePiezaPrice; window.sendWhatsAppNotice = sendWhatsAppNotice; 
+window.saveDiagnostico = saveDiagnostico; window.addPiezaToTicket = addPiezaToTicket; 
+window.removePiezaFromTicket = removePiezaFromTicket; window.enviarAFacturacion = enviarAFacturacion; 
+window.addTicketNota = addTicketNota; window.changeTicketStage = changeTicketStage; 
+window.createTicket = createTicket; window.renderTicketsTable = renderTicketsTable;
 
 // Clientes
 window.renderClientesTable = renderClientesTable; window.switchClientTab = switchClientTab;
@@ -71,7 +72,11 @@ window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago =
 window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
 
-// Pestañas dentro del modal de créditos
+// Facturación (NUEVO)
+window.renderFacturasTable = renderFacturasTable; window.openFacturaModal = openFacturaModal;
+window.anularFactura = anularFactura; window.imprimirFactura = imprimirFactura;
+
+// Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {
   const group = el.parentElement;
   group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -82,10 +87,9 @@ window.switchCreditoTab = function(tabId, el) {
   });
 };
 
-// CRM, Configuración y Otros
+// CRM y Configuración
 window.createOportunidad = createOportunidad; window.saveConfigNegocio = saveConfigNegocio;
-window.createUsuario = createUsuario; window.toggleUsuario = toggleUsuario;
-window.createRol = createRol;
+window.createUsuario = createUsuario; window.toggleUsuario = toggleUsuario; window.createRol = createRol;
 
 // =========================================================
 // FUNCIÓN MAESTRA DE RENDERIZADO
@@ -109,6 +113,7 @@ window.renderAll = function() {
     renderCreditosTable();
     renderCRMKanban();
     renderReportes();
+    renderFacturasTable(); // RENDER FACTURAS
     renderConfig();
 }
 
@@ -117,16 +122,13 @@ window.renderAll = function() {
 // =========================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUI();
-    
     if (window.firebase) {
         window.db = window.firebase.firestore();
         window.auth = window.firebase.auth();
     } else {
-        console.error("No se detectó Firebase. Revisa los scripts del index.html");
+        console.error("No se detectó Firebase.");
         return;
     }
-
-    // Pasamos auth y db para la nueva lógica de seguridad
     initAuth(window.auth, window.db, () => {
         initStore(window.db, window.renderAll);
     });

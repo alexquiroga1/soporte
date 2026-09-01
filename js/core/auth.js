@@ -3,7 +3,6 @@ import { initials, toast } from './utils.js';
 
 export let currentUserProfile = null;
 
-// Observador de sesión (Actualizado con Auto-Rescate)
 export function initAuth(authInstance, dbInstance, onAppReady) {
   authInstance.onAuthStateChanged(async (user) => {
     const loginScreen = document.getElementById('login-screen');
@@ -11,21 +10,13 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
 
     if (user) {
       try {
-        // Buscamos el perfil real en Firebase
         const userQuery = await dbInstance.collection('usuarios').where('email', '==', user.email).get();
-        
         if (!userQuery.empty) {
           const userDoc = userQuery.docs[0];
           currentUserProfile = { id: userDoc.id, ...userDoc.data() };
         } else {
-          // AUTO-RESCATE: Si te logueaste pero no estás en la BD, te crea un perfil Admin.
           console.warn("Usuario no encontrado en BD. Auto-creando perfil administrador...");
-          const nuevoUser = {
-              nombre: "Alex (Admin)",
-              email: user.email,
-              rol: "Administrador",
-              activo: true
-          };
+          const nuevoUser = { nombre: "Alex (Admin)", email: user.email, rol: "Administrador", activo: true };
           const docRef = await dbInstance.collection('usuarios').add(nuevoUser);
           currentUserProfile = { id: docRef.id, ...nuevoUser };
         }
@@ -42,7 +33,6 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
         
         toast(`Bienvenido, ${uName.split(' ')[0]}`);
         
-        // RECIÉN AHORA disparamos la carga de la base de datos
         if(typeof onAppReady === 'function') onAppReady();
 
         loginScreen.style.display = 'none';
@@ -53,7 +43,6 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
         toast('Hubo un problema de conexión con el servidor.');
       }
     } else {
-      // Usuario deslogueado
       loginScreen.style.display = 'flex';
       appContainer.style.display = 'none';
       currentUserProfile = null;
@@ -61,12 +50,9 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
   });
 }
 
-// Función que aplica la seguridad visual
 export function aplicarPermisosEnUI(rolesList) {
     if(!currentUserProfile) return;
-    
     const roleObj = rolesList.find(r => r.nombre === currentUserProfile.rol);
-    // Si no encuentra el rol (por la migración), te damos permiso total temporalmente
     const perms = roleObj ? roleObj.permisos : ['Acceso total al sistema'];
     const isAdmin = perms.includes('Acceso total al sistema');
 
@@ -81,6 +67,8 @@ export function aplicarPermisosEnUI(rolesList) {
     setAcceso('tickets', perms.includes('Ver y actualizar tickets asignados'));
     setAcceso('ventas', perms.includes('Registrar ventas y cobros'));
     setAcceso('caja', perms.includes('Abrir y cerrar corte de caja') || perms.includes('Registrar ventas y cobros'));
+    // NUEVO: Permiso para ver Facturación
+    setAcceso('facturacion', perms.includes('Ver reportes financieros') || perms.includes('Registrar ventas y cobros'));
     setAcceso('creditos', perms.includes('Aprobar créditos y descuentos'));
     setAcceso('productos', perms.includes('Editar catálogo de productos') || perms.includes('Registrar ventas y cobros'));
     setAcceso('erp', perms.includes('Ver reportes financieros'));
