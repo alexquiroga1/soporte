@@ -1,5 +1,5 @@
 // js/modules/crm.js
-import { DATA, saveToLocal, CRM_STAGES } from '../core/store.js';
+import { DATA, CRM_STAGES } from '../core/store.js';
 import { fmt, toast } from '../core/utils.js';
 import { closeModal, wireKanbanDrag } from './ui.js';
 
@@ -11,7 +11,7 @@ export function renderCRMKanban(){
   board.innerHTML = CRM_STAGES.map(s=>{
     const items = DATA.crm.filter(o=>o.stage===s.key);
     const cards = items.map(o=>`
-      <div class="kanban-card" draggable="true" data-id="${o.contacto}|${o.empresa}">
+      <div class="kanban-card" draggable="true" data-id="${o.id}">
         <b>${o.contacto}</b><div class="kc-sub">${o.empresa}</div>
         <div class="kc-sub" style="margin-top:4px;">${o.interes}</div>
         <div class="kc-foot"><span class="kc-val">${fmt(o.valor)}</span><span>${o.fecha}</span></div>
@@ -22,14 +22,16 @@ export function renderCRMKanban(){
     </div>`;
   }).join('');
   
-  wireKanbanDrag(board, (idKey, newStage)=>{
-    const [contacto, empresa] = idKey.split('|');
-    const o = DATA.crm.find(x=>x.contacto===contacto && x.empresa===empresa);
-    if(o && o.stage!==newStage){
-      o.stage = newStage;
-      saveToLocal();
-      renderCRMKanban();
-      toast('Oportunidad movida a "'+crmStageInfo(newStage).label+'"');
+  wireKanbanDrag(board, async (id, newStage)=>{
+    const o = DATA.crm.find(x=>x.id===id);
+    if(o && o.stage !== newStage){
+      try {
+          await window.db.collection('crm').doc(id).update({ stage: newStage });
+          toast('Oportunidad movida a "'+crmStageInfo(newStage).label+'"');
+      } catch (error) {
+          console.error("Error al mover en CRM", error);
+          toast("Error actualizando CRM");
+      }
     }
   });
   const total = DATA.crm.filter(o=>o.stage!=='perdido').reduce((s,o)=>s+o.valor,0);
@@ -37,8 +39,8 @@ export function renderCRMKanban(){
   if(totalEl) totalEl.textContent = fmt(total) + ' en pipeline activo';
 }
 
-// ¡ESTA ES LA FUNCIÓN QUE FALTABA O NO SE EXPORTÓ BIEN!
-export function createOportunidad(){
+// NUEVO: Creación Atómica con ID real en Firestore
+export async function createOportunidad(){
   const contacto = document.getElementById('no-contacto').value.trim();
   const empresa = document.getElementById('no-empresa').value.trim() || '—';
   const interes = document.getElementById('no-interes').value.trim();
@@ -47,11 +49,17 @@ export function createOportunidad(){
   
   if(!contacto || !interes){ toast('Completa contacto e interés'); return; }
   
-  DATA.crm.unshift({contacto, empresa, interes, valor, fecha, stage:'prospecto'});
-  saveToLocal();
-  
-  ['no-contacto','no-empresa','no-interes','no-valor','no-fecha'].forEach(id=>document.getElementById(id).value='');
-  closeModal('modal-nueva-oportunidad');
-  renderCRMKanban();
-  toast('Oportunidad creada');
+  try {
+      const docRef = window.db.collection('crm').doc();
+      const opp = { id: docRef.id, contacto, empresa, interes, valor, fecha, stage:'prospecto' };
+      
+      await docRef.set(opp);
+      
+      ['no-contacto','no-empresa','no-interes','no-valor','no-fecha'].forEach(id=>document.getElementById(id).value='');
+      closeModal('modal-nueva-oportunidad');
+      toast('Oportunidad CRM creada');
+  } catch (error) {
+      console.error("Error creando CRM", error);
+      toast('No se pudo guardar la oportunidad');
+  }
 }

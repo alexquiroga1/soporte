@@ -1,5 +1,5 @@
 // js/modules/tickets.js
-import { DATA, saveToLocal, TICKET_STAGES } from '../core/store.js';
+import { DATA, TICKET_STAGES } from '../core/store.js';
 import { fDate, fmt, initials, toast, getFullName } from '../core/utils.js';
 import { openModal, closeModal, wireKanbanDrag } from './ui.js';
 import { currentUserProfile } from '../core/auth.js';
@@ -68,7 +68,6 @@ export function renderTicketsTable(){
 
   document.getElementById('tickets-table-body').innerHTML = rows.map(t=>{
     const st = stageInfo(t.stage);
-    // NUEVO: Columna de Presupuesto en la tabla
     const presupText = t.presupuestoFijado 
         ? `<span style="color:var(--teal); font-family:'IBM Plex Mono',monospace; font-weight:700;">${fmt(t.presupuestoEstimado)}</span>` 
         : `<span style="color:var(--amber); font-size:10.5px; font-weight:700;">PENDIENTE</span>`;
@@ -98,6 +97,7 @@ export function printTicket(id){
   const t = DATA.tickets.find(x => x.id === id);
   if(!t) return;
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
+  const negNombre = DATA.negocio ? DATA.negocio.nombre : 'EMPRESA';
   
   const win = window.open('', '', 'width=800,height=700');
   win.document.write(`
@@ -118,7 +118,7 @@ export function printTicket(id){
       </style>
     </head>
     <body>
-      <h2>${DATA.negocio.nombre} · Orden de Servicio #${t.id}</h2>
+      <h2>${negNombre} · Orden de Servicio #${t.id}</h2>
       <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Presupuesto: ${t.presupuestoFijado ? 'APROBADO' : 'PENDIENTE'}</div>
       <div class="box">
         <p><b>Cliente:</b> ${t.cliente}</p><p><b>Equipo:</b> ${t.equipo}</p><p><b>Accesorios recibidos:</b> ${t.accesorios || 'Ninguno'}</p>
@@ -133,7 +133,7 @@ export function printTicket(id){
         </tbody>
       </table>
       <div class="total-section">Costo Final a Pagar: $${total.toFixed(2)}</div>
-      <div class="footer-note">Presentar este ticket o comprobante al momento de retirar su equipo. No nos hacemos responsables por equipos con más de 90 días sin recoger. Firma de conformidad: ___________________________</div>
+      <div class="footer-note">Presentar este comprobante al momento de retirar su equipo. Firma de conformidad: ___________________________</div>
       <script>window.onload = function() { window.print(); }</script>
     </body>
     </html>
@@ -159,21 +159,34 @@ export function renderTicketsKanban(){
   }).join('');
   
   wireKanbanDrag(board, (id, newStage)=>{
-    const t = DATA.tickets.find(x=>x.id===id);
-    if(t && t.stage!==newStage){
-      t.stage = newStage;
-      const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
-      t.historial.push({estado: stageInfo(newStage).label, fecha: fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor: user});
-      saveToLocal();
-      renderTicketsKanban(); renderTicketsTable(); 
-      if(window.renderAll) window.renderAll(); 
-      checkBillingButtonVisibility(t);
-      toast('Ticket #'+id+' movido a "'+stageInfo(newStage).label+'"');
-    }
+    changeTicketStageAt(id, newStage);
   });
 }
 
-// NUEVO: La función ya no abre un modal, sino que cambia a la vista "ticket-detalle"
+// NUEVO: Movimiento de estado Kanban (Atómico)
+export async function changeTicketStageAt(id, newStage) {
+    const t = DATA.tickets.find(x=>x.id===id);
+    if(t && t.stage !== newStage){
+        const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
+        const logEntry = {
+            estado: stageInfo(newStage).label, 
+            fecha: fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
+            autor: user
+        };
+
+        try {
+            await window.db.collection('tickets').doc(id).update({
+                stage: newStage,
+                historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry)
+            });
+            toast('Ticket #'+id+' movido a "'+stageInfo(newStage).label+'"');
+        } catch(error) {
+            console.error("Error al mover ticket", error);
+            toast("No se pudo actualizar el estado.");
+        }
+    }
+}
+
 export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
@@ -190,18 +203,16 @@ export function openTicketModal(id){
   document.getElementById('mt-estado-select').value = t.stage;
   document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
   
-  // Renderizar Stepper visual
   const stagesKeys = ['pendiente', 'diagnostico', 'reparacion', 'repuesto', 'listo'];
   let reachedCurrent = false;
   document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
     const stepKey = el.getAttribute('data-step');
-    el.className = 'step-sm'; // Reset
+    el.className = 'step-sm'; 
     if(t.stage === 'entregado') { el.classList.add('completed'); return; }
     if(stepKey === t.stage) { el.classList.add('active'); reachedCurrent = true; }
     else if (!reachedCurrent) { el.classList.add('completed'); }
   });
 
-  // Lógica de Presupuesto
   if(!t.presupuestoFijado) t.presupuestoFijado = false;
   document.getElementById('input-presupuesto').value = t.presupuestoEstimado || '';
   if(t.presupuestoFijado) {
@@ -218,37 +229,61 @@ export function openTicketModal(id){
   checkBillingButtonVisibility(t);
   renderTicketNotas(t);
   
-  // Cambiamos a la vista
   if(window.goView) window.goView('ticket-detalle');
 }
 
-export function fijarPresupuesto() {
-  const t = DATA.tickets.find(x => x.id === currentTicketId);
+// NUEVO: Fijar y desbloquear presupuesto atómicamente
+export async function fijarPresupuesto() {
   const val = parseFloat(document.getElementById('input-presupuesto').value);
   if(!val || val <= 0) { toast('Ingresa un monto válido'); return; }
-  t.presupuestoEstimado = val;
-  t.presupuestoFijado = true;
-  saveToLocal();
-  document.getElementById('txt-presupuesto-fijado').textContent = fmt(val);
-  document.getElementById('view-edit-budget').style.display = 'none';
-  document.getElementById('view-locked-budget').style.display = 'block';
-  renderTicketsTable(); // Para que se actualice la columna
-  toast('Presupuesto fijado exitosamente');
+  
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({
+          presupuestoEstimado: val,
+          presupuestoFijado: true
+      });
+      document.getElementById('txt-presupuesto-fijado').textContent = fmt(val);
+      document.getElementById('view-edit-budget').style.display = 'none';
+      document.getElementById('view-locked-budget').style.display = 'block';
+      toast('Presupuesto fijado exitosamente');
+  } catch(e) {
+      toast('Error al fijar presupuesto');
+  }
 }
 
-export function desbloquearPresupuesto() {
-  const t = DATA.tickets.find(x => x.id === currentTicketId);
-  t.presupuestoFijado = false;
-  saveToLocal();
-  document.getElementById('view-locked-budget').style.display = 'none';
-  document.getElementById('view-edit-budget').style.display = 'flex';
-  renderTicketsTable();
+export async function desbloquearPresupuesto() {
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({ presupuestoFijado: false });
+      document.getElementById('view-locked-budget').style.display = 'none';
+      document.getElementById('view-edit-budget').style.display = 'flex';
+  } catch(e) { toast('Error al desbloquear'); }
 }
 
+// NUEVO: Envío Real de WhatsApp API (Punto 10)
 export function sendWhatsAppNotice(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
-  toast(`Simulación: Mensaje de WhatsApp enviado a #${t.id}`);
+  const cli = DATA.clientes.find(c => c.id === t.clienteId || getFullName(c) === t.cliente);
+  
+  if(!cli || !cli.tel || cli.tel === '—') { 
+      alert('⚠️ El cliente no tiene un número de teléfono registrado.'); 
+      return; 
+  }
+  
+  // Limpiamos el número de espacios, guiones y agregamos +549 si es de Argentina y no lo tiene
+  let phone = cli.tel.replace(/\D/g, '');
+  if (!phone.startsWith('54') && phone.length === 10) { 
+      phone = '549' + phone; 
+  }
+  
+  const empresa = DATA.negocio?.nombre || 'nuestro servicio técnico';
+  const estadoStr = stageInfo(t.stage).label;
+  
+  const msg = `Hola ${t.cliente}, te escribimos de *${empresa}*.\n\nTe informamos que tu equipo *${t.equipo}* (Ticket #${t.id}) se encuentra actualmente en estado: *${estadoStr}*.\n\nCualquier consulta estamos a tu disposición.`;
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  
+  window.open(url, '_blank');
+  toast(`Abriendo WhatsApp...`);
 }
 
 export function checkBillingButtonVisibility(t){
@@ -260,12 +295,13 @@ export function checkBillingButtonVisibility(t){
   }
 }
 
-export function saveDiagnostico(){
-  const t = DATA.tickets.find(x => x.id === currentTicketId);
-  if(!t) return;
-  t.diagnostico = document.getElementById('mt-diagnostico-input').value.trim();
-  saveToLocal();
-  toast('Diagnóstico guardado con éxito');
+// NUEVO: Guardar Diagnóstico atómicamente
+export async function saveDiagnostico(){
+  const diagnostico = document.getElementById('mt-diagnostico-input').value.trim();
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({ diagnostico });
+      toast('Diagnóstico guardado con éxito');
+  } catch(e) { toast('Error al guardar diagnóstico'); }
 }
 
 export function populateRepuestosSelect(){
@@ -276,7 +312,6 @@ export function populateRepuestosSelect(){
       sel.innerHTML = '<option value="">(Catálogo vacío)</option>';
       return;
   }
-  
   sel.innerHTML = '<option value="">Selecciona repuesto...</option>' + 
                   DATA.productos.map(p => `<option value="${p.sku}">${p.nombre} (${fmt(p.precio)})</option>`).join('');
 }
@@ -299,17 +334,22 @@ export function renderTicketPiezas(t){
   document.getElementById('mt-total-costo').textContent = fmt(total);
 }
 
-export function updatePiezaPrice(idx, newPrice) {
+// NUEVO: Mutación de Array de Piezas en Firestore
+export async function updatePiezaPrice(idx, newPrice) {
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   const val = parseFloat(newPrice);
   if(isNaN(val) || val < 0) return;
-  t.piezas[idx].costo = val;
-  saveToLocal();
-  renderTicketPiezas(t);
-  toast('Costo actualizado');
+  
+  const nuevasPiezas = [...t.piezas];
+  nuevasPiezas[idx].costo = val;
+  
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({ piezas: nuevasPiezas });
+      toast('Costo actualizado');
+  } catch(e) { toast('Error actualizando costo'); }
 }
 
-export function addPiezaToTicket(){
+export async function addPiezaToTicket(){
   const sku = document.getElementById('mt-repuesto-select').value;
   if(!sku) { toast('Selecciona un repuesto válido'); return; }
   
@@ -317,60 +357,74 @@ export function addPiezaToTicket(){
   if(!prod) return;
 
   const t = DATA.tickets.find(x => x.id === currentTicketId);
-  const existing = t.piezas.find(p => (p.sku && p.sku === prod.sku) || (!p.sku && p.nombre === prod.nombre));
+  const nuevasPiezas = [...(t.piezas || [])];
+  
+  const existing = nuevasPiezas.find(p => (p.sku && p.sku === prod.sku) || (!p.sku && p.nombre === prod.nombre));
   if(existing){
     existing.cant++;
     existing.sku = existing.sku || prod.sku;
   } else {
-    t.piezas.push({ sku: prod.sku, nombre: prod.nombre, cant: 1, costo: prod.precio });
+    nuevasPiezas.push({ sku: prod.sku, nombre: prod.nombre, cant: 1, costo: prod.precio });
   }
-  saveToLocal();
-  renderTicketPiezas(t);
-  toast('Artículo añadido');
-  document.getElementById('mt-repuesto-select').value = '';
+  
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({ piezas: nuevasPiezas });
+      document.getElementById('mt-repuesto-select').value = '';
+      toast('Artículo añadido al ticket');
+  } catch(e) { toast('Error añadiendo pieza'); }
 }
 
-export function removePiezaFromTicket(idx){
+export async function removePiezaFromTicket(idx){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
-  t.piezas.splice(idx, 1);
-  saveToLocal();
-  renderTicketPiezas(t);
+  const nuevasPiezas = [...t.piezas];
+  nuevasPiezas.splice(idx, 1);
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({ piezas: nuevasPiezas });
+  } catch(e) { toast('Error eliminando repuesto'); }
 }
 
-export function enviarAFacturacion(){
+// NUEVO: Envío a Caja de forma Atómica a la nueva colección
+export async function enviarAFacturacion(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
   
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
-  
   if(total <= 0){ 
       alert('ATENCIÓN: Debes agregar al menos un repuesto o servicio antes de enviarlo a Caja.'); 
       return; 
   }
 
-  const yaExiste = DATA.cajaPendientes.some(p => p.ref === t.id);
+  // Verificamos si ya existe en la cola (Ahora leyendo de la colección real DATA.cajaPendientes u object)
+  // Nota: store.js debe escuchar 'caja_pendientes' en la Fase 1
+  const yaExiste = (DATA.caja_pendientes || []).some(p => p.ref === t.id);
   if(yaExiste){ 
       alert('Este ticket ya fue enviado a facturación previamente.'); 
       return; 
   }
 
-  DATA.cajaPendientes.push({
-    origen: 'Ticket', ref: t.id, clienteId: t.clienteId, cliente: t.cliente,
+  const cobroPendiente = {
+    origen: 'Ticket', 
+    ref: t.id, 
+    clienteId: t.clienteId || null, 
+    cliente: t.cliente,
     concepto: t.piezas.map(p => `${p.cant}x ${p.nombre}`).join(', '),
     total: total,
-    // Snapshot de los artículos usados en el ticket para que CAJA pueda actualizar stock.
     articulosCart: t.piezas.map(p => ({
       sku: p.sku || null,
       nombre: p.nombre,
       cantidad: Number(p.cant) || 0,
       precio: Number(p.costo) || 0
     }))
-  });
+  };
 
-  saveToLocal();
-  if(window.goView) window.goView('caja'); 
-  if(window.renderAll) window.renderAll(); 
-  toast('Enviado a CAJA para su cobro.');
+  try {
+      await window.db.collection('caja_pendientes').add(cobroPendiente);
+      if(window.goView) window.goView('caja'); 
+      toast('Enviado a CAJA para su cobro.');
+  } catch(error) {
+      console.error(error);
+      toast('Error al enviar a caja');
+  }
 }
 
 export function renderTicketNotas(t){
@@ -382,37 +436,32 @@ export function renderTicketNotas(t){
   `).join('') : '<div style="color:var(--muted);font-size:11px;text-align:center;padding:10px;">Sin notas.</div>';
 }
 
-export function addTicketNota(){
+// NUEVO: ArrayUnion para Notas (Punto 13 / Trazabilidad)
+export async function addTicketNota(){
   const input = document.getElementById('mt-nota-input');
   const texto = input.value.trim();
   if(!texto) return;
-  const t = DATA.tickets.find(x=>x.id===currentTicketId);
   const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
   const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   
-  t.notas.push({autor:user, fecha:fechaStr, texto});
-  saveToLocal();
-  input.value = '';
-  renderTicketNotas(t);
-  toast('Nota agregada');
+  const nuevaNota = { autor: user, fecha: fechaStr, texto };
+  
+  try {
+      await window.db.collection('tickets').doc(currentTicketId).update({
+          notas: window.firebase.firestore.FieldValue.arrayUnion(nuevaNota)
+      });
+      input.value = '';
+      toast('Nota agregada al ticket');
+  } catch(e) { toast('Error guardando nota'); }
 }
 
 export function changeTicketStage(){
   const newStage = document.getElementById('mt-estado-select').value;
-  const t = DATA.tickets.find(x=>x.id===currentTicketId);
-  if(t.stage===newStage) return;
-  t.stage = newStage;
-  const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
-  t.historial.push({estado: stageInfo(newStage).label, fecha:fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user});
-  saveToLocal();
-  openTicketModal(currentTicketId); // Recargamos para actualizar el Stepper
-  renderTicketsTable(); renderTicketsKanban(); 
-  if(window.renderAll) window.renderAll();
-  checkBillingButtonVisibility(t);
-  toast('Estado actualizado a "'+stageInfo(newStage).label+'"');
+  changeTicketStageAt(currentTicketId, newStage);
 }
 
-export function createTicket(){
+// NUEVO: Creación de Ticket mediante Transacción Atómica (Garantiza números únicos)
+export async function createTicket(){
   const clienteId = document.getElementById('nt-cliente-id').value;
   const clienteInputVal = document.getElementById('nt-cliente-input').value.trim();
   const cliente = clienteId ? DATA.clientes.find(c=>c.id===clienteId) : null;
@@ -425,33 +474,50 @@ export function createTicket(){
   
   if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
   
-  if(!DATA.counters) DATA.counters = { tickets: 1000, ventas: 1000 };
-  const id = 'TK-' + DATA.counters.tickets;
-  DATA.counters.tickets++; 
-  
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
   
-  const t = {
-    id, clienteId: cliente?cliente.id:null, cliente: clienteNombre,
-    equipo, accesorios, condicion, 
-    presupuestoFijado: false, presupuestoEstimado: 0,
-    falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
-    tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
-    diagnostico:'Pendiente de revisión inicial.', piezas:[],
-    historial:[{estado:'Recibido', fecha:fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
-  };
-  DATA.tickets.unshift(t);
-  saveToLocal();
-  document.getElementById('nt-equipo').value=''; 
-  document.getElementById('nt-accesorios').value='';
-  document.getElementById('nt-condicion').value='';
-  document.getElementById('nt-falla').value='';
-  document.getElementById('nt-cliente-input').value='';
-  document.getElementById('nt-cliente-id').value='';
-  closeModal('modal-nuevo-ticket');
-  
-  renderTicketsTable(); renderTicketsKanban(); 
-  if(window.renderAll) window.renderAll();
-  toast('Ticket #'+id+' creado');
+  try {
+      let nuevoNumero;
+      const contadoresRef = window.db.collection('negocio').doc('contadores');
+      
+      // Transacción para obtener y aumentar el número de ticket de forma totalmente segura
+      await window.db.runTransaction(async (transaction) => {
+          const doc = await transaction.get(contadoresRef);
+          if (!doc.exists) {
+              nuevoNumero = 1000;
+              transaction.set(contadoresRef, { tickets: 1001, ventas: 1000 });
+          } else {
+              nuevoNumero = doc.data().tickets || 1000;
+              transaction.update(contadoresRef, { tickets: nuevoNumero + 1 });
+          }
+      });
+
+      const id = 'TK-' + nuevoNumero;
+      const t = {
+        id, clienteId: cliente ? cliente.id : null, cliente: clienteNombre,
+        equipo, accesorios, condicion, 
+        presupuestoFijado: false, presupuestoEstimado: 0,
+        falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
+        tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
+        diagnostico:'Pendiente de revisión inicial.', piezas:[],
+        historial:[{estado:'Recibido', fecha:fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
+      };
+
+      await window.db.collection('tickets').doc(id).set(t);
+
+      document.getElementById('nt-equipo').value=''; 
+      document.getElementById('nt-accesorios').value='';
+      document.getElementById('nt-condicion').value='';
+      document.getElementById('nt-falla').value='';
+      document.getElementById('nt-cliente-input').value='';
+      document.getElementById('nt-cliente-id').value='';
+      closeModal('modal-nuevo-ticket');
+      
+      toast('Ticket #'+id+' creado exitosamente');
+
+  } catch (error) {
+      console.error("Error en transacción de ticket:", error);
+      toast('Ocurrió un error al crear el ticket.');
+  }
 }
