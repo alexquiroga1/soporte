@@ -9,7 +9,7 @@ import { initUI, openModal, closeModal, goView, closeDropdowns } from './modules
 
 // 2. IMPORTACIONES: MÓDULOS DE NEGOCIO
 import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
-import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS } from './modules/clientes.js';
+import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
 import { renderCRMKanban, createOportunidad } from './modules/crm.js';
@@ -17,7 +17,7 @@ import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRo
 import { renderDashboard, renderReportes } from './modules/dashboard.js';
 
 // 3. IMPORTACIONES DE CAJA Y CRÉDITOS
-import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil, renderCuotasCreditoActual } from './modules/caja.js';
+import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual } from './modules/caja.js';
 
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
@@ -126,7 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    initAuth(window.auth, () => {
+    // Pasamos auth y db para la nueva lógica de seguridad
+    initAuth(window.auth, window.db, () => {
         initStore(window.db, window.renderAll);
     });
 });

@@ -1,5 +1,5 @@
 // js/modules/clientes.js
-import { DATA, saveToLocal } from '../core/store.js';
+import { DATA } from '../core/store.js';
 import { fmt, initials, toast, getFullName } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
 import { stageInfo } from './tickets.js';
@@ -122,27 +122,36 @@ export function openClientModal(id){
   openModal('modal-cliente');
 }
 
-export function saveClientLimit(){
+// NUEVO: Guardado Atómico en Firestore
+export async function saveClientLimit(){
   if(!currentClientId) return;
-  const c = DATA.clientes.find(x => x.id === currentClientId);
-  if(c){
-    c.limiteCredito = parseFloat(document.getElementById('mc-limite-input').value) || 0;
-    saveToLocal();
-    renderClientesTable();
-    toast('Límite de crédito actualizado a ' + fmt(c.limiteCredito));
+  const newLimit = parseFloat(document.getElementById('mc-limite-input').value) || 0;
+  
+  try {
+    await window.db.collection('clientes').doc(currentClientId).update({
+      limiteCredito: newLimit
+    });
+    toast('Límite de crédito actualizado a ' + fmt(newLimit));
+  } catch (error) {
+    console.error("Error al actualizar límite:", error);
+    toast('Error de conexión al guardar el límite.');
   }
 }
 
-export function createCliente(){
+// NUEVO: Creación Atómica en Firestore con ID oficial
+export async function createCliente(){
   const elNombre = document.getElementById('ncl-nombre');
   if(!elNombre || !elNombre.value.trim()){ toast('El nombre es obligatorio'); return; }
   
   const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
   const nombre = elNombre.value.trim();
-  const id = 'c' + (DATA.clientes.length + 1) + '_' + Date.now().toString().slice(-4);
+  
+  // Generamos un ID real en la colección de Firebase
+  const docRef = window.db.collection('clientes').doc();
   
   const nuevoCliente = {
-    id, nombre, apellido: getVal('ncl-apellido'), dni: getVal('ncl-dni'),
+    id: docRef.id, 
+    nombre, apellido: getVal('ncl-apellido'), dni: getVal('ncl-dni'),
     tipo: 'Regular', contacto: nombre,
     direccion: getVal('ncl-direccion') || '—', provincia: getVal('ncl-provincia'),
     localidad: getVal('ncl-localidad'), barrio: getVal('ncl-barrio'),
@@ -151,21 +160,24 @@ export function createCliente(){
     limiteCredito: parseFloat(getVal('ncl-limite')) || 0
   };
   
-  DATA.clientes.unshift(nuevoCliente);
-  saveToLocal();
-
-  ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email','ncl-limite'].forEach(i=>{
-      if(document.getElementById(i)) document.getElementById(i).value='';
-  });
-  
-  closeModal('modal-nuevo-cliente');
-  renderClientesTable(); 
-  if(window.populateClienteSelectPOS) window.populateClienteSelectPOS();
-  
-  if(document.getElementById('modal-nuevo-ticket') && document.getElementById('modal-nuevo-ticket').classList.contains('active')){
-    if(window.selectClientForTicket) window.selectClientForTicket(nuevoCliente.id, getFullName(nuevoCliente));
+  try {
+    await docRef.set(nuevoCliente);
+    
+    ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email','ncl-limite'].forEach(i=>{
+        if(document.getElementById(i)) document.getElementById(i).value='';
+    });
+    
+    closeModal('modal-nuevo-cliente');
+    
+    if(window.populateClienteSelectPOS) window.populateClienteSelectPOS();
+    if(document.getElementById('modal-nuevo-ticket') && document.getElementById('modal-nuevo-ticket').classList.contains('active')){
+      if(window.selectClientForTicket) window.selectClientForTicket(nuevoCliente.id, getFullName(nuevoCliente));
+    }
+    toast('Cliente guardado con éxito');
+  } catch (error) {
+    console.error("Error al crear cliente:", error);
+    toast('No se pudo guardar el cliente.');
   }
-  toast('Cliente guardado con éxito');
 }
 
 export function populateClienteSelectPOS(){
@@ -192,7 +204,8 @@ export function nuevoCreditoDesdePerfil() {
     }, 100);
 }
 
-export function refinanciarDeudaPerfil() {
+// NUEVO: Refinanciación con Transacción Atómica de Lotes (Batch)
+export async function refinanciarDeudaPerfil() {
     const elNombre = document.getElementById('mc-nombre').textContent;
     const activos = DATA.creditos.filter(cr => cr.cliente === elNombre && cr.saldo > 0);
     
@@ -200,26 +213,36 @@ export function refinanciarDeudaPerfil() {
     
     let deudaTotal = activos.reduce((s, c) => s + c.saldo, 0);
     
-    activos.forEach(c => {
-        c.saldo = 0;
-        c.concepto += ' (Refinanciado)';
-    });
-    saveToLocal();
+    try {
+        const batch = window.db.batch();
+        activos.forEach(c => {
+            const crRef = window.db.collection('creditos').doc(c.id);
+            batch.update(crRef, {
+                saldo: 0,
+                concepto: c.concepto + ' (Refinanciado)'
+            });
+        });
+        
+        await batch.commit();
 
-    closeModal('modal-cliente');
-    if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
-    
-    setTimeout(() => {
-        const sel = document.getElementById('ncr-cliente');
-        if(sel) {
-            for(let i=0; i<sel.options.length; i++) {
-                if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+        closeModal('modal-cliente');
+        if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
+        
+        setTimeout(() => {
+            const sel = document.getElementById('ncr-cliente');
+            if(sel) {
+                for(let i=0; i<sel.options.length; i++) {
+                    if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+                }
             }
-        }
-        const elConcepto = document.getElementById('ncr-concepto');
-        const elMonto = document.getElementById('ncr-monto');
-        if(elConcepto) elConcepto.value = 'Refinanciación de Deuda Anterior';
-        if(elMonto) elMonto.value = deudaTotal.toFixed(2);
-        toast('Deuda unificada. Genere el nuevo préstamo.');
-    }, 100);
+            const elConcepto = document.getElementById('ncr-concepto');
+            const elMonto = document.getElementById('ncr-monto');
+            if(elConcepto) elConcepto.value = 'Refinanciación de Deuda Anterior';
+            if(elMonto) elMonto.value = deudaTotal.toFixed(2);
+            toast('Deuda unificada. Genere el nuevo préstamo.');
+        }, 100);
+    } catch (error) {
+        console.error("Error al refinanciar:", error);
+        toast('Ocurrió un error al procesar la refinanciación.');
+    }
 }

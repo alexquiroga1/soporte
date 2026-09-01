@@ -1,5 +1,5 @@
 // js/modules/productos.js
-import { DATA, saveToLocal } from '../core/store.js';
+import { DATA } from '../core/store.js';
 import { fmt, fmtK, toast, fDate, addDays } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
 
@@ -56,21 +56,30 @@ export function renderProductosTable(){
   if(meta) meta.textContent = skus + ' SKU EN CATÁLOGO';
 }
 
-export function createProducto(){
+// NUEVO: Creación Atómica de Producto
+export async function createProducto(){
   const nombre = document.getElementById('np-nombre').value.trim();
   const sku = document.getElementById('np-sku').value.trim() || ('SKU-'+Math.floor(Math.random()*9000+1000));
   const precio = parseFloat(document.getElementById('np-precio').value) || 0;
   const stock = parseInt(document.getElementById('np-stock').value) || 0;
   if(!nombre){ toast('Ingresa un nombre de producto'); return; }
   
-  DATA.productos.unshift({sku, nombre, categoria: document.getElementById('np-categoria').value, precio, stock, stockMax: Math.max(stock,10), proveedor:'—', vendidos:0});
-  saveToLocal();
-  ['np-nombre','np-sku','np-precio','np-stock'].forEach(i=>document.getElementById(i).value='');
-  closeModal('modal-nuevo-producto');
-  
-  renderProductosTable(); 
-  if(window.renderPOSProducts) window.renderPOSProducts();
-  toast('Producto agregado al catálogo');
+  const nuevoProd = {
+    id: sku, // Usamos el SKU como ID en Firebase para búsquedas directas
+    sku, nombre, categoria: document.getElementById('np-categoria').value, 
+    precio, stock, stockMax: Math.max(stock, 10), proveedor: '—', vendidos: 0
+  };
+
+  try {
+    await window.db.collection('productos').doc(sku).set(nuevoProd);
+    ['np-nombre','np-sku','np-precio','np-stock'].forEach(i=>document.getElementById(i).value='');
+    closeModal('modal-nuevo-producto');
+    if(window.renderPOSProducts) window.renderPOSProducts();
+    toast('Producto agregado al catálogo');
+  } catch (error) {
+    console.error("Error al crear producto:", error);
+    toast('No se pudo guardar el producto en la nube.');
+  }
 }
 
 export function editProducto(sku) {
@@ -85,10 +94,11 @@ export function editProducto(sku) {
     openModal('modal-editar-producto');
 }
 
-export function saveEditProducto() {
+// NUEVO: Edición Atómica
+export async function saveEditProducto() {
     if(!currentEditProductSku) return;
-    const realIdx = DATA.productos.findIndex(p => p.sku === currentEditProductSku);
-    if(realIdx === -1) return;
+    const p = DATA.productos.find(x => x.sku === currentEditProductSku);
+    if(!p) return;
     
     const nombre = document.getElementById('ep-nombre').value.trim();
     const precio = parseFloat(document.getElementById('ep-precio').value) || 0;
@@ -97,27 +107,36 @@ export function saveEditProducto() {
     
     if(!nombre) { toast('El nombre no puede estar vacío'); return; }
     
-    DATA.productos[realIdx].nombre = nombre;
-    DATA.productos[realIdx].precio = precio;
-    DATA.productos[realIdx].stock = stock;
-    if(stock > DATA.productos[realIdx].stockMax) DATA.productos[realIdx].stockMax = stock; 
-    DATA.productos[realIdx].categoria = categoria;
-    
-    saveToLocal();
-    closeModal('modal-editar-producto');
-    renderProductosTable();
-    if(window.renderPOSProducts) window.renderPOSProducts();
-    toast('Producto actualizado con éxito');
+    try {
+      await window.db.collection('productos').doc(currentEditProductSku).update({
+        nombre, precio, stock,
+        stockMax: Math.max(stock, (p.stockMax || 10)),
+        categoria
+      });
+      closeModal('modal-editar-producto');
+      if(window.renderPOSProducts) window.renderPOSProducts();
+      toast('Producto actualizado con éxito');
+    } catch(error) {
+      console.error("Error actualizando producto:", error);
+      toast('Error al actualizar.');
+    }
 }
 
-export function eliminarProducto(sku) {
-    const realIdx = DATA.productos.findIndex(p => p.sku === sku);
-    if(realIdx > -1) {
-        DATA.productos.splice(realIdx, 1);
-        saveToLocal();
-        renderProductosTable();
-        if(window.renderPOSProducts) window.renderPOSProducts();
-        toast('Producto eliminado');
+// NUEVO: Eliminación con Confirmación Real (Punto 18) y Atómica
+export async function eliminarProducto(sku) {
+    const p = DATA.productos.find(x => x.sku === sku);
+    if(!p) return;
+
+    const confirma = confirm(`¿Estás seguro de que deseas eliminar el producto "${p.nombre}"?\nEsta acción es irreversible y borrará el artículo del catálogo.`);
+    if (confirma) {
+        try {
+            await window.db.collection('productos').doc(sku).delete();
+            if(window.renderPOSProducts) window.renderPOSProducts();
+            toast('Producto eliminado permanentemente');
+        } catch(error) {
+            console.error("Error eliminando:", error);
+            toast("No se pudo eliminar el producto.");
+        }
     }
 }
 
@@ -137,21 +156,31 @@ export function renderPromocionesTable() {
       <td>${p.aplicaA}</td>
       <td class="mono">${fDate(p.vence)}</td>
       <td>${statusBadge}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="togglePromocion(${idx})">${p.activa ? 'Desactivar' : 'Activar'}</button></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="togglePromocion('${p.id}')">${p.activa ? 'Desactivar' : 'Activar'}</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">No hay promociones configuradas.</td></tr>';
 }
 
-export function togglePromocion(idx) {
-  DATA.promociones[idx].activa = !DATA.promociones[idx].activa;
-  saveToLocal();
-  renderPromocionesTable();
-  if(window.populatePOSPromos) window.populatePOSPromos(); 
-  if(window.renderCart) window.renderCart(); 
-  toast(DATA.promociones[idx].activa ? 'Promoción activada' : 'Promoción desactivada');
+// NUEVO: Toggle Atómico por ID en vez de index
+export async function togglePromocion(promoId) {
+  const p = DATA.promociones.find(x => x.id === promoId);
+  if(!p) return;
+  
+  try {
+    await window.db.collection('promociones').doc(promoId).update({
+      activa: !p.activa
+    });
+    if(window.populatePOSPromos) window.populatePOSPromos(); 
+    if(window.renderCart) window.renderCart(); 
+    toast(p.activa ? 'Promoción desactivada' : 'Promoción activada');
+  } catch (error) {
+    console.error("Error", error);
+    toast("No se pudo cambiar el estado de la promo.");
+  }
 }
 
-export function createPromocion() {
+// NUEVO: Creación de Promo Atómica
+export async function createPromocion() {
   const nombre = document.getElementById('npr-nombre').value.trim();
   const tipo = document.getElementById('npr-tipo').value;
   const valor = parseFloat(document.getElementById('npr-valor').value);
@@ -161,12 +190,20 @@ export function createPromocion() {
   if(!nombre || !valor || valor <= 0) { toast('Completa el nombre y un valor válido'); return; }
   if(!vence) vence = addDays(30); 
 
-  DATA.promociones.unshift({ id: 'PRM-' + Date.now().toString().slice(-4), nombre, tipo, valor, aplicaA, vence, activa: true });
-  saveToLocal();
-  ['npr-nombre','npr-valor','npr-vence'].forEach(i=>document.getElementById(i).value='');
-  closeModal('modal-nueva-promocion');
+  const id = 'PRM-' + Date.now().toString().slice(-4);
   
-  renderPromocionesTable();
-  if(window.populatePOSPromos) window.populatePOSPromos(); 
-  toast('Promoción creada con éxito');
+  try {
+    await window.db.collection('promociones').doc(id).set({
+      id, nombre, tipo, valor, aplicaA, vence, activa: true
+    });
+    
+    ['npr-nombre','npr-valor','npr-vence'].forEach(i=>document.getElementById(i).value='');
+    closeModal('modal-nueva-promocion');
+    
+    if(window.populatePOSPromos) window.populatePOSPromos(); 
+    toast('Promoción creada con éxito');
+  } catch(error) {
+    console.error("Error:", error);
+    toast("No se pudo guardar la promoción.");
+  }
 }
