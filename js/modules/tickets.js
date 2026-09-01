@@ -521,3 +521,35 @@ export async function createTicket(){
       toast('Ocurrió un error al crear el ticket.');
   }
 }
+// Función para eliminar tickets con código de seguridad
+export async function eliminarTicketConCodigo() {
+    if (!currentTicketId) return;
+    
+    // 1. Pedimos el código secreto
+    const codigo = prompt("🔒 ACCIÓN PROTEGIDA\nPara eliminar este ticket de forma permanente, ingresa el código secreto:");
+    
+    // Si cancela la ventana
+    if (codigo === null) return; 
+    
+    // 2. Verificamos si el código es correcto
+    if (codigo === "780923") {
+        // Doble confirmación por seguridad
+        const confirmacion = confirm("⚠️ ¿Estás 100% seguro? Esta acción borrará el ticket para siempre y no se puede deshacer.");
+        
+        if (confirmacion) {
+            try {
+                // Borramos de Firebase
+                await window.db.collection('tickets').doc(currentTicketId).delete();
+                toast('✅ Ticket eliminado correctamente');
+                
+                // Volvemos a la lista de tickets
+                if (window.goView) window.goView('tickets');
+            } catch (error) {
+                console.error("Error borrando ticket:", error);
+                toast('❌ Error al eliminar el ticket');
+            }
+        }
+    } else {
+        alert("❌ Código incorrecto. Operación cancelada.");
+    }
+}

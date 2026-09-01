@@ -8,7 +8,7 @@ import { initAuth, doLogin, doLogout } from './core/auth.js';
 import { initUI, openModal, closeModal, goView, closeDropdowns } from './modules/ui.js';
 
 // 2. IMPORTACIONES: MÓDULOS DE NEGOCIO
-import { renderTicketsTable, renderTicketsKanban, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
+import { renderTicketsTable, renderTicketsKanban, eliminarTicketConCodigo, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
 import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
@@ -33,6 +33,7 @@ window.closeDropdowns = closeDropdowns;
 
 // Tickets
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
+window.eliminarTicketConCodigo = eliminarTicketConCodigo;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
 window.fijarPresupuesto = fijarPresupuesto; window.desbloquearPresupuesto = desbloquearPresupuesto;
 window.updatePiezaPrice = updatePiezaPrice; window.sendWhatsAppNotice = sendWhatsAppNotice; 
