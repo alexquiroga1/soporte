@@ -3,7 +3,7 @@ import { initials, toast } from './utils.js';
 
 export let currentUserProfile = null;
 
-// Observador de sesión (Actualizado para la Fase 1 de Seguridad)
+// Observador de sesión (Actualizado con Auto-Rescate)
 export function initAuth(authInstance, dbInstance, onAppReady) {
   authInstance.onAuthStateChanged(async (user) => {
     const loginScreen = document.getElementById('login-screen');
@@ -11,16 +11,23 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
 
     if (user) {
       try {
-        // Buscamos el perfil real en Firebase antes de cargar la base de datos
+        // Buscamos el perfil real en Firebase
         const userQuery = await dbInstance.collection('usuarios').where('email', '==', user.email).get();
         
         if (!userQuery.empty) {
           const userDoc = userQuery.docs[0];
           currentUserProfile = { id: userDoc.id, ...userDoc.data() };
         } else {
-          toast("Tu usuario no tiene permisos configurados en la base de datos.");
-          authInstance.signOut();
-          return;
+          // AUTO-RESCATE: Si te logueaste pero no estás en la BD, te crea un perfil Admin.
+          console.warn("Usuario no encontrado en BD. Auto-creando perfil administrador...");
+          const nuevoUser = {
+              nombre: "Alex (Admin)",
+              email: user.email,
+              rol: "Administrador",
+              activo: true
+          };
+          const docRef = await dbInstance.collection('usuarios').add(nuevoUser);
+          currentUserProfile = { id: docRef.id, ...nuevoUser };
         }
 
         const uName = currentUserProfile.nombre;
@@ -54,12 +61,13 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
   });
 }
 
-// Función que aplica la seguridad visual basada en roles reales
+// Función que aplica la seguridad visual
 export function aplicarPermisosEnUI(rolesList) {
     if(!currentUserProfile) return;
     
     const roleObj = rolesList.find(r => r.nombre === currentUserProfile.rol);
-    const perms = roleObj ? roleObj.permisos : [];
+    // Si no encuentra el rol (por la migración), te damos permiso total temporalmente
+    const perms = roleObj ? roleObj.permisos : ['Acceso total al sistema'];
     const isAdmin = perms.includes('Acceso total al sistema');
 
     const setAcceso = (view, condition) => {
