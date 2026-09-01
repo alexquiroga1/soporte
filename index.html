@@ -985,6 +985,16 @@
         </div>
         <p id="mt-ingreso" style="margin-top:4px;"></p>
       </div>
+      <button class="btn btn-ghost" onclick="goView('tickets')">← Volver a la Lista</button>
+    </div>
+<div class="page-head" style="margin-bottom: 12px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <h1 id="mt-id" style="font-family:'IBM Plex Mono', monospace; font-size:22px; margin:0;">#TK-0000</h1>
+          <div id="mt-prioridad"></div>
+        </div>
+        <p id="mt-ingreso" style="margin-top:4px;"></p>
+      </div>
       <div style="display: flex; gap: 10px;">
         <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);" onclick="eliminarTicketConCodigo()">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px; vertical-align:text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -992,7 +1002,6 @@
         </button>
         <button class="btn btn-ghost" onclick="goView('tickets')">← Volver a la Lista</button>
       </div>
-    </div>
     </div>
     <div class="panel" style="margin-bottom:16px; padding:12px 24px;">
       <div class="stepper-sm" id="mt-stepper">
@@ -1003,6 +1012,7 @@
         <div class="step-sm" data-step="listo">Listo / Entregado</div>
       </div>
     </div>
+
     <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
       <!-- COLUMNA 1 -->
       <div class="stack" style="gap:12px;">
