@@ -1,63 +1,75 @@
 // js/core/auth.js
-import { DATA } from './store.js';
 import { initials, toast } from './utils.js';
 
 export let currentUserProfile = null;
 
-// Observador de sesión
-export function initAuth(authInstance, onAppReady) {
-  authInstance.onAuthStateChanged(user => {
+// Observador de sesión (Actualizado para la Fase 1 de Seguridad)
+export function initAuth(authInstance, dbInstance, onAppReady) {
+  authInstance.onAuthStateChanged(async (user) => {
     const loginScreen = document.getElementById('login-screen');
     const appContainer = document.getElementById('app-container');
 
     if (user) {
-      loginScreen.style.display = 'none';
-      appContainer.style.display = 'flex';
-      
-      currentUserProfile = DATA.usuarios.find(u => u.email === user.email);
-      const uName = currentUserProfile ? currentUserProfile.nombre : user.email;
-      const uRole = currentUserProfile ? currentUserProfile.rol : 'Usuario';
-      
-      document.getElementById('sidebar-avatar').textContent = initials(uName);
-      document.getElementById('sidebar-user-name').textContent = uName;
-      document.getElementById('sidebar-user-role').textContent = uRole;
-      document.getElementById('btn-user').textContent = initials(uName);
-      
-      toast(`Bienvenido, ${uName.split(' ')[0]}`);
-      
-      // NUEVO: Ocultamos las pestañas a las que no tiene permiso
-      aplicarPermisosEnUI();
-      
-      // Ejecutamos la lógica de renderizado principal
-      if(typeof onAppReady === 'function') onAppReady();
+      try {
+        // Buscamos el perfil real en Firebase antes de cargar la base de datos
+        const userQuery = await dbInstance.collection('usuarios').where('email', '==', user.email).get();
+        
+        if (!userQuery.empty) {
+          const userDoc = userQuery.docs[0];
+          currentUserProfile = { id: userDoc.id, ...userDoc.data() };
+        } else {
+          toast("Tu usuario no tiene permisos configurados en la base de datos.");
+          authInstance.signOut();
+          return;
+        }
+
+        const uName = currentUserProfile.nombre;
+        const uRole = currentUserProfile.rol;
+        
+        document.getElementById('sidebar-avatar').textContent = initials(uName);
+        document.getElementById('sidebar-user-name').textContent = uName;
+        document.getElementById('sidebar-user-role').textContent = uRole;
+        
+        const btnUser = document.getElementById('btn-user');
+        if(btnUser) btnUser.textContent = initials(uName);
+        
+        toast(`Bienvenido, ${uName.split(' ')[0]}`);
+        
+        // RECIÉN AHORA disparamos la carga de la base de datos
+        if(typeof onAppReady === 'function') onAppReady();
+
+        loginScreen.style.display = 'none';
+        appContainer.style.display = 'flex';
+        
+      } catch (error) {
+        console.error("Error al validar perfil de seguridad:", error);
+        toast('Hubo un problema de conexión con el servidor.');
+      }
     } else {
+      // Usuario deslogueado
       loginScreen.style.display = 'flex';
       appContainer.style.display = 'none';
+      currentUserProfile = null;
     }
   });
 }
 
-// Función que aplica la seguridad visual
-export function aplicarPermisosEnUI() {
+// Función que aplica la seguridad visual basada en roles reales
+export function aplicarPermisosEnUI(rolesList) {
     if(!currentUserProfile) return;
     
-    // Buscamos el rol del usuario en la base de datos
-    const roleObj = DATA.roles.find(r => r.nombre === currentUserProfile.rol);
+    const roleObj = rolesList.find(r => r.nombre === currentUserProfile.rol);
     const perms = roleObj ? roleObj.permisos : [];
     const isAdmin = perms.includes('Acceso total al sistema');
 
-    // Función auxiliar para mostrar/ocultar botones del menú
     const setAcceso = (view, condition) => {
         const btn = document.querySelector(`.nav-item[data-view="${view}"]`);
         if (btn) btn.style.display = (isAdmin || condition) ? 'flex' : 'none';
     };
 
-    // Dashboard, Clientes y CRM lo ven todos por defecto
     setAcceso('dashboard', true);
     setAcceso('clientes', true);
     setAcceso('crm', true);
-
-    // Ocultar o mostrar según los permisos específicos
     setAcceso('tickets', perms.includes('Ver y actualizar tickets asignados'));
     setAcceso('ventas', perms.includes('Registrar ventas y cobros'));
     setAcceso('caja', perms.includes('Abrir y cerrar corte de caja') || perms.includes('Registrar ventas y cobros'));
@@ -68,11 +80,9 @@ export function aplicarPermisosEnUI() {
     setAcceso('config', perms.includes('Gestionar usuarios y roles'));
 }
 
-// Iniciar sesión
 export function doLogin(authInstance) {
   const email = document.getElementById('login-email').value;
   const pass = document.getElementById('login-pass').value;
-  
   if(!email || !pass) { toast('Completa tus datos'); return; }
   
   const btn = document.querySelector('.login-btn');
@@ -94,11 +104,10 @@ export function doLogin(authInstance) {
     });
 }
 
-// Cerrar sesión
 export function doLogout(authInstance, closeDropdownsCallback) {
   authInstance.signOut().then(() => {
     if(closeDropdownsCallback) closeDropdownsCallback();
-    window.location.reload(); // Forzar recarga para limpiar memoria
+    window.location.reload(); 
   }).catch((error) => {
     toast('No se pudo cerrar la sesión');
   });
