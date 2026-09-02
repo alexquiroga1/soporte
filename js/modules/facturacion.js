@@ -1,8 +1,8 @@
 // js/modules/facturacion.js
 import { DATA } from '../core/store.js';
-import { fmt, fDate, toast } from '../core/utils.js';
+import { fmt, fDate, toast, getFullName } from '../core/utils.js';
 import { currentUserProfile } from '../core/auth.js';
-import { goView } from './ui.js';
+import { goView, openModal, closeModal } from './ui.js';
 
 let currentFacturaId = null;
 
@@ -19,7 +19,7 @@ export function renderFacturasTable() {
     const fEst = document.getElementById('fac-filter-estado')?.value;
 
     let match = DATA.facturas.filter(f => {
-        const passQ = !q || f.cliente.toLowerCase().includes(q) || f.doc.includes(q) || f.refId.toLowerCase().includes(q) || f.id.toLowerCase().includes(q);
+        const passQ = !q || f.cliente.toLowerCase().includes(q) || f.doc.includes(q) || (f.refId || '').toLowerCase().includes(q) || f.id.toLowerCase().includes(q);
         const passTipo = !fTipo || f.tipo === fTipo;
         const passEst = !fEst || f.estado === fEst;
         return passQ && passTipo && passEst;
@@ -91,7 +91,7 @@ export function openFacturaDetalle(id) {
     let itemsHtml = (f.items || []).map(i => `<tr>
         <td>${i.desc}</td><td class="mono">${i.cant}</td><td class="mono">${fmt(i.precio)}</td><td class="mono" style="text-align:right; font-weight:bold;">${fmt(i.cant * i.precio)}</td>
     </tr>`).join('');
-    document.getElementById('fd-items').innerHTML = itemsHtml || '<tr><td colspan="4" style="text-align:center;">Sin conceptos</td></tr>';
+    document.getElementById('fd-items').innerHTML = itemsHtml || '<tr><td colspan="4" style="text-align:center; color:var(--muted);">Sin conceptos</td></tr>';
 
     let totalStr = f.tipo === 'Nota de Crédito' ? `-${fmt(f.total)}` : fmt(f.total);
     document.getElementById('fd-total').textContent = totalStr;
@@ -100,10 +100,10 @@ export function openFacturaDetalle(id) {
     const hist = f.historial || [];
     document.getElementById('fd-historial').innerHTML = hist.slice().reverse().map(h => `
         <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:2px; font-size:11px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
             <b style="color:var(--ink);">${h.accion}</b> <span style="color:var(--muted);">${h.fecha}</span>
           </div>
-          <div style="font-size:11.5px; color:var(--muted);">${h.detalle}</div>
+          <div style="font-size:12px; color:var(--ink);">${h.detalle}</div>
         </div>
     `).join('');
 
@@ -157,11 +157,8 @@ export async function anularFacturaActual() {
         if(!DATA.facturas) DATA.facturas = [];
         DATA.facturas.push(ncData);
 
-        // 4. (Opcional Futuro) Devolver saldo a la cuenta corriente del cliente en CRM
-        // Si tiene clienteId, podríamos ir a su perfil y sumarle saldo. Por ahora lo dejamos listo.
-
         toast(`✅ Nota de Crédito ${ncId} generada exitosamente`);
-        openFacturaDetalle(original.id); // Recargar la vista actual para ver el badge rojo
+        openFacturaDetalle(original.id); 
         
     } catch (e) {
         console.error(e);
@@ -189,7 +186,6 @@ export async function emitirComprobanteInterno(origen, refId, refPago, clienteId
         });
         const facId = 'FAC-' + nuevoNum.toString().padStart(6, '0');
 
-        // Buscar DOC (DNI) del cliente si existe en BD
         let docCliente = 'C.F.';
         if(clienteId) {
             const cli = DATA.clientes.find(c => c.id === clienteId);
@@ -198,8 +194,8 @@ export async function emitirComprobanteInterno(origen, refId, refPago, clienteId
 
         const facData = {
             id: facId, fecha: fDateStr, hora: hTimeStr,
-            cliente: clienteNombre, doc: docCliente, clienteId: clienteId,
-            tipo: 'Factura', refModulo: origen, refId: refId, refPago: refPago,
+            cliente: clienteNombre, doc: docCliente, clienteId: clienteId || null,
+            tipo: 'Factura', refModulo: origen, refId: refId || '—', refPago: refPago || '—',
             estado: 'Emitida', total: total, items: items, usuario: user, estadoPago: estadoPago,
             historial: [{ fecha: logDate, accion: 'Emisión de Comprobante', detalle: `Emitido exitosamente. Origen: ${origen}. Usuario: ${user}` }]
         };
@@ -208,9 +204,89 @@ export async function emitirComprobanteInterno(origen, refId, refPago, clienteId
         if(!DATA.facturas) DATA.facturas = [];
         DATA.facturas.push(facData);
 
-        return facId; // Retorna el ID para que la Caja sepa qué comprobante generó
+        return facId; 
     } catch (e) {
         console.error("Error emitiendo factura interna", e);
         return null;
+    }
+}
+
+// =====================================
+// EMISIÓN MANUAL DESDE EL PANEL
+// =====================================
+export function openNuevaFacturaModal() {
+    const sel = document.getElementById('nf-cliente');
+    if (sel) {
+        sel.innerHTML = '<option value="">Consumidor Final (Sin registrar)</option>' + 
+            DATA.clientes.map(c => `<option value="${c.id}">${getFullName(c)} (DNI: ${c.dni || 'N/A'})</option>`).join('');
+    }
+    document.getElementById('nf-concepto').value = '';
+    document.getElementById('nf-total').value = '';
+    openModal('modal-nueva-factura');
+}
+
+export async function emitirFacturaManual() {
+    const clienteId = document.getElementById('nf-cliente').value;
+    let clienteNombre = 'Consumidor Final';
+    let docCliente = 'C.F.';
+    
+    if (clienteId) {
+        const c = DATA.clientes.find(x => x.id === clienteId);
+        if (c) {
+            clienteNombre = getFullName(c);
+            docCliente = c.dni || 'C.F.';
+        }
+    }
+    
+    const tipo = document.getElementById('nf-tipo').value;
+    const estadoPago = document.getElementById('nf-pago').value;
+    const concepto = document.getElementById('nf-concepto').value.trim();
+    const total = parseFloat(document.getElementById('nf-total').value);
+
+    if (!concepto || isNaN(total) || total <= 0) {
+        toast('Completá el concepto y un total válido mayor a 0');
+        return;
+    }
+
+    const items = [{ desc: concepto, cant: 1, precio: total }];
+
+    try {
+        const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
+        const now = new Date();
+        const fDateStr = now.toISOString().split('T')[0];
+        const hTimeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        const logDate = fDate(fDateStr) + ' ' + hTimeStr;
+
+        // Generar número correlativo
+        let nuevoNum = 1;
+        const contadoresRef = window.db.collection('negocio').doc('contadores');
+        await window.db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(contadoresRef);
+            if (doc.exists && doc.data().facturas) nuevoNum = doc.data().facturas + 1;
+            transaction.set(contadoresRef, { facturas: nuevoNum }, { merge: true });
+        });
+        
+        const prefix = tipo === 'Nota de Crédito' ? 'NC-' : 'FAC-';
+        const facId = prefix + nuevoNum.toString().padStart(6, '0');
+
+        const facData = {
+            id: facId, fecha: fDateStr, hora: hTimeStr,
+            cliente: clienteNombre, doc: docCliente, clienteId: clienteId || null,
+            tipo: tipo, refModulo: 'Manual', refId: '—', refPago: '—',
+            estado: 'Emitida', total: total, items: items, usuario: user, estadoPago: estadoPago,
+            historial: [{ fecha: logDate, accion: 'Emisión Manual', detalle: `Emitido por ${user} desde panel de Facturación.` }]
+        };
+
+        await window.db.collection('facturas').doc(facId).set(facData);
+        if(!DATA.facturas) DATA.facturas = [];
+        DATA.facturas.push(facData);
+
+        toast(`✅ ${tipo} emitido con éxito`);
+        closeModal('modal-nueva-factura');
+        renderFacturasTable();
+
+    } catch (e) {
+        console.error(e);
+        toast('❌ Error al emitir el comprobante');
     }
 }

@@ -2327,6 +2327,49 @@
           </div>
         </div>
       </div>
+<!-- MODAL: NUEVA FACTURA MANUAL -->
+  <div class="modal-overlay" id="modal-nueva-factura">
+    <div class="modal narrow">
+      <div class="modal-head">
+        <h3>Emitir Comprobante Manual</h3>
+        <button class="modal-close" onclick="closeModal('modal-nueva-factura')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="full">
+            <label>Cliente</label>
+            <select id="nf-cliente" class="sel"></select>
+          </div>
+          <div>
+            <label>Tipo de Comprobante</label>
+            <select id="nf-tipo" class="sel">
+              <option value="Factura">Factura Interna</option>
+              <option value="Nota de Crédito">Nota de Crédito</option>
+            </select>
+          </div>
+          <div>
+            <label>Estado de Pago</label>
+            <select id="nf-pago" class="sel">
+              <option value="Pagado Total">Pagado Total</option>
+              <option value="Pendiente">Pendiente</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>Concepto / Detalle principal</label>
+            <input id="nf-concepto" class="inp" placeholder="Ej. Servicio de mantenimiento a empresa">
+          </div>
+          <div class="full">
+            <label>Total facturado ($)</label>
+            <input id="nf-total" type="number" min="0" step="0.01" class="inp" placeholder="0.00" style="font-size:16px; font-weight:bold; color:var(--teal);">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-factura')">Cancelar</button>
+        <button class="btn btn-primary" onclick="emitirFacturaManual()">Generar Comprobante</button>
+      </div>
+    </div>
+  </div>
 
       <div id="toast-wrap"></div>
 

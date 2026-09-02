@@ -109,6 +109,8 @@ window.renderFacturasTable = renderFacturasTable;
 window.openFacturaDetalle = openFacturaDetalle;
 window.anularFacturaActual = anularFacturaActual;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
+window.openNuevaFacturaModal = openNuevaFacturaModal;
+window.emitirFacturaManual = emitirFacturaManual;
 window.renderAll = function() {
     console.log("Pintando la aplicación completa desde los módulos...");
     renderDashboard();
