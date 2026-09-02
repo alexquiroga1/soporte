@@ -392,3 +392,85 @@ select.sel:focus, input.inp:focus, textarea.inp:focus{border-color:var(--copper)
 .budget-locked { display: none; flex-direction: column; gap: 12px; }
 .locked-value { display: flex; align-items: center; gap: 12px; font-size: 28px; font-family: 'IBM Plex Mono', monospace; font-weight: bold; color: var(--teal); background: var(--teal-dim); padding: 16px; border-radius: 8px; border: 1px dashed var(--teal); }
 .btn-whatsapp { background: #25D366; color: #fff; width: 100%; justify-content: center; }
+/* DETALLE DE TICKET: vista de ancho completo y centrada */
+#view-ticket-detalle{
+  width:100%;
+  max-width:none;
+  min-height:100vh;
+  box-sizing:border-box;
+  padding:28px clamp(20px, 3vw, 56px) 48px;
+  margin:0;
+  background:var(--bg);
+}
+
+#view-ticket-detalle.active{
+  display:block;
+}
+
+#view-ticket-detalle .page-head,
+#view-ticket-detalle > .panel,
+#view-ticket-detalle > div[style*="grid-template-columns"]{
+  width:100%;
+  max-width:1800px;
+  margin-left:auto;
+  margin-right:auto;
+  box-sizing:border-box;
+}
+
+#view-ticket-detalle > div[style*="grid-template-columns"]{
+  grid-template-columns:
+    minmax(320px,1.15fr)
+    minmax(280px,.9fr)
+    minmax(280px,.9fr) !important;
+
+  align-items:start;
+}
+
+#view-ticket-detalle .panel{
+  min-width:0;
+}
+
+#view-ticket-detalle .panel-body,
+#view-ticket-detalle .panel-head{
+  min-width:0;
+}
+
+@media (max-width:1100px){
+  #view-ticket-detalle{
+    padding:22px 20px 36px;
+  }
+
+  #view-ticket-detalle > div[style*="grid-template-columns"]{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+@media (max-width:760px){
+  #view-ticket-detalle{
+    padding:16px 12px 28px;
+  }
+
+  #view-ticket-detalle .page-head{
+    align-items:flex-start;
+    gap:14px;
+  }
+
+  #view-ticket-detalle .page-head > div:last-child{
+    flex-wrap:wrap;
+    justify-content:flex-start;
+  }
+
+  #view-ticket-detalle > div[style*="grid-template-columns"]{
+    grid-template-columns:1fr !important;
+  }
+
+  #view-ticket-detalle .stepper-sm{
+    overflow-x:auto;
+    justify-content:flex-start;
+    padding-bottom:6px;
+  }
+
+  #view-ticket-detalle .step-sm{
+    min-width:130px;
+  }
+}
