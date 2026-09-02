@@ -58,8 +58,6 @@ export function openFacturaDetalle(id) {
     document.getElementById('fd-fecha').textContent = `Fecha de emisión: ${fDate(f.fecha)} · ${f.hora} hs`;
     
     const badgeEl = document.getElementById('fd-badge-estado');
-    const btnAnular = document.getElementById('btn-fd-anular'); // Reutilizado para botones dinámicos
-    
     let actionsHtml = '';
 
     if (f.estado === 'Emitida' && f.tipo === 'Factura') {
@@ -80,13 +78,23 @@ export function openFacturaDetalle(id) {
         badgeEl.innerHTML = `<span class="badge" style="background:var(--red-dim); color:var(--red);">🔴 ANULADA</span>`;
     }
 
-    // Inyectar botones dinámicos en la vista (remplazar el viejo botón de anular)
-    const actionContainer = document.getElementById('btn-fd-anular').parentElement;
-    // Mantenemos solo Imprimir y Volver, y agregamos las nuevas acciones
-    actionContainer.innerHTML = actionsHtml + `
-      <button class="btn btn-primary" style="margin-left:8px;" onclick="window.print()">🖨️ Imprimir / PDF</button>
-      <button class="btn btn-ghost" onclick="goView('facturacion')">← Volver</button>
-    `;
+    // FIX: Buscar contenedor de botones de forma segura
+    let actionContainer = document.getElementById('fd-actions-container');
+    if (!actionContainer) {
+        // Si no existe el contenedor seguro, lo creamos a partir del botón original
+        const anchor = document.getElementById('btn-fd-anular');
+        if (anchor) {
+            actionContainer = anchor.parentElement;
+            actionContainer.id = 'fd-actions-container'; // Le asignamos ID para que sobreviva a futuros clics
+        }
+    }
+
+    if (actionContainer) {
+        actionContainer.innerHTML = actionsHtml + `
+          <button class="btn btn-primary" style="margin-left:8px;" onclick="window.print()">🖨️ Imprimir / PDF</button>
+          <button class="btn btn-ghost" onclick="goView('facturacion')">← Volver</button>
+        `;
+    }
 
     document.getElementById('fd-origen').textContent = f.refModulo || 'Manual';
     document.getElementById('fd-ref').textContent = f.refId || 'N/A';
