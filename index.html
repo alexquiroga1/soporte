@@ -6,21 +6,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ALEX · GESTION TECNICO</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <style>
-    #login-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; }
-    .login-box { background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08); width: 100%; max-width: 380px; text-align: center; border: 1px solid var(--line); }
-    .login-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px; }
-    .login-brand-mark { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, var(--copper), #C4471F); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: #fff; font-size: 20px; box-shadow: 0 0 0 4px rgba(255, 106, 61, 0.15); }
-    .login-brand-text { text-align: left; }
-    .login-brand-text b { color: var(--graphite); font-size: 20px; letter-spacing: 0.02em; display: block; }
-    .login-brand-text span { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
-    .login-input { width: 100%; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 16px; font-size: 14px; outline: none; transition: border 0.2s; }
-    .login-input:focus { border-color: var(--copper); }
-    .login-btn { width: 100%; padding: 12px; background: var(--graphite); color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 14.5px; cursor: pointer; transition: background 0.2s; }
-    .login-btn:hover { background: var(--graphite-2); }
-    #app-container { display: none; width: 100%; height: 100vh; }
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+    }
+
+    .login-box {
+      background: #fff;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      border: 1px solid var(--line);
+    }
+
+    .login-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    .login-brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--copper), #C4471F);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 700;
+      color: #fff;
+      font-size: 20px;
+      box-shadow: 0 0 0 4px rgba(255, 106, 61, 0.15);
+    }
+
+    .login-brand-text {
+      text-align: left;
+    }
+
+    .login-brand-text b {
+      color: var(--graphite);
+      font-size: 20px;
+      letter-spacing: 0.02em;
+      display: block;
+    }
+
+    .login-brand-text span {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .login-input:focus {
+      border-color: var(--copper);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--graphite);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14.5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .login-btn:hover {
+      background: var(--graphite-2);
+    }
+
+    #app-container {
+      display: none;
+      width: 100%;
+      height: 100vh;
+    }
   </style>
 </head>
 
@@ -34,11 +125,68 @@
         <div class="login-brand-text"><b>SERVIX</b><span>Acceso Privado</span></div>
       </div>
       <form onsubmit="event.preventDefault(); doLogin();">
-        <input type="email" id="login-email" class="login-input" placeholder="Correo electrónico" required autocomplete="email">
-        <input type="password" id="login-pass" class="login-input" placeholder="Contraseña" required autocomplete="current-password">
+        <input type="email" id="login-email" class="login-input" placeholder="Correo electrónico" required
+          autocomplete="email">
+        <input type="password" id="login-pass" class="login-input" placeholder="Contraseña" required
+          autocomplete="current-password">
         <button type="submit" class="login-btn">Iniciar Sesión</button>
       </form>
-      <div style="margin-top: 20px; font-size: 12px; color: var(--muted);">Sistema exclusivo para personal autorizado.</div>
+      <div style="margin-top: 20px; font-size: 12px; color: var(--muted);">Sistema exclusivo para personal autorizado.
+      </div>
+    </div>
+  </div>
+  <!-- PANTALLA PÚBLICA DE APROBACIÓN DE PRESUPUESTO -->
+  <div id="public-presupuesto-screen"
+    style="display:none; position:fixed; inset:0; background:var(--bg); z-index:10000; overflow-y:auto; padding:20px; flex-direction:column; align-items:center;">
+    <div class="login-box" style="margin: 40px auto; max-width: 500px; text-align:left; padding: 30px;">
+      <div class="login-brand" style="justify-content: center;">
+        <div class="login-brand-mark">S</div>
+        <div class="login-brand-text"><b>SERVIX</b><span>Aprobación de Servicio</span></div>
+      </div>
+
+      <div id="pub-loading" style="text-align:center; padding: 40px; color:var(--muted);">Buscando información del
+        ticket...</div>
+
+      <div id="pub-content" style="display:none;">
+        <h3 style="margin-bottom:16px; text-align:center; color:var(--ink);">Detalle de Cotización <span id="pub-tk"
+            class="mono" style="color:var(--copper);"></span></h3>
+
+        <div style="background:var(--bg); padding:16px; border-radius:8px; margin-bottom:20px; font-size:13.5px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span
+              style="color:var(--muted);">Equipo:</span> <b id="pub-equipo"></b></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span
+              style="color:var(--muted);">Falla reportada:</span> <b id="pub-falla"
+              style="text-align:right; max-width:60%;"></b></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span
+              style="color:var(--muted);">Diagnóstico técnico:</span> <b id="pub-diag"
+              style="text-align:right; max-width:60%;"></b></div>
+          <div
+            style="display:flex; justify-content:space-between; margin-bottom:8px; border-top:1px dashed var(--line); padding-top:8px;">
+            <span style="color:var(--muted);">Garantía ofrecida:</span> <b id="pub-garantia">30 días</b></div>
+          <div
+            style="display:flex; justify-content:space-between; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); font-size:18px;">
+            <span style="color:var(--muted); font-weight:600;">TOTAL:</span> <b id="pub-total"
+              style="color:var(--teal); font-family:'IBM Plex Mono', monospace;"></b>
+          </div>
+        </div>
+
+        <div id="pub-actions" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <button class="btn btn-ghost" style="justify-content:center; color:var(--red); border-color:var(--red);"
+            onclick="responderPresupuesto('rechazado')">✖ Rechazar</button>
+          <button class="btn btn-primary" style="justify-content:center; background:var(--teal);"
+            onclick="responderPresupuesto('aprobado')">✓ Aprobar Presupuesto</button>
+        </div>
+
+        <p style="font-size:10px; color:var(--muted); text-align:center; margin-top:20px;">Al aprobar este presupuesto,
+          usted autoriza a nuestro servicio técnico a proceder con la reparación especificada por el monto acordado.</p>
+      </div>
+
+      <div id="pub-success" style="display:none; text-align:center; padding: 30px 10px;">
+        <div style="font-size:40px; margin-bottom:10px;" id="pub-icon">✅</div>
+        <h3 id="pub-msg-title" style="margin-bottom:10px;">¡Gracias!</h3>
+        <p id="pub-msg-desc" style="font-size:13px; color:var(--muted);">Hemos registrado su respuesta. Nos pondremos en
+          contacto a la brevedad.</p>
+      </div>
     </div>
   </div>
 
@@ -55,23 +203,71 @@
       </div>
 
       <div class="nav-group-label">Operación</div>
-      <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>Panel general</div>
-      <div class="nav-item" data-view="tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z" /></svg>Tickets soporte<span class="nav-badge" id="badge-tickets">0</span></div>
-      <div class="nav-item" data-view="ventas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.5" /><circle cx="19" cy="21" r="1.5" /><path d="M2.5 3h2l2.6 12.4a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6" /></svg>Ventas</div>
-      <div class="nav-item" data-view="caja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="13" rx="2" /><path d="M2 11h20M7 15h.01M12 15h5" /></svg>Caja</div>
+      <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg>Panel general</div>
+      <div class="nav-item" data-view="tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <path d="M4 7a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3a2 2 0 000-4V7z" />
+        </svg>Tickets soporte<span class="nav-badge" id="badge-tickets">0</span></div>
+      <div class="nav-item" data-view="ventas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="9" cy="21" r="1.5" />
+          <circle cx="19" cy="21" r="1.5" />
+          <path d="M2.5 3h2l2.6 12.4a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6" />
+        </svg>Ventas</div>
+      <div class="nav-item" data-view="caja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <rect x="2" y="7" width="20" height="13" rx="2" />
+          <path d="M2 11h20M7 15h.01M12 15h5" />
+        </svg>Caja</div>
 
       <div class="nav-group-label">Relación &amp; datos</div>
-      <div class="nav-item" data-view="crm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" /><circle cx="10" cy="7" r="4" /><path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>CRM</div>
-      <div class="nav-item" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>Clientes</div>
-      <div class="nav-item" data-view="creditos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>Créditos</div>
+      <div class="nav-item" data-view="crm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
+          <circle cx="10" cy="7" r="4" />
+          <path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+        </svg>CRM</div>
+      <div class="nav-item" data-view="clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+        </svg>Clientes</div>
+      <div class="nav-item" data-view="creditos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <path d="M2 10h20M6 15h4" />
+        </svg>Créditos</div>
 
       <div class="nav-group-label">Recursos</div>
-      <div class="nav-item" data-view="productos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8M12 13v8" /></svg>Catálogo y Promos</div>
-      <div class="nav-item" data-view="erp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg>ERP</div>
+      <div class="nav-item" data-view="productos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+          <path d="M3 8v8l9 5 9-5V8M12 13v8" />
+        </svg>Catálogo y Promos</div>
+      <div class="nav-item" data-view="erp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>ERP</div>
 
       <div class="nav-group-label">Sistema</div>
-      <div class="nav-item" data-view="reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>Reportes</div>
-      <div class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" /></svg>Configuración</div>
+      <div class="nav-item" data-view="reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <path d="M3 3v18h18" />
+          <rect x="7" y="12" width="3" height="6" />
+          <rect x="12" y="8" width="3" height="10" />
+          <rect x="17" y="5" width="3" height="13" />
+        </svg>Reportes</div>
+      <div class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+        </svg>Configuración</div>
 
       <div class="sidebar-foot">
         <div class="avatar" id="sidebar-avatar">US</div>
@@ -83,29 +279,56 @@
     <div class="main">
       <div class="topbar">
         <!-- BOTÓN MENÚ MÓVIL -->
-        <button id="mobile-menu-btn" class="icon-btn" style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
+        <button id="mobile-menu-btn" class="icon-btn"
+          style="display:none; margin-right: 8px; border:none; background:transparent; color:var(--ink);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
         </button>
 
-        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
 
         <div class="topbar-actions">
           <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
 
           <div style="position:relative;">
-            <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /></svg><span class="dot-alert"></span></div>
+            <div class="icon-btn" id="btn-notif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 01-3.4 0" />
+              </svg><span class="dot-alert"></span></div>
             <div class="dropdown" id="dd-notif">
               <div class="dropdown-head">Notificaciones <span onclick="closeDropdowns()">Marcar leídas</span></div>
-              <div class="notif-item"><div class="notif-dot"></div><div><p>No tienes notificaciones nuevas por ahora.</p><div class="t">AHORA</div></div></div>
+              <div class="notif-item">
+                <div class="notif-dot"></div>
+                <div>
+                  <p>No tienes notificaciones nuevas por ahora.</p>
+                  <div class="t">AHORA</div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div style="position:relative;">
             <div class="avatar" id="btn-user" style="cursor:pointer;">US</div>
             <div class="dropdown" id="dd-user" style="width:200px;">
-              <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>Mi perfil</div>
-              <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.3 1.9" /></svg>Configuración</div>
-              <div class="user-dd-item" onclick="doLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>Cerrar sesión</div>
+              <div class="user-dd-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>Mi perfil</div>
+              <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.7 1.7 0 00.3 1.9" />
+                </svg>Configuración</div>
+              <div class="user-dd-item" onclick="doLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <path d="M16 17l5-5-5-5M21 12H9" />
+                </svg>Cerrar sesión</div>
             </div>
           </div>
         </div>
@@ -120,21 +343,30 @@
               <h1 id="dash-title-negocio">Panel general</h1>
               <p id="dash-date">HOY</p>
             </div>
-            <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo ticket</button>
+            <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>Nuevo ticket</button>
           </div>
 
           <div class="kpi-row" id="dash-kpis"></div>
 
           <div class="grid-2" style="margin-bottom:16px;">
             <div class="panel">
-              <div class="panel-head"><h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span></div>
+              <div class="panel-head">
+                <h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span>
+              </div>
               <div class="panel-body" id="dash-bar-chart"></div>
             </div>
             <div class="panel">
-              <div class="panel-head"><h3>Tickets por estado</h3></div>
+              <div class="panel-head">
+                <h3>Tickets por estado</h3>
+              </div>
               <div class="panel-body">
                 <div class="donut-wrap" id="dash-donut">
-                  <div class="donut-ring"><div class="donut-center"><b>0</b><span>Total</span></div></div>
+                  <div class="donut-ring">
+                    <div class="donut-center"><b>0</b><span>Total</span></div>
+                  </div>
                   <div class="donut-legend"></div>
                 </div>
               </div>
@@ -143,19 +375,34 @@
 
           <div class="grid-2">
             <div class="panel">
-              <div class="panel-head"><h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span></div>
+              <div class="panel-head">
+                <h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span>
+              </div>
               <table>
-                <thead><tr><th>Prior.</th><th>Ticket</th><th>Cliente</th><th>Equipo / falla</th><th>Estado</th><th>Técnico</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Prior.</th>
+                    <th>Ticket</th>
+                    <th>Cliente</th>
+                    <th>Equipo / falla</th>
+                    <th>Estado</th>
+                    <th>Técnico</th>
+                  </tr>
+                </thead>
                 <tbody id="dash-tickets-body"></tbody>
               </table>
             </div>
             <div class="stack">
               <div class="panel">
-                <div class="panel-head"><h3>Caja del día</h3></div>
+                <div class="panel-head">
+                  <h3>Caja del día</h3>
+                </div>
                 <div class="caja-box" id="dash-caja"></div>
               </div>
               <div class="panel">
-                <div class="panel-head"><h3>Actividad</h3></div>
+                <div class="panel-head">
+                  <h3>Actividad</h3>
+                </div>
                 <div class="actlist" id="dash-activity">
                   <div style="padding: 10px 18px; color: var(--muted); font-size: 13px;">Sin actividad reciente.</div>
                 </div>
@@ -176,57 +423,112 @@
                 <div class="tab active" data-sub="tk-lista">Lista</div>
                 <div class="tab" data-sub="tk-tablero">Tablero</div>
               </div>
-              <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo ticket</button>
+              <button class="btn btn-primary" onclick="openModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>Nuevo ticket</button>
             </div>
           </div>
 
           <div class="toolbar">
-            <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg><input id="tk-search" placeholder="Buscar por cliente o ticket…" oninput="renderTicketsTable()"></div>
+            <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg><input id="tk-search" placeholder="Buscar por cliente o ticket…" oninput="renderTicketsTable()">
+            </div>
             <select class="sel" id="tk-filter-tecnico" onchange="renderTicketsTable()">
-              <option value="">Todos los técnicos</option><option value="Sin asignar">Sin asignar</option>
+              <option value="">Todos los técnicos</option>
+              <option value="Sin asignar">Sin asignar</option>
             </select>
             <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
               <option value="">Todos los estados</option>
-              <option value="pendiente">Recibido</option><option value="diagnostico">En diagnóstico</option><option value="presupuesto">Esperando Aprobación</option>
-              <option value="reparacion">En reparación</option><option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option>
-              <option value="entregado">Entregado</option><option value="noreparable">No reparable</option><option value="cancelado">Cancelado / Retirado</option><option value="garantia">Garantía</option>
+              <option value="pendiente">Recibido</option>
+              <option value="diagnostico">En diagnóstico</option>
+              <option value="presupuesto">Esperando Aprobación</option>
+              <option value="reparacion">En reparación</option>
+              <option value="repuesto">Esperando repuesto</option>
+              <option value="listo">Listo para entrega</option>
+              <option value="entregado">Entregado</option>
+              <option value="noreparable">No reparable</option>
+              <option value="cancelado">Cancelado / Retirado</option>
+              <option value="garantia">Garantía</option>
             </select>
             <select class="sel" id="tk-filter-prio" onchange="renderTicketsTable()">
-              <option value="">Toda prioridad</option><option value="P1">P1 · Urgente</option><option value="P2">P2 · Media</option><option value="P3">P3 · Baja</option>
+              <option value="">Toda prioridad</option>
+              <option value="P1">P1 · Urgente</option>
+              <option value="P2">P2 · Media</option>
+              <option value="P3">P3 · Baja</option>
             </select>
           </div>
 
           <div id="tk-lista" class="subview">
             <div class="panel">
               <table>
-                <thead><tr><th>Prior.</th><th>Ticket</th><th>Cliente</th><th>Equipo / falla</th><th>Ingreso</th><th>Presupuesto</th><th>Estado</th><th>Técnico</th><th>Acciones</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Prior.</th>
+                    <th>Ticket</th>
+                    <th>Cliente</th>
+                    <th>Equipo / falla</th>
+                    <th>Ingreso</th>
+                    <th>Presupuesto</th>
+                    <th>Estado</th>
+                    <th>Técnico</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
                 <tbody id="tickets-table-body"></tbody>
               </table>
             </div>
           </div>
-          <div id="tk-tablero" class="subview" style="display:none;"><div class="kanban" id="tickets-kanban"></div></div>
+          <div id="tk-tablero" class="subview" style="display:none;">
+            <div class="kanban" id="tickets-kanban"></div>
+          </div>
         </div>
 
         <!-- ================= VENTAS (POS) ================= -->
         <div class="view" id="view-ventas">
-          <div class="page-head"><div><h1>Ventas</h1><p id="ventas-meta">PUNTO DE VENTA</p></div><div class="tabs"><div class="tab active" data-sub="v-pos">Nueva venta</div><div class="tab" data-sub="v-historial">Historial</div></div></div>
+          <div class="page-head">
+            <div>
+              <h1>Ventas</h1>
+              <p id="ventas-meta">PUNTO DE VENTA</p>
+            </div>
+            <div class="tabs">
+              <div class="tab active" data-sub="v-pos">Nueva venta</div>
+              <div class="tab" data-sub="v-historial">Historial</div>
+            </div>
+          </div>
           <div id="v-pos" class="subview">
             <div class="pos-layout">
               <div>
-                <div class="field-search" style="max-width:100%;margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg><input id="pos-search" placeholder="Buscar producto o servicio…" oninput="renderPOSProducts()"></div>
+                <div class="field-search" style="max-width:100%;margin-bottom:14px;"><svg viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg><input id="pos-search" placeholder="Buscar producto o servicio…" oninput="renderPOSProducts()">
+                </div>
                 <div class="pos-products" id="pos-products"></div>
               </div>
               <div class="cart-panel">
-                <div class="cart-head"><h3>Carrito</h3><span class="mono" id="cart-count">0 items</span></div>
+                <div class="cart-head">
+                  <h3>Carrito</h3><span class="mono" id="cart-count">0 items</span>
+                </div>
                 <div class="cart-items" id="cart-items"></div>
-                <select class="sel" id="pos-cliente"><option value="Mostrador">Cliente: Mostrador</option></select>
+                <select class="sel" id="pos-cliente">
+                  <option value="Mostrador">Cliente: Mostrador</option>
+                </select>
                 <div style="padding:0 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">MÉTODO DE PAGO</div>
                 <div class="pay-methods" id="pay-methods"></div>
-                <div style="padding:12px 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">PROMOCIONES (OPCIONAL)</div>
-                <select class="sel" id="pos-promo" style="margin:0 16px 12px; width:calc(100% - 32px);" onchange="renderCart()"><option value="">Sin promoción / descuento</option></select>
+                <div style="padding:12px 16px 8px;font-size:11px;color:var(--muted);font-weight:600;">PROMOCIONES
+                  (OPCIONAL)</div>
+                <select class="sel" id="pos-promo" style="margin:0 16px 12px; width:calc(100% - 32px);"
+                  onchange="renderCart()">
+                  <option value="">Sin promoción / descuento</option>
+                </select>
                 <div class="cart-totals">
                   <div class="ct-line"><span>Subtotal</span><span id="ct-subtotal">$0.00</span></div>
-                  <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);"><span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
+                  <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);">
+                    <span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
                   <div class="ct-line"><span>IVA (16%)</span><span id="ct-iva">$0.00</span></div>
                   <div class="ct-line total"><span>Total</span><span class="v" id="ct-total">$0.00</span></div>
                 </div>
@@ -236,123 +538,364 @@
           </div>
           <div id="v-historial" class="subview" style="display:none;">
             <div class="panel">
-              <table><thead><tr><th>Folio</th><th>Cliente</th><th>Artículos</th><th>Pago</th><th>Total</th><th>Hora</th></tr></thead><tbody id="ventas-historial-body"></tbody></table>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Folio</th>
+                    <th>Cliente</th>
+                    <th>Artículos</th>
+                    <th>Pago</th>
+                    <th>Total</th>
+                    <th>Hora</th>
+                  </tr>
+                </thead>
+                <tbody id="ventas-historial-body"></tbody>
+              </table>
             </div>
           </div>
         </div>
 
         <!-- ================= CAJA ================= -->
         <div class="view" id="view-caja">
-          <div class="page-head"><div><h1>Caja</h1><p id="caja-meta">CORTE ABIERTO DESDE 08:00</p></div><button class="btn btn-primary" onclick="abrirModalCierre()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" /></svg>Cerrar corte</button></div>
-          <div class="tabs" style="margin-bottom:16px;"><div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div><div class="tab" data-sub="caja-movs-sub">Movimientos y Resumen</div></div>
+          <div class="page-head">
+            <div>
+              <h1>Caja</h1>
+              <p id="caja-meta">CORTE ABIERTO DESDE 08:00</p>
+            </div><button class="btn btn-primary" onclick="abrirModalCierre()"><svg viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>Cerrar corte</button>
+          </div>
+          <div class="tabs" style="margin-bottom:16px;">
+            <div class="tab active" data-sub="caja-pendientes-sub">Facturaciones Pendientes</div>
+            <div class="tab" data-sub="caja-movs-sub">Movimientos y Resumen</div>
+          </div>
           <div id="caja-pendientes-sub" class="subview">
             <div class="panel">
-              <div class="panel-head"><h3>Facturaciones Pendientes de Cobro</h3><span class="meta">Procesa el cobro con pasarela detallada</span></div>
-              <table><thead><tr><th>Origen</th><th>Referencia</th><th>Cliente</th><th>Concepto / Artículos</th><th>Total a cobrar</th><th>Acción</th></tr></thead><tbody id="caja-pendientes-body"></tbody></table>
+              <div class="panel-head">
+                <h3>Facturaciones Pendientes de Cobro</h3><span class="meta">Procesa el cobro con pasarela
+                  detallada</span>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Origen</th>
+                    <th>Referencia</th>
+                    <th>Cliente</th>
+                    <th>Concepto / Artículos</th>
+                    <th>Total a cobrar</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="caja-pendientes-body"></tbody>
+              </table>
             </div>
           </div>
           <div id="caja-movs-sub" class="subview" style="display:none;">
             <div class="grid-2">
               <div class="panel">
-                <div class="panel-head"><h3>Movimientos de caja</h3></div>
-                <table><thead><tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead><tbody id="caja-mov-body"></tbody></table>
+                <div class="panel-head">
+                  <h3>Movimientos de caja</h3>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Hora</th>
+                      <th>Concepto</th>
+                      <th>Tipo</th>
+                      <th>Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="caja-mov-body"></tbody>
+                </table>
                 <div class="panel-body" style="border-top:1px solid var(--line);">
                   <div class="form-grid">
-                    <div><label>Concepto</label><input class="inp" id="mov-concepto" placeholder="Ej. Compra de insumos" style="width:100%;"></div>
-                    <div><label>Tipo</label><select class="sel" id="mov-tipo" style="width:100%;"><option value="ingreso">Ingreso</option><option value="egreso">Egreso</option></select></div>
-                    <div><label>Monto</label><input class="inp" id="mov-monto" type="number" min="0" step="0.01" placeholder="$0.00" style="width:100%;"></div>
-                    <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="addMovimiento()">Registrar movimiento</button></div>
+                    <div><label>Concepto</label><input class="inp" id="mov-concepto" placeholder="Ej. Compra de insumos"
+                        style="width:100%;"></div>
+                    <div><label>Tipo</label><select class="sel" id="mov-tipo" style="width:100%;">
+                        <option value="ingreso">Ingreso</option>
+                        <option value="egreso">Egreso</option>
+                      </select></div>
+                    <div><label>Monto</label><input class="inp" id="mov-monto" type="number" min="0" step="0.01"
+                        placeholder="$0.00" style="width:100%;"></div>
+                    <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost"
+                        style="width:100%;justify-content:center;" onclick="addMovimiento()">Registrar
+                        movimiento</button></div>
                   </div>
                 </div>
               </div>
-              <div class="panel"><div class="panel-head"><h3>Resumen</h3></div><div class="caja-box" id="caja-resumen"></div></div>
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Resumen</h3>
+                </div>
+                <div class="caja-box" id="caja-resumen"></div>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- ================= CRM ================= -->
         <div class="view" id="view-crm">
-          <div class="page-head"><div><h1>CRM</h1><p>PIPELINE DE OPORTUNIDADES</p></div><button class="btn btn-primary" onclick="openModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nueva oportunidad</button></div>
+          <div class="page-head">
+            <div>
+              <h1>CRM</h1>
+              <p>PIPELINE DE OPORTUNIDADES</p>
+            </div><button class="btn btn-primary" onclick="openModal('modal-nueva-oportunidad')"><svg
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>Nueva oportunidad</button>
+          </div>
           <div class="kanban" id="crm-kanban" style="margin-bottom:18px;"></div>
-          <div class="panel"><div class="panel-head"><h3>Valor total en pipeline</h3><span class="meta" id="crm-total"></span></div></div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Valor total en pipeline</h3><span class="meta" id="crm-total"></span>
+            </div>
+          </div>
         </div>
 
         <!-- ================= CLIENTES ================= -->
         <div class="view" id="view-clientes">
-          <div class="page-head"><div><h1>Clientes</h1><p id="clientes-meta">— REGISTRADOS</p></div><button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo cliente</button></div>
-          <div class="toolbar"><div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono o DNI…" oninput="renderClientesTable()"></div></div>
+          <div class="page-head">
+            <div>
+              <h1>Clientes</h1>
+              <p id="clientes-meta">— REGISTRADOS</p>
+            </div><button class="btn btn-primary" onclick="openModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>Nuevo cliente</button>
+          </div>
+          <div class="toolbar">
+            <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg><input id="cl-search" placeholder="Buscar cliente por nombre o teléfono o DNI…"
+                oninput="renderClientesTable()"></div>
+          </div>
           <div class="panel">
-            <table><thead><tr><th>Cliente</th><th>Teléfono</th><th>Tickets</th><th>Compras totales</th><th>Crédito disp.</th><th>Acción</th></tr></thead><tbody id="clientes-table-body"></tbody></table>
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Teléfono</th>
+                  <th>Tickets</th>
+                  <th>Compras totales</th>
+                  <th>Crédito disp.</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="clientes-table-body"></tbody>
+            </table>
           </div>
         </div>
 
         <!-- ================= CRÉDITOS ================= -->
         <div class="view" id="view-creditos">
-          <div class="page-head"><div><h1>Créditos y Préstamos</h1><p id="creditos-meta">SALDO TOTAL POR COBRAR</p></div><button class="btn btn-primary" onclick="openNuevoCreditoModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo Préstamo</button></div>
+          <div class="page-head">
+            <div>
+              <h1>Créditos y Préstamos</h1>
+              <p id="creditos-meta">SALDO TOTAL POR COBRAR</p>
+            </div><button class="btn btn-primary" onclick="openNuevoCreditoModal()"><svg viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>Nuevo Préstamo</button>
+          </div>
           <div class="kpi-row" id="creditos-kpis"></div>
           <div class="panel">
-            <table><thead><tr><th>Cliente</th><th>Concepto</th><th>Monto original</th><th>Saldo</th><th>Vence</th><th>Estado</th></tr></thead><tbody id="creditos-table-body"></tbody></table>
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Concepto</th>
+                  <th>Monto original</th>
+                  <th>Saldo</th>
+                  <th>Vence</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="creditos-table-body"></tbody>
+            </table>
           </div>
         </div>
 
         <!-- ================= PRODUCTOS Y PROMOCIONES ================= -->
         <div class="view" id="view-productos">
           <div class="page-head">
-            <div><h1>Catálogo y Promos</h1><p id="productos-meta">SKU EN CATÁLOGO</p></div>
+            <div>
+              <h1>Catálogo y Promos</h1>
+              <p id="productos-meta">SKU EN CATÁLOGO</p>
+            </div>
             <div class="head-actions">
               <button class="btn btn-ghost" onclick="openModal('modal-nueva-promocion')">Nueva promo</button>
-              <button class="btn btn-primary" onclick="openModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo producto</button>
+              <button class="btn btn-primary" onclick="openModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>Nuevo producto</button>
             </div>
           </div>
           <div class="kpi-row" id="productos-kpis"></div>
-          <div class="tabs" style="margin-bottom:16px;"><div class="tab active" data-sub="prod-catalogo">Catálogo de Productos</div><div class="tab" data-sub="prod-promos">Promociones Activas</div></div>
+          <div class="tabs" style="margin-bottom:16px;">
+            <div class="tab active" data-sub="prod-catalogo">Catálogo de Productos</div>
+            <div class="tab" data-sub="prod-promos">Promociones Activas</div>
+          </div>
           <div id="prod-catalogo" class="subview">
             <div class="tabs" id="productos-tabs" style="margin-bottom:16px;"></div>
             <div class="panel">
-              <table><thead><tr><th>SKU / Producto</th><th>Categoría</th><th>Precio Base</th><th>Stock</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="productos-table-body"></tbody></table>
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU / Producto</th>
+                    <th>Categoría</th>
+                    <th>Precio Base</th>
+                    <th>Stock</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="productos-table-body"></tbody>
+              </table>
             </div>
           </div>
           <div id="prod-promos" class="subview" style="display:none;">
             <div class="panel">
-              <table><thead><tr><th>Promoción</th><th>Descuento</th><th>Aplica a</th><th>Vence</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="promos-table-body"></tbody></table>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Promoción</th>
+                    <th>Descuento</th>
+                    <th>Aplica a</th>
+                    <th>Vence</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="promos-table-body"></tbody>
+              </table>
             </div>
           </div>
         </div>
 
         <!-- ================= ERP ================= -->
         <div class="view" id="view-erp">
-          <div class="page-head"><div><h1>ERP</h1><p>VISTA CONSOLIDADA DEL NEGOCIO</p></div></div>
+          <div class="page-head">
+            <div>
+              <h1>ERP</h1>
+              <p>VISTA CONSOLIDADA DEL NEGOCIO</p>
+            </div>
+          </div>
           <div class="kpi-row">
-            <div class="kpi c-teal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 6l-9.5 9.5-5-5L1 18" /></svg></div><div class="label">Ingresos del mes</div><div class="value">$0</div><div class="delta up">Sin datos</div></div>
-            <div class="kpi c-red"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 18l-9.5-9.5-5 5L1 6" /></svg></div><div class="label">Gastos del mes</div><div class="value">$0</div><div class="delta down">Sin datos</div></div>
-            <div class="kpi c-copper"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z" /></svg></div><div class="label">Inventario valorizado</div><div class="value">$0</div><div class="delta up">0 SKU</div></div>
-            <div class="kpi c-amber"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg></div><div class="label">Nómina técnica</div><div class="value">$0</div><div class="delta up">0 técnicos</div></div>
+            <div class="kpi c-teal">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 6l-9.5 9.5-5-5L1 18" />
+                </svg></div>
+              <div class="label">Ingresos del mes</div>
+              <div class="value">$0</div>
+              <div class="delta up">Sin datos</div>
+            </div>
+            <div class="kpi c-red">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 18l-9.5-9.5-5 5L1 6" />
+                </svg></div>
+              <div class="label">Gastos del mes</div>
+              <div class="value">$0</div>
+              <div class="delta down">Sin datos</div>
+            </div>
+            <div class="kpi c-copper">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                </svg></div>
+              <div class="label">Inventario valorizado</div>
+              <div class="value">$0</div>
+              <div class="delta up">0 SKU</div>
+            </div>
+            <div class="kpi c-amber">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg></div>
+              <div class="label">Nómina técnica</div>
+              <div class="value">$0</div>
+              <div class="delta up">0 técnicos</div>
+            </div>
           </div>
         </div>
 
         <!-- ================= REPORTES ================= -->
         <div class="view" id="view-reportes">
-          <div class="page-head"><div><h1>Reportes Financieros</h1><p>BASADOS EN SISTEMA DE GESTIÓN Y COBRANZAS</p></div><button class="btn btn-ghost" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>Imprimir Reportes</button></div>
+          <div class="page-head">
+            <div>
+              <h1>Reportes Financieros</h1>
+              <p>BASADOS EN SISTEMA DE GESTIÓN Y COBRANZAS</p>
+            </div><button class="btn btn-ghost" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>Imprimir Reportes</button>
+          </div>
           <div class="kpi-row" id="reportes-kpis"></div>
           <div class="panel" style="margin-bottom:16px;">
-            <div class="panel-head"><h3>Listado de Créditos Otorgados</h3></div>
-            <table><thead><tr><th>Fecha Origen</th><th>Nº Carpeta</th><th>Cliente</th><th>Concepto</th><th>Capital Otorgado</th></tr></thead><tbody id="reportes-lista-creditos"></tbody></table>
+            <div class="panel-head">
+              <h3>Listado de Créditos Otorgados</h3>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha Origen</th>
+                  <th>Nº Carpeta</th>
+                  <th>Cliente</th>
+                  <th>Concepto</th>
+                  <th>Capital Otorgado</th>
+                </tr>
+              </thead>
+              <tbody id="reportes-lista-creditos"></tbody>
+            </table>
           </div>
           <div class="panel" style="margin-bottom:16px;">
-            <div class="panel-head"><h3>Listado de Cobranzas</h3></div>
-            <table><thead><tr><th>Fecha / Hora</th><th>Concepto de Cobro</th><th>Capital Pagado</th><th>Punitorios / Gastos</th><th>Total Cobrado</th></tr></thead><tbody id="reportes-lista-cobranzas"></tbody></table>
+            <div class="panel-head">
+              <h3>Listado de Cobranzas</h3>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha / Hora</th>
+                  <th>Concepto de Cobro</th>
+                  <th>Capital Pagado</th>
+                  <th>Punitorios / Gastos</th>
+                  <th>Total Cobrado</th>
+                </tr>
+              </thead>
+              <tbody id="reportes-lista-cobranzas"></tbody>
+            </table>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3 style="color:var(--red);">Listado de Clientes Morosos</h3><span class="meta">Ordenados por mayor atraso</span></div>
-            <table><thead><tr><th>Cliente</th><th>Teléfono (Reclamos)</th><th>Días de Mora</th><th>Monto a Reclamar (Saldo)</th></tr></thead><tbody id="reportes-lista-morosos"></tbody></table>
+            <div class="panel-head">
+              <h3 style="color:var(--red);">Listado de Clientes Morosos</h3><span class="meta">Ordenados por mayor
+                atraso</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Teléfono (Reclamos)</th>
+                  <th>Días de Mora</th>
+                  <th>Monto a Reclamar (Saldo)</th>
+                </tr>
+              </thead>
+              <tbody id="reportes-lista-morosos"></tbody>
+            </table>
           </div>
         </div>
 
         <!-- ================= CONFIGURACIÓN ================= -->
         <div class="view" id="view-config">
-          <div class="page-head"><div><h1>Configuración</h1><p>NEGOCIO, USUARIOS Y ROLES</p></div></div>
+          <div class="page-head">
+            <div>
+              <h1>Configuración</h1>
+              <p>NEGOCIO, USUARIOS Y ROLES</p>
+            </div>
+          </div>
           <div class="panel" style="margin-bottom:16px;">
-            <div class="panel-head"><h3>Datos del negocio</h3></div>
+            <div class="panel-head">
+              <h3>Datos del negocio</h3>
+            </div>
             <div class="panel-body">
               <div class="form-grid">
                 <div><label>Nombre del negocio</label><input id="cfg-nombre" class="inp" style="width:100%;"></div>
@@ -361,18 +904,34 @@
                 <div><label>Correo</label><input id="cfg-email" class="inp" style="width:100%;"></div>
                 <div class="full"><label>Dirección</label><input id="cfg-dir" class="inp" style="width:100%;"></div>
               </div>
-              <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfigNegocio()">Guardar cambios</button></div>
+              <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfigNegocio()">Guardar
+                  cambios</button></div>
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px;">
             <div class="panel-head" style="justify-content:space-between; display:flex; align-items:center;">
               <h3>Usuarios (Perfiles Locales)</h3>
-              <div><span class="meta" id="config-users-meta" style="margin-right:15px;"></span><button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button></div>
+              <div><span class="meta" id="config-users-meta" style="margin-right:15px;"></span><button
+                  class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-usuario')">+ Nuevo Usuario</button></div>
             </div>
-            <div style="padding:10px 18px; font-size:12px; color:var(--amber); background:var(--amber-dim); border-bottom:1px solid var(--line);"><b>Nota:</b> Estos son los perfiles dentro de Servix. Recuerda que para que puedan iniciar sesión, debes registrarlos también en la consola de Firebase Authentication.</div>
-            <table><thead><tr><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th></tr></thead><tbody id="config-users-body"></tbody></table>
+            <div
+              style="padding:10px 18px; font-size:12px; color:var(--amber); background:var(--amber-dim); border-bottom:1px solid var(--line);">
+              <b>Nota:</b> Estos son los perfiles dentro de Servix. Recuerda que para que puedan iniciar sesión, debes
+              registrarlos también en la consola de Firebase Authentication.</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Rol</th>
+                  <th>Correo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="config-users-body"></tbody>
+            </table>
           </div>
-          <div class="panel-head" style="background:none;border:none;padding:0 0 12px; display:flex; justify-content:space-between; align-items:center;">
+          <div class="panel-head"
+            style="background:none;border:none;padding:0 0 12px; display:flex; justify-content:space-between; align-items:center;">
             <h3 style="font-size:14.5px;">Roles y permisos</h3>
             <button class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-rol')">+ Nuevo Rol</button>
           </div>
@@ -382,16 +941,67 @@
         <!-- ================= DETALLE TICKET (VISTA COMPACTA NO MODAL) ================= -->
         <div class="view" id="view-ticket-detalle">
           <style>
-            .stepper-sm { display: flex; justify-content: space-between; }
-            .step-sm { flex: 1; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); position: relative; }
-            .step-sm::before { content: ''; display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--line); margin: 0 auto 6px auto; z-index: 2; position: relative; }
-            .step-sm::after { content: ''; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px; background: var(--line); z-index: 1; }
-            .step-sm:first-child::after { display: none; }
-            .step-sm.active { color: var(--copper); }
-            .step-sm.active::before { background: var(--copper); box-shadow: 0 0 0 3px var(--copper-dim); }
-            .step-sm.completed { color: var(--ink); }
-            .step-sm.completed::before { background: var(--teal); }
-            .step-sm.completed::after { background: var(--teal); }
+            .stepper-sm {
+              display: flex;
+              justify-content: space-between;
+            }
+
+            .step-sm {
+              flex: 1;
+              text-align: center;
+              font-size: 11px;
+              font-weight: 600;
+              color: var(--muted);
+              position: relative;
+            }
+
+            .step-sm::before {
+              content: '';
+              display: block;
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background: var(--line);
+              margin: 0 auto 6px auto;
+              z-index: 2;
+              position: relative;
+            }
+
+            .step-sm::after {
+              content: '';
+              position: absolute;
+              top: 5px;
+              left: -50%;
+              width: 100%;
+              height: 2px;
+              background: var(--line);
+              z-index: 1;
+            }
+
+            .step-sm:first-child::after {
+              display: none;
+            }
+
+            .step-sm.active {
+              color: var(--copper);
+            }
+
+            .step-sm.active::before {
+              background: var(--copper);
+              box-shadow: 0 0 0 3px var(--copper-dim);
+            }
+
+            .step-sm.completed {
+              color: var(--ink);
+            }
+
+            .step-sm.completed::before {
+              background: var(--teal);
+            }
+
+            .step-sm.completed::after {
+              background: var(--teal);
+            }
           </style>
 
           <div class="page-head" style="margin-bottom: 12px;">
@@ -403,15 +1013,22 @@
               <p id="mt-ingreso" style="margin-top:4px;"></p>
             </div>
             <div style="display: flex; gap: 10px;">
-              <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);" onclick="eliminarTicketConCodigo()">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px; vertical-align:text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);"
+                onclick="eliminarTicketConCodigo()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                  style="margin-right:6px; vertical-align:text-bottom;">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
                 Eliminar Ticket
               </button>
-              <button class="btn btn-primary" onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨️ Comprobante de Recepción</button>
+              <button class="btn btn-primary"
+                onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨️ Comprobante de
+                Recepción</button>
               <button class="btn btn-ghost" onclick="goView('tickets')">← Volver a la Lista</button>
             </div>
           </div>
-          
+
           <div class="panel" style="margin-bottom:16px; padding:12px 24px;">
             <div class="stepper-sm" id="mt-stepper">
               <div class="step-sm" data-step="pendiente">Recibido</div>
@@ -430,36 +1047,71 @@
                   <h3>Check-in del Equipo</h3>
                 </div>
                 <div class="panel-body" style="padding:16px; font-size:12.5px;">
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; background:var(--bg); padding:10px; border-radius:8px;">
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Cliente</div><div id="mt-cliente" style="font-weight:600;"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Equipo</div><div id="mt-equipo" style="font-weight:600;"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Marca/Modelo</div><div id="mt-marca-modelo"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S/N - IMEI</div><div id="mt-serie" class="mono"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S.O. / Specs</div><div id="mt-specs"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Contraseña/PIN</div><div id="mt-pin" style="color:var(--copper); font-family:monospace; font-weight:bold;"></div></div>
+                  <div
+                    style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; background:var(--bg); padding:10px; border-radius:8px;">
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Cliente</div>
+                      <div id="mt-cliente" style="font-weight:600;"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Equipo
+                      </div>
+                      <div id="mt-equipo" style="font-weight:600;"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Marca/Modelo</div>
+                      <div id="mt-marca-modelo"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S/N -
+                        IMEI</div>
+                      <div id="mt-serie" class="mono"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S.O. /
+                        Specs</div>
+                      <div id="mt-specs"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Contraseña/PIN</div>
+                      <div id="mt-pin" style="color:var(--copper); font-family:monospace; font-weight:bold;"></div>
+                    </div>
                   </div>
-                  
+
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Estado Físico OK</div>
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">
+                      Estado Físico OK</div>
                     <div id="mt-estado-fisico" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;"></div>
                   </div>
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Accesorios Entregados</div>
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">
+                      Accesorios Entregados</div>
                     <div id="mt-accesorios-obj" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;"></div>
                   </div>
 
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Observaciones al Ingreso</div>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                      Observaciones al Ingreso</div>
                     <div id="mt-condicion" style="font-style:italic; color:var(--muted); margin-top:2px;"></div>
                   </div>
 
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--red); font-weight:700; text-transform:uppercase;">Falla Reportada</div>
-                    <div id="mt-falla" style="background:var(--red-dim); padding:8px; border-radius:6px; margin-top:4px;"></div>
+                    <div style="font-size:10px; color:var(--red); font-weight:700; text-transform:uppercase;">Falla
+                      Reportada</div>
+                    <div id="mt-falla"
+                      style="background:var(--red-dim); padding:8px; border-radius:6px; margin-top:4px;"></div>
                   </div>
 
-                  <div id="mt-fotos-container" style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:10px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">📷 Evidencia Fotográfica</div>
+                  <div id="mt-fotos-container"
+                    style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:10px;">
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+                      📷 Evidencia Fotográfica</div>
                     <div id="mt-fotos-gallery" style="display:flex; gap:8px; overflow-x:auto;"></div>
                   </div>
                 </div>
@@ -469,8 +1121,10 @@
                   <h3>Diagnóstico Técnico</h3>
                 </div>
                 <div class="panel-body" style="padding:12px 16px;">
-                  <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Detalle técnico..." style="width:100%; font-size:12px;"></textarea>
-                  <div style="text-align: right; margin-top: 6px;"><button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar</button></div>
+                  <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Detalle técnico..."
+                    style="width:100%; font-size:12px;"></textarea>
+                  <div style="text-align: right; margin-top: 6px;"><button class="btn btn-ghost btn-sm"
+                      onclick="saveDiagnostico()">Guardar</button></div>
                 </div>
               </div>
             </div>
@@ -478,32 +1132,54 @@
             <!-- COLUMNA 2 -->
             <div class="stack" style="gap:12px;">
               <div class="panel" style="border: 1px solid var(--amber);">
-                <div class="panel-head" style="background:var(--amber-dim); padding:12px 16px; border-bottom:1px solid rgba(245,158,11,0.2);">
+                <div class="panel-head"
+                  style="background:var(--amber-dim); padding:12px 16px; border-bottom:1px solid rgba(245,158,11,0.2);">
                   <h3 style="color:#A5520F;">Finanzas y Materiales</h3>
                 </div>
                 <div class="panel-body" style="padding:16px;">
-                  <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:6px;">Presupuesto a Cobrar</div>
+                  <div
+                    style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:6px;">
+                    Presupuesto a Cobrar</div>
 
                   <div id="view-edit-budget" style="display:flex; gap:8px;">
-                    <input type="number" class="inp" id="input-presupuesto" placeholder="0.00" style="font-size:14px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--copper); padding:8px;">
+                    <input type="number" class="inp" id="input-presupuesto" placeholder="0.00"
+                      style="font-size:14px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--copper); padding:8px;">
                     <button class="btn btn-primary btn-sm" onclick="fijarPresupuesto()">Fijar</button>
                   </div>
 
-                  <div id="view-locked-budget" style="display:none; background:var(--teal-dim); border:1px dashed var(--teal); padding:10px; border-radius:8px; text-align:center;">
-                    <div id="txt-presupuesto-fijado" style="font-size:18px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--teal); margin-bottom:4px;"></div>
-                    <div style="font-size:10px; color:var(--teal); font-weight:700; margin-bottom:8px;">✓ APROBADO</div>
-                    <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()" style="font-size:10px; padding:4px 8px; color:var(--amber); border-color:var(--amber);">Modificar</button>
+                  <div id="view-locked-budget"
+                    style="display:none; background:var(--teal-dim); border:1px dashed var(--teal); padding:10px; border-radius:8px; text-align:center;">
+                    <div id="txt-presupuesto-fijado"
+                      style="font-size:18px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--teal); margin-bottom:4px;">
+                    </div>
+                    <div style="font-size:10px; color:var(--teal); font-weight:700; margin-bottom:8px;">✓ PRESUPUESTO
+                      FIJADO</div>
+                    <div style="display:flex; justify-content:center; gap:8px;">
+                      <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()"
+                        style="font-size:10px; padding:4px 8px; color:var(--amber); border-color:var(--amber);">Modificar</button>
+                      <button class="btn btn-primary btn-sm" onclick="compartirLinkPresupuesto()"
+                        style="font-size:10px; padding:4px 8px;">🔗 Enviar Link</button>
+                    </div>
                   </div>
 
                   <div style="margin-top: 16px; border-top:1px dashed var(--line); padding-top:16px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">Repuestos / Servicios Aplicados</div>
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+                      Repuestos / Servicios Aplicados</div>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
                       <select id="mt-repuesto-select" class="sel" style="flex:1; font-size:12px; padding:6px;"></select>
                       <button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir</button>
                     </div>
                     <div style="max-height:160px; overflow-y:auto;">
                       <table style="font-size:11.5px;">
-                        <thead><tr><th style="padding:6px;">Artículo</th><th style="padding:6px;">Cant.</th><th style="padding:6px;">Costo</th><th></th></tr></thead>
+                        <thead>
+                          <tr>
+                            <th style="padding:6px;">Artículo</th>
+                            <th style="padding:6px;">Cant.</th>
+                            <th style="padding:6px;">Costo</th>
+                            <th></th>
+                          </tr>
+                        </thead>
                         <tbody id="mt-piezas"></tbody>
                       </table>
                     </div>
@@ -520,28 +1196,44 @@
                 </div>
                 <div class="panel-body" style="padding:16px; font-size:12.5px;">
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Técnico Asignado</div>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Técnico
+                      Asignado</div>
                     <div id="mt-tecnico" style="margin-top:4px;"></div>
                   </div>
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Fase / Estado</div>
-                    <select class="sel" id="mt-estado-select" onchange="changeTicketStage()" style="margin-top:4px; font-size:12px; padding:6px;">
-                      <option value="pendiente">Recibido</option><option value="diagnostico">En diagnóstico</option><option value="presupuesto">Esperando Aprobación</option><option value="reparacion">En reparación</option>
-                      <option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option><option value="noreparable">No reparable</option><option value="cancelado">Cancelado / Retirado</option><option value="garantia">Garantía</option>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Fase /
+                      Estado</div>
+                    <select class="sel" id="mt-estado-select" onchange="changeTicketStage()"
+                      style="margin-top:4px; font-size:12px; padding:6px;">
+                      <option value="pendiente">Recibido</option>
+                      <option value="diagnostico">En diagnóstico</option>
+                      <option value="presupuesto">Esperando Aprobación</option>
+                      <option value="reparacion">En reparación</option>
+                      <option value="repuesto">Esperando repuesto</option>
+                      <option value="listo">Listo para entrega</option>
+                      <option value="entregado">Entregado</option>
+                      <option value="noreparable">No reparable</option>
+                      <option value="cancelado">Cancelado / Retirado</option>
+                      <option value="garantia">Garantía</option>
                     </select>
                   </div>
-                  
+
                   <!-- Control de Garantía -->
                   <div style="margin-bottom:12px; padding-top:12px; border-top:1px dashed var(--line);">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Garantía de Reparación</div>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Garantía
+                      de Reparación</div>
                     <div style="display:flex; gap:6px; margin-top:4px;">
-                      <input type="number" class="inp" id="mt-garantia-dias" placeholder="Días" value="30" style="width:70px; padding:6px; font-size:12px;">
+                      <input type="number" class="inp" id="mt-garantia-dias" placeholder="Días" value="30"
+                        style="width:70px; padding:6px; font-size:12px;">
                       <button class="btn btn-ghost btn-sm" onclick="saveGarantiaDias()">Fijar Días</button>
                     </div>
-                    <div id="mt-garantia-vence" style="font-size:11px; margin-top:4px; color:var(--teal); font-weight:600;"></div>
+                    <div id="mt-garantia-vence"
+                      style="font-size:11px; margin-top:4px; color:var(--teal); font-weight:600;"></div>
                   </div>
 
-                  <button class="btn" style="background:#25D366; color:#fff; width:100%; border:none; justify-content:center; font-size:12px; padding:8px;" onclick="sendWhatsAppNotice()">WhatsApp Cliente</button>
+                  <button class="btn"
+                    style="background:#25D366; color:#fff; width:100%; border:none; justify-content:center; font-size:12px; padding:8px;"
+                    onclick="sendWhatsAppNotice()">WhatsApp Cliente</button>
                 </div>
               </div>
 
@@ -549,10 +1241,14 @@
                 <div class="panel-head" style="padding:12px 16px;">
                   <h3>Bitácora Interna</h3>
                 </div>
-                <div class="panel-body" style="padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:10px;">
-                  <div id="mt-notas" style="flex:1; overflow-y:auto; max-height:140px; display:flex; flex-direction:column; gap:6px;"></div>
+                <div class="panel-body"
+                  style="padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:10px;">
+                  <div id="mt-notas"
+                    style="flex:1; overflow-y:auto; max-height:140px; display:flex; flex-direction:column; gap:6px;">
+                  </div>
                   <div style="display:flex; gap:6px; margin-top:auto;">
-                    <input class="inp" id="mt-nota-input" placeholder="Nota..." style="flex:1; font-size:12px; padding:6px;">
+                    <input class="inp" id="mt-nota-input" placeholder="Nota..."
+                      style="flex:1; font-size:12px; padding:6px;">
                     <button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Enviar</button>
                   </div>
                 </div>
@@ -561,9 +1257,15 @@
           </div>
 
           <!-- FOOTER -->
-          <div class="panel" style="margin-top:16px; padding:12px 24px; display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:13px; font-weight:600; color:var(--muted);">Costos registrados: <span id="mt-total-costo" style="color:var(--ink); font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:bold; margin-left:8px;">$0.00</span></div>
-            <button class="btn btn-primary" id="btn-facturar-ticket" style="display:none; padding:8px 16px; font-size:13px;" onclick="enviarAFacturacion()">Facturar en Caja</button>
+          <div class="panel"
+            style="margin-top:16px; padding:12px 24px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:13px; font-weight:600; color:var(--muted);">Costos registrados: <span
+                id="mt-total-costo"
+                style="color:var(--ink); font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:bold; margin-left:8px;">$0.00</span>
+            </div>
+            <button class="btn btn-primary" id="btn-facturar-ticket"
+              style="display:none; padding:8px 16px; font-size:13px;" onclick="enviarAFacturacion()">Facturar en
+              Caja</button>
           </div>
         </div>
 
@@ -580,27 +1282,48 @@
         <div>
           <h3>Facturación y Cobro</h3><span class="mono" id="mcc-referencia">REF-0000</span>
         </div>
-        <button class="modal-close" onclick="closeModal('modal-cobro-caja')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <button class="modal-close" onclick="closeModal('modal-cobro-caja')"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="mrow" style="margin-bottom:12px;">
-          <div class="mfield"><div class="l">Cliente (Base de datos)</div><div class="v" id="mcc-cliente">Mostrador</div></div>
-          <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mcc-tel">—</div></div>
+          <div class="mfield">
+            <div class="l">Cliente (Base de datos)</div>
+            <div class="v" id="mcc-cliente">Mostrador</div>
+          </div>
+          <div class="mfield">
+            <div class="l">Teléfono</div>
+            <div class="v" id="mcc-tel">—</div>
+          </div>
         </div>
-        <div class="mfield" style="margin-bottom:14px;"><div class="l">Concepto / Artículos</div><div class="v" id="mcc-concepto" style="font-weight:500;">—</div></div>
-        <div class="mfield" style="margin-bottom:16px;"><div class="l">Total a Pagar</div><div class="v" id="mcc-total" style="font-size:24px; font-family:'IBM Plex Mono',monospace; color:var(--copper);">$0.00</div></div>
-        <div class="mfield" style="margin-bottom:12px;"><div class="l">Método de Pago</div></div>
-        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;" id="mcc-metodos-pago">
+        <div class="mfield" style="margin-bottom:14px;">
+          <div class="l">Concepto / Artículos</div>
+          <div class="v" id="mcc-concepto" style="font-weight:500;">—</div>
+        </div>
+        <div class="mfield" style="margin-bottom:16px;">
+          <div class="l">Total a Pagar</div>
+          <div class="v" id="mcc-total"
+            style="font-size:24px; font-family:'IBM Plex Mono',monospace; color:var(--copper);">$0.00</div>
+        </div>
+        <div class="mfield" style="margin-bottom:12px;">
+          <div class="l">Método de Pago</div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;"
+          id="mcc-metodos-pago">
           <div class="pay-btn active" onclick="setCobroMetodo(this, 'Efectivo')">Efectivo</div>
           <div class="pay-btn" onclick="setCobroMetodo(this, 'Tarjeta')">Tarjeta</div>
           <div class="pay-btn" onclick="setCobroMetodo(this, 'Transferencia')">Transferencia</div>
           <div class="pay-btn" onclick="setCobroMetodo(this, 'Préstamo personal')">Préstamo personal</div>
         </div>
-        <div id="mcc-dynamic-fields" style="background:var(--bg); padding:12px; border-radius:8px; margin-bottom:16px;"></div>
+        <div id="mcc-dynamic-fields" style="background:var(--bg); padding:12px; border-radius:8px; margin-bottom:16px;">
+        </div>
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" onclick="closeModal('modal-cobro-caja')">Cancelar</button>
-        <button class="btn btn-primary" id="btn-confirmar-cobro" onclick="procesarCobroFinal()">Confirmar y Cobrar</button>
+        <button class="btn btn-primary" id="btn-confirmar-cobro" onclick="procesarCobroFinal()">Confirmar y
+          Cobrar</button>
       </div>
     </div>
   </div>
@@ -609,17 +1332,29 @@
   <div class="modal-overlay" id="modal-cliente">
     <div class="modal">
       <div class="modal-head">
-        <div><h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span></div>
+        <div>
+          <h3 id="mc-nombre"></h3><span class="mono" id="mc-email-header"></span>
+        </div>
         <div style="display:flex; gap:10px;">
           <button class="btn btn-primary btn-sm" onclick="nuevoCreditoDesdePerfil()">+ Nuevo Crédito</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--copper); border-color:var(--copper);" onclick="refinanciarDeudaPerfil()">Refinanciar Deuda</button>
-          <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--copper); border-color:var(--copper);"
+            onclick="refinanciarDeudaPerfil()">Refinanciar Deuda</button>
+          <button class="modal-close" onclick="closeModal('modal-cliente')"><svg viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg></button>
         </div>
       </div>
       <div class="modal-body">
         <div class="mrow">
-          <div class="mfield"><div class="l">Teléfono</div><div class="v" id="mc-tel"></div></div>
-          <div class="mfield"><div class="l">Dirección / Localidad</div><div class="v" id="mc-direccion"></div></div>
+          <div class="mfield">
+            <div class="l">Teléfono</div>
+            <div class="v" id="mc-tel"></div>
+          </div>
+          <div class="mfield">
+            <div class="l">Dirección / Localidad</div>
+            <div class="v" id="mc-direccion"></div>
+          </div>
           <div class="mfield">
             <div class="l">Límite de Crédito Disp ($)</div>
             <div style="display:flex; gap:6px;">
@@ -627,27 +1362,53 @@
               <button class="btn btn-ghost btn-sm" onclick="saveClientLimit()">Guardar</button>
             </div>
           </div>
-          <div class="mfield"><div class="l">Tickets totales</div><div class="v" id="mc-ntickets"></div></div>
+          <div class="mfield">
+            <div class="l">Tickets totales</div>
+            <div class="v" id="mc-ntickets"></div>
+          </div>
         </div>
 
         <div class="tabs" style="margin: 16px 0 12px;">
-          <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">Carpetas / Créditos</div>
+          <div class="tab active" data-sub="mc-tab-prestamos" onclick="switchClientTab('mc-tab-prestamos', this)">
+            Carpetas / Créditos</div>
           <div class="tab" data-sub="mc-tab-tickets" onclick="switchClientTab('mc-tab-tickets', this)">Tickets</div>
           <div class="tab" data-sub="mc-tab-ventas" onclick="switchClientTab('mc-tab-ventas', this)">Ventas</div>
         </div>
 
         <div id="mc-tab-prestamos" class="client-subview">
-          <div class="msection"><h4>Carpetas Activas (Con deuda)</h4><div id="mc-prestamos-activos"></div></div>
-          <div class="msection"><h4>Carpetas Finalizadas / Refinanciadas</h4><div id="mc-prestamos-finalizados"></div></div>
+          <div class="msection">
+            <h4>Carpetas Activas (Con deuda)</h4>
+            <div id="mc-prestamos-activos"></div>
+          </div>
+          <div class="msection">
+            <h4>Carpetas Finalizadas / Refinanciadas</h4>
+            <div id="mc-prestamos-finalizados"></div>
+          </div>
         </div>
         <div id="mc-tab-tickets" class="client-subview" style="display:none;">
-          <div class="msection"><h4>Tickets Abiertos</h4><div id="mc-tickets-abiertos"></div></div>
-          <div class="msection"><h4>Tickets Finalizados</h4><div id="mc-tickets-finalizados"></div></div>
+          <div class="msection">
+            <h4>Tickets Abiertos</h4>
+            <div id="mc-tickets-abiertos"></div>
+          </div>
+          <div class="msection">
+            <h4>Tickets Finalizados</h4>
+            <div id="mc-tickets-finalizados"></div>
+          </div>
         </div>
         <div id="mc-tab-ventas" class="client-subview" style="display:none;">
           <div class="msection">
             <h4>Historial de Compras / Facturación</h4>
-            <table><thead><tr><th>Folio</th><th>Fecha / Hora</th><th>Artículos</th><th>Total</th></tr></thead><tbody id="mc-ventas-list"></tbody></table>
+            <table>
+              <thead>
+                <tr>
+                  <th>Folio</th>
+                  <th>Fecha / Hora</th>
+                  <th>Artículos</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="mc-ventas-list"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -658,43 +1419,94 @@
   <div class="modal-overlay" id="modal-credito">
     <div class="modal">
       <div class="modal-head">
-        <div><h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span></div>
+        <div>
+          <h3 id="mcr-cliente"></h3><span class="mono" id="mcr-concepto"></span>
+        </div>
         <div style="display:flex; gap:10px; align-items:center;">
-          <button class="btn btn-ghost btn-sm" onclick="imprimirPagareCredito()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" /></svg>Imprimir Pagaré</button>
-          <button class="btn btn-ghost btn-sm" onclick="imprimirReciboDoble()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" /></svg>Recibo Doble</button>
-          <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+          <button class="btn btn-ghost btn-sm" onclick="imprimirPagareCredito()"><svg viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
+            </svg>Imprimir Pagaré</button>
+          <button class="btn btn-ghost btn-sm" onclick="imprimirReciboDoble()"><svg viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" />
+            </svg>Recibo Doble</button>
+          <button class="modal-close" onclick="closeModal('modal-credito')"><svg viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg></button>
         </div>
       </div>
       <div class="modal-body">
         <div class="mrow" style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:18px;">
-          <div class="mfield"><div class="l">Deuda Total Financiada</div><div class="v" id="mcr-original" style="font-size:16px;"></div></div>
-          <div class="mfield"><div class="l">Días de Mora</div><div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div></div>
-          <div class="mfield"><div class="l">Deuda Actualizada (Saldo)</div><div class="v" id="mcr-saldo" style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div></div>
+          <div class="mfield">
+            <div class="l">Deuda Total Financiada</div>
+            <div class="v" id="mcr-original" style="font-size:16px;"></div>
+          </div>
+          <div class="mfield">
+            <div class="l">Días de Mora</div>
+            <div class="v" id="mcr-mora-dias" style="font-size:16px; color:var(--red);">0</div>
+          </div>
+          <div class="mfield">
+            <div class="l">Deuda Actualizada (Saldo)</div>
+            <div class="v" id="mcr-saldo"
+              style="font-size:22px; font-family:'IBM Plex Mono',monospace; color:var(--copper);"></div>
+          </div>
         </div>
 
         <div class="tabs" style="margin-bottom:16px;">
-          <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de Cuotas</div>
-          <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de Cobros</div>
+          <div class="tab active" data-sub="cr-tab-cuotas" onclick="switchCreditoTab('cr-tab-cuotas', this)">Plan de
+            Cuotas</div>
+          <div class="tab" data-sub="cr-tab-abonos" onclick="switchCreditoTab('cr-tab-abonos', this)">Historial de
+            Cobros</div>
         </div>
 
         <div id="cr-tab-cuotas" class="credito-subview">
           <div class="panel" style="margin-bottom: 16px;">
-            <table><thead><tr><th>Vencimiento</th><th>Status</th><th>Cuota</th><th>Importe</th><th>Punitorios</th><th>Pagado</th><th>Total a Pagar</th></tr></thead><tbody id="mcr-cuotas-body"></tbody></table>
+            <table>
+              <thead>
+                <tr>
+                  <th>Vencimiento</th>
+                  <th>Status</th>
+                  <th>Cuota</th>
+                  <th>Importe</th>
+                  <th>Punitorios</th>
+                  <th>Pagado</th>
+                  <th>Total a Pagar</th>
+                </tr>
+              </thead>
+              <tbody id="mcr-cuotas-body"></tbody>
+            </table>
           </div>
           <div class="abono-form" style="background:var(--teal-dim); padding:16px; border-radius:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <div style="font-size:12px; font-weight:700; color:var(--teal);">REGISTRAR PAGO</div>
-              <label style="font-size:12px; font-weight:600; cursor:pointer; color:var(--red);"><input type="checkbox" id="mcr-quitar-punitorios" onchange="renderCuotasCreditoActual()"> Quitar Punitorios</label>
+              <label style="font-size:12px; font-weight:600; cursor:pointer; color:var(--red);"><input type="checkbox"
+                  id="mcr-quitar-punitorios" onchange="renderCuotasCreditoActual()"> Quitar Punitorios</label>
             </div>
             <div style="display:flex; gap:12px; align-items:flex-end;">
-              <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number" min="0" step="0.01" placeholder="$0.00"></div>
-              <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option></select></div>
+              <div class="f"><label>Monto a pagar ($)</label><input class="inp" id="mcr-monto-input" type="number"
+                  min="0" step="0.01" placeholder="$0.00"></div>
+              <div class="f"><label>Método de Pago</label><select class="sel" id="mcr-metodo-input">
+                  <option>Efectivo</option>
+                  <option>Transferencia</option>
+                  <option>Tarjeta</option>
+                </select></div>
               <button class="btn btn-primary" onclick="registerPayment()">Imputar Pago</button>
             </div>
           </div>
         </div>
         <div id="cr-tab-abonos" class="credito-subview" style="display:none;">
-          <table><thead><tr><th>Fecha y Hora</th><th>Monto</th><th>Método / Concepto</th></tr></thead><tbody id="mcr-abonos"></tbody></table>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha y Hora</th>
+                <th>Monto</th>
+                <th>Método / Concepto</th>
+              </tr>
+            </thead>
+            <tbody id="mcr-abonos"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -704,24 +1516,54 @@
   <div class="modal-overlay" id="modal-nuevo-credito">
     <div class="modal">
       <div class="modal-head">
-        <div><h3>Ingreso de Nueva Carpeta</h3></div>
-        <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <div>
+          <h3>Ingreso de Nueva Carpeta</h3>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-nuevo-credito')"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
           <div class="full"><label>Cliente (Acreedor)</label><select id="ncr-cliente" class="sel"></select></div>
-          <div class="full"><label>Concepto / Referencia</label><input id="ncr-concepto" class="inp" placeholder="Ej. Refinanciación o Préstamo"></div>
-          <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;"><label>Monto a Refinanciar / Capital ($)</label><input id="ncr-monto" type="number" class="inp" min="0" step="0.01" placeholder="0.00"></div>
-          <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;"><label>Anticipo en la venta ($)</label><input id="ncr-anticipo" type="number" class="inp" min="0" step="0.01" value="0"></div>
-          <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px; grid-column:1/-1;"><label>Interés Financiero Global (%)</label><input id="ncr-interes" type="number" class="inp" min="0" step="0.1" value="0"></div>
-          <div class="full" style="text-align:center; margin-top:10px;"><button class="btn btn-ghost" onclick="generarPlanesDePago()" style="border-color:var(--copper); color:var(--copper);">Calcular Planes de Pago</button></div>
-          
+          <div class="full"><label>Concepto / Referencia</label><input id="ncr-concepto" class="inp"
+              placeholder="Ej. Refinanciación o Préstamo"></div>
+          <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;"><label>Monto a
+              Refinanciar / Capital ($)</label><input id="ncr-monto" type="number" class="inp" min="0" step="0.01"
+              placeholder="0.00"></div>
+          <div style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px;">
+            <label>Anticipo en la venta ($)</label><input id="ncr-anticipo" type="number" class="inp" min="0"
+              step="0.01" value="0"></div>
+          <div
+            style="background:#FAFBFC; padding:12px; border:1px solid var(--line); border-radius:8px; grid-column:1/-1;">
+            <label>Interés Financiero Global (%)</label><input id="ncr-interes" type="number" class="inp" min="0"
+              step="0.1" value="0"></div>
+          <div class="full" style="text-align:center; margin-top:10px;"><button class="btn btn-ghost"
+              onclick="generarPlanesDePago()" style="border-color:var(--copper); color:var(--copper);">Calcular Planes
+              de Pago</button></div>
+
           <div class="full" id="contenedor-planes" style="display:none; margin-top:10px;">
-            <b style="font-size:12px; color:var(--copper); display:block; margin-bottom:8px;">PLANES DE PAGO POSIBLES</b>
-            <div class="panel"><table><thead><tr><th>Plan</th><th>Cuotas</th><th>Importe Cuota</th><th>Acción</th></tr></thead><tbody id="ncr-tabla-planes"></tbody></table></div>
+            <b style="font-size:12px; color:var(--copper); display:block; margin-bottom:8px;">PLANES DE PAGO
+              POSIBLES</b>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Cuotas</th>
+                    <th>Importe Cuota</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="ncr-tabla-planes"></tbody>
+              </table>
+            </div>
             <div style="margin-top:16px; display:flex; gap:12px;">
-              <div style="flex:1;"><label>Plan Seleccionado:</label><input id="ncr-plan-elegido" class="inp" readonly style="background:#f5f5f5;"></div>
-              <div style="flex:1;"><label>Fecha 1er Vencimiento</label><input id="ncr-vence" type="date" class="inp"></div>
+              <div style="flex:1;"><label>Plan Seleccionado:</label><input id="ncr-plan-elegido" class="inp" readonly
+                  style="background:#f5f5f5;"></div>
+              <div style="flex:1;"><label>Fecha 1er Vencimiento</label><input id="ncr-vence" type="date" class="inp">
+              </div>
             </div>
             <input type="hidden" id="ncr-cuotas-hidden"><input type="hidden" id="ncr-importe-hidden">
           </div>
@@ -729,7 +1571,8 @@
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-credito')">Cancelar</button>
-        <button class="btn btn-primary" id="btn-otorgar" onclick="createCreditoManual()" disabled>Confirmar y Otorgar</button>
+        <button class="btn btn-primary" id="btn-otorgar" onclick="createCreditoManual()" disabled>Confirmar y
+          Otorgar</button>
       </div>
     </div>
   </div>
@@ -738,15 +1581,22 @@
   <div class="modal-overlay" id="modal-nuevo-ticket">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Recepción de Equipo (Check-in)</h3><button class="modal-close" onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Recepción de Equipo (Check-in)</h3><button class="modal-close"
+          onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
-        
+
         <!-- 1. DATOS DEL CLIENTE -->
         <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">1. Datos de Ingreso</h4>
-          
-          <div id="nt-alerta-garantia" style="display:none; background:var(--amber-dim); border:1px solid var(--amber); color:#A5520F; padding:10px; border-radius:8px; margin-bottom:12px; font-size:12px; font-weight:600;">
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            1. Datos de Ingreso</h4>
+
+          <div id="nt-alerta-garantia"
+            style="display:none; background:var(--amber-dim); border:1px solid var(--amber); color:#A5520F; padding:10px; border-radius:8px; margin-bottom:12px; font-size:12px; font-weight:600;">
             ⚠️ ATENCIÓN: El cliente posee equipos con garantía vigente.
             <ul id="nt-lista-garantias" style="margin:4px 0 0 16px; padding:0; font-weight:normal;"></ul>
           </div>
@@ -755,11 +1605,15 @@
             <div class="full" style="position:relative;">
               <label>Cliente (Buscar por nombre o apellido)</label>
               <div style="display:flex; gap:6px;">
-                <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')" title="Crear cliente nuevo">+ Nuevo</button>
+                <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..."
+                  oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')"
+                  title="Crear cliente nuevo">+ Nuevo</button>
               </div>
               <input type="hidden" id="nt-cliente-id" value="">
-              <div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
+              <div id="nt-client-suggestions"
+                style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);">
+              </div>
             </div>
             <div>
               <label>Tipo de Servicio</label>
@@ -771,61 +1625,102 @@
             </div>
             <div>
               <label>Prioridad</label>
-              <select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select>
+              <select class="sel" id="nt-prioridad">
+                <option value="P1">P1 · Urgente</option>
+                <option value="P2" selected>P2 · Media</option>
+                <option value="P3">P3 · Baja</option>
+              </select>
             </div>
           </div>
         </div>
 
         <!-- 2. FICHA TÉCNICA -->
         <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">2. Ficha Técnica del Equipo</h4>
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            2. Ficha Técnica del Equipo</h4>
           <div class="form-grid">
-            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel"><option>Notebook</option><option>PC Escritorio</option><option>Smartphone</option><option>Tablet</option><option>Consola</option><option>Impresora</option><option>Otro</option></select></div>
+            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel">
+                <option>Notebook</option>
+                <option>PC Escritorio</option>
+                <option>Smartphone</option>
+                <option>Tablet</option>
+                <option>Consola</option>
+                <option>Impresora</option>
+                <option>Otro</option>
+              </select></div>
             <div><label>Marca</label><input id="nt-marca" class="inp" placeholder="Ej. Lenovo, Samsung"></div>
             <div><label>Modelo</label><input id="nt-modelo" class="inp" placeholder="Ej. IdeaPad 3, Galaxy S23"></div>
-            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp" placeholder="Identificador único"></div>
-            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp" placeholder="Ej. 1234 o 'Sin Pass'"></div>
-            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13"></div>
-            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp" placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
+            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp"
+                placeholder="Identificador único"></div>
+            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp"
+                placeholder="Ej. 1234 o 'Sin Pass'"></div>
+            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13">
+            </div>
+            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp"
+                placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
           </div>
         </div>
 
         <!-- 3. ESTADO FÍSICO Y ACCESORIOS -->
         <div>
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">3. Estado Físico y Accesorios</h4>
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            3. Estado Físico y Accesorios</h4>
           <div class="form-grid">
             <div class="full">
               <label>Estado Físico (Tildar si está OK / Sin daños)</label>
-              <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-pantalla"> Pantalla</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-carcasa"> Carcasa</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-teclado"> Teclado</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-touchpad"> Touchpad</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-bisagras"> Bisagras</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-puertos"> Puertos</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-est-cargador"> Cargador (Estado)</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-bateria"> Batería</label>
-              </div>
-            </div>
-            
-            <div class="full">
-              <label>Accesorios (Tildar lo que entrega el cliente)</label>
-              <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-cargador"> Cargador</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-mouse"> Mouse</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-funda"> Funda / Maletín</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-cable"> Cable</label>
-                <div style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-otro" onchange="document.getElementById('nt-acc-otro-texto').disabled = !this.checked"> Otro: <input type="text" id="nt-acc-otro-texto" class="inp" style="padding:2px 6px; font-size:11px; width:120px;" disabled></div>
+              <div
+                style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-pantalla"> Pantalla</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-carcasa"> Carcasa</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-teclado"> Teclado</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-touchpad"> Touchpad</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-bisagras"> Bisagras</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-puertos"> Puertos</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-est-cargador"> Cargador (Estado)</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-bateria"> Batería</label>
               </div>
             </div>
 
-            <div class="full"><label>Observaciones Adicionales (Rayones, golpes, detalles importantes)</label><input class="inp" id="nt-condicion" placeholder="Ej. Rayón profundo en tapa superior..."></div>
-            <div class="full"><label>Falla Declarada por el Cliente</label><textarea class="inp" id="nt-falla" rows="2" placeholder="Describa el problema reportado..."></textarea></div>
+            <div class="full">
+              <label>Accesorios (Tildar lo que entrega el cliente)</label>
+              <div
+                style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-cargador"> Cargador</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-mouse"> Mouse</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-funda"> Funda / Maletín</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-cable"> Cable</label>
+                <div style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-otro"
+                    onchange="document.getElementById('nt-acc-otro-texto').disabled = !this.checked"> Otro: <input
+                    type="text" id="nt-acc-otro-texto" class="inp" style="padding:2px 6px; font-size:11px; width:120px;"
+                    disabled></div>
+              </div>
+            </div>
+
+            <div class="full"><label>Observaciones Adicionales (Rayones, golpes, detalles importantes)</label><input
+                class="inp" id="nt-condicion" placeholder="Ej. Rayón profundo en tapa superior..."></div>
+            <div class="full"><label>Falla Declarada por el Cliente</label><textarea class="inp" id="nt-falla" rows="2"
+                placeholder="Describa el problema reportado..."></textarea></div>
             <div class="full">
               <label>📷 Evidencia Fotográfica (Max 3 fotos)</label>
               <input type="file" id="nt-fotos" class="inp" multiple accept="image/*" style="padding: 4px;">
             </div>
-            <div class="full"><label>Técnico Receptor</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option></select></div>
+            <div class="full"><label>Técnico Receptor</label><select class="sel" id="nt-tecnico">
+                <option>Sin asignar</option>
+              </select></div>
           </div>
         </div>
 
@@ -841,24 +1736,32 @@
   <div class="modal-overlay" id="modal-nuevo-cliente">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nuevo cliente</h3><button class="modal-close" onclick="closeModal('modal-nuevo-cliente')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre(s) / Razón social</label><input id="ncl-nombre" class="inp" placeholder="Ej. Juan"></div>
+          <div class="full"><label>Nombre(s) / Razón social</label><input id="ncl-nombre" class="inp"
+              placeholder="Ej. Juan"></div>
           <div><label>Apellido(s)</label><input id="ncl-apellido" class="inp" placeholder="Ej. Pérez"></div>
           <div><label>DNI / CUIT</label><input id="ncl-dni" class="inp" placeholder="Documento"></div>
-          <div class="full"><label>Dirección (Calle y Nro)</label><input id="ncl-direccion" class="inp" placeholder="Ej. Av. Siempre Viva 123"></div>
+          <div class="full"><label>Dirección (Calle y Nro)</label><input id="ncl-direccion" class="inp"
+              placeholder="Ej. Av. Siempre Viva 123"></div>
           <div><label>Provincia</label><input id="ncl-provincia" class="inp" placeholder="Provincia"></div>
           <div><label>Localidad</label><input id="ncl-localidad" class="inp" placeholder="Ciudad"></div>
           <div class="full"><label>Barrio</label><input id="ncl-barrio" class="inp" placeholder="Barrio / Zona"></div>
           <div><label>Teléfono</label><input id="ncl-tel" class="inp" placeholder="555-000-0000"></div>
-          <div><label>Correo electrónico</label><input id="ncl-email" class="inp" placeholder="correo@ejemplo.com"></div>
-          <div class="full"><label>Límite de Crédito Disp ($)</label><input id="ncl-limite" class="inp" type="number" placeholder="Ej. 1000" value="5000"></div>
+          <div><label>Correo electrónico</label><input id="ncl-email" class="inp" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="full"><label>Límite de Crédito Disp ($)</label><input id="ncl-limite" class="inp" type="number"
+              placeholder="Ej. 1000" value="5000"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-cliente')">Cancelar</button><button class="btn btn-primary" onclick="createCliente()">Guardar cliente</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-cliente')">Cancelar</button><button
+          class="btn btn-primary" onclick="createCliente()">Guardar cliente</button>
       </div>
     </div>
   </div>
@@ -867,19 +1770,31 @@
   <div class="modal-overlay" id="modal-nuevo-producto">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nuevo producto</h3><button class="modal-close" onclick="closeModal('modal-nuevo-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nuevo producto</h3><button class="modal-close" onclick="closeModal('modal-nuevo-producto')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre</label><input id="np-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
+          <div class="full"><label>Nombre</label><input id="np-nombre" class="inp" placeholder="Ej. Cooler para CPU">
+          </div>
           <div><label>SKU</label><input id="np-sku" class="inp" placeholder="SKU-0000"></div>
-          <div><label>Categoría</label><select id="np-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
-          <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+          <div><label>Categoría</label><select id="np-categoria" class="sel">
+              <option>Componentes</option>
+              <option>Perifericos</option>
+              <option>Accesorios</option>
+              <option>Insumos</option>
+              <option>Servicios</option>
+            </select></div>
+          <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01"
+              placeholder="$0.00"></div>
           <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0" placeholder="0"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-producto')">Cancelar</button><button class="btn btn-primary" onclick="createProducto()">Guardar producto</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-producto')">Cancelar</button><button
+          class="btn btn-primary" onclick="createProducto()">Guardar producto</button>
       </div>
     </div>
   </div>
@@ -888,19 +1803,32 @@
   <div class="modal-overlay" id="modal-editar-producto">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Editar producto</h3><button class="modal-close" onclick="closeModal('modal-editar-producto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Editar producto</h3><button class="modal-close" onclick="closeModal('modal-editar-producto')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre</label><input id="ep-nombre" class="inp" placeholder="Ej. Cooler para CPU"></div>
-          <div><label>SKU</label><input id="ep-sku" class="inp" readonly style="background:#f5f5f5; color:#888; cursor:not-allowed;" title="El SKU no se puede modificar"></div>
-          <div><label>Categoría</label><select id="ep-categoria" class="sel"><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
-          <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01" placeholder="$0.00"></div>
+          <div class="full"><label>Nombre</label><input id="ep-nombre" class="inp" placeholder="Ej. Cooler para CPU">
+          </div>
+          <div><label>SKU</label><input id="ep-sku" class="inp" readonly
+              style="background:#f5f5f5; color:#888; cursor:not-allowed;" title="El SKU no se puede modificar"></div>
+          <div><label>Categoría</label><select id="ep-categoria" class="sel">
+              <option>Componentes</option>
+              <option>Perifericos</option>
+              <option>Accesorios</option>
+              <option>Insumos</option>
+              <option>Servicios</option>
+            </select></div>
+          <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01"
+              placeholder="$0.00"></div>
           <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0" placeholder="0"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-editar-producto')">Cancelar</button><button class="btn btn-primary" onclick="saveEditProducto()">Guardar cambios</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-editar-producto')">Cancelar</button><button
+          class="btn btn-primary" onclick="saveEditProducto()">Guardar cambios</button>
       </div>
     </div>
   </div>
@@ -909,19 +1837,34 @@
   <div class="modal-overlay" id="modal-nueva-promocion">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nueva promoción</h3><button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nueva promoción</h3><button class="modal-close" onclick="closeModal('modal-nueva-promocion')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre / Etiqueta</label><input id="npr-nombre" class="inp" placeholder="Ej. CyberWeek -10%"></div>
-          <div><label>Tipo de descuento</label><select id="npr-tipo" class="sel"><option>Porcentaje (%)</option><option>Monto Fijo ($)</option></select></div>
+          <div class="full"><label>Nombre / Etiqueta</label><input id="npr-nombre" class="inp"
+              placeholder="Ej. CyberWeek -10%"></div>
+          <div><label>Tipo de descuento</label><select id="npr-tipo" class="sel">
+              <option>Porcentaje (%)</option>
+              <option>Monto Fijo ($)</option>
+            </select></div>
           <div><label>Valor</label><input id="npr-valor" class="inp" type="number" min="1" placeholder="Ej. 10"></div>
-          <div class="full"><label>Aplica a la categoría</label><select id="npr-aplica" class="sel"><option>Todos</option><option>Componentes</option><option>Perifericos</option><option>Accesorios</option><option>Insumos</option><option>Servicios</option></select></div>
+          <div class="full"><label>Aplica a la categoría</label><select id="npr-aplica" class="sel">
+              <option>Todos</option>
+              <option>Componentes</option>
+              <option>Perifericos</option>
+              <option>Accesorios</option>
+              <option>Insumos</option>
+              <option>Servicios</option>
+            </select></div>
           <div class="full"><label>Válida hasta</label><input id="npr-vence" class="inp" type="date"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-promocion')">Cancelar</button><button class="btn btn-primary" onclick="createPromocion()">Guardar promoción</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-promocion')">Cancelar</button><button
+          class="btn btn-primary" onclick="createPromocion()">Guardar promoción</button>
       </div>
     </div>
   </div>
@@ -930,19 +1873,27 @@
   <div class="modal-overlay" id="modal-nueva-oportunidad">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nueva oportunidad</h3><button class="modal-close" onclick="closeModal('modal-nueva-oportunidad')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nueva oportunidad</h3><button class="modal-close" onclick="closeModal('modal-nueva-oportunidad')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Contacto</label><input id="no-contacto" class="inp" placeholder="Nombre del contacto"></div>
-          <div class="full"><label>Empresa</label><input id="no-empresa" class="inp" placeholder="Empresa (opcional)"></div>
-          <div class="full"><label>Interés</label><input id="no-interes" class="inp" placeholder="Ej. Contrato de mantenimiento"></div>
-          <div><label>Valor estimado</label><input id="no-valor" class="inp" type="number" min="0" placeholder="$0.00"></div>
+          <div class="full"><label>Contacto</label><input id="no-contacto" class="inp"
+              placeholder="Nombre del contacto"></div>
+          <div class="full"><label>Empresa</label><input id="no-empresa" class="inp" placeholder="Empresa (opcional)">
+          </div>
+          <div class="full"><label>Interés</label><input id="no-interes" class="inp"
+              placeholder="Ej. Contrato de mantenimiento"></div>
+          <div><label>Valor estimado</label><input id="no-valor" class="inp" type="number" min="0" placeholder="$0.00">
+          </div>
           <div><label>Próximo contacto</label><input id="no-fecha" class="inp" placeholder="Ej. 28 Ago"></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-oportunidad')">Cancelar</button><button class="btn btn-primary" onclick="createOportunidad()">Crear oportunidad</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-oportunidad')">Cancelar</button><button
+          class="btn btn-primary" onclick="createOportunidad()">Crear oportunidad</button>
       </div>
     </div>
   </div>
@@ -951,11 +1902,15 @@
   <div class="modal-overlay" id="modal-cierre">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Cerrar corte de caja</h3><button class="modal-close" onclick="closeModal('modal-cierre')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Cerrar corte de caja</h3><button class="modal-close" onclick="closeModal('modal-cierre')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body" id="cierre-resumen"></div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-cierre')">Cancelar</button><button class="btn btn-primary" onclick="cerrarCorte()">Confirmar cierre</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-cierre')">Cancelar</button><button
+          class="btn btn-primary" onclick="cerrarCorte()">Confirmar cierre</button>
       </div>
     </div>
   </div>
@@ -964,17 +1919,23 @@
   <div class="modal-overlay" id="modal-nuevo-usuario">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nuevo Usuario</h3><button class="modal-close" onclick="closeModal('modal-nuevo-usuario')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nuevo Usuario</h3><button class="modal-close" onclick="closeModal('modal-nuevo-usuario')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre Completo</label><input id="nu-nombre" class="inp" placeholder="Ej. Laura Gómez"></div>
-          <div class="full"><label>Correo Electrónico</label><input id="nu-email" class="inp" type="email" placeholder="laura@servix.com"></div>
+          <div class="full"><label>Nombre Completo</label><input id="nu-nombre" class="inp"
+              placeholder="Ej. Laura Gómez"></div>
+          <div class="full"><label>Correo Electrónico</label><input id="nu-email" class="inp" type="email"
+              placeholder="laura@servix.com"></div>
           <div class="full"><label>Asignar Rol</label><select id="nu-rol" class="sel"></select></div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button><button class="btn btn-primary" onclick="createUsuario()">Guardar Usuario</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-usuario')">Cancelar</button><button
+          class="btn btn-primary" onclick="createUsuario()">Guardar Usuario</button>
       </div>
     </div>
   </div>
@@ -983,29 +1944,50 @@
   <div class="modal-overlay" id="modal-nuevo-rol">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Nuevo Rol de Sistema</h3><button class="modal-close" onclick="closeModal('modal-nuevo-rol')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Nuevo Rol de Sistema</h3><button class="modal-close" onclick="closeModal('modal-nuevo-rol')"><svg
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="full"><label>Nombre del Rol</label><input id="nr-nombre" class="inp" placeholder="Ej. Supervisor de Ventas"></div>
-          <div class="full"><label>Descripción</label><input id="nr-desc" class="inp" placeholder="Breve descripción del rol"></div>
+          <div class="full"><label>Nombre del Rol</label><input id="nr-nombre" class="inp"
+              placeholder="Ej. Supervisor de Ventas"></div>
+          <div class="full"><label>Descripción</label><input id="nr-desc" class="inp"
+              placeholder="Breve descripción del rol"></div>
           <div class="full" style="margin-top:10px;">
             <label>Permisos de Acceso</label>
-            <div style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Acceso total al sistema"> Acceso total al sistema</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Gestionar usuarios y roles"> Gestionar usuarios y roles</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes financieros</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Editar catálogo de productos"> Editar catálogo de productos</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Aprobar créditos y descuentos"> Aprobar créditos y descuentos</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Ver y actualizar tickets asignados"> Ver y actualizar tickets asignados</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Registrar ventas y cobros"> Registrar ventas y cobros</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" class="chk-permiso" value="Abrir y cerrar corte de caja"> Abrir y cerrar corte de caja</label>
+            <div
+              style="background:var(--bg); padding:12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Acceso total al sistema"> Acceso total al sistema</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Gestionar usuarios y roles"> Gestionar usuarios y
+                roles</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes financieros</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Editar catálogo de productos"> Editar catálogo de
+                productos</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Aprobar créditos y descuentos"> Aprobar créditos y
+                descuentos</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Ver y actualizar tickets asignados"> Ver y actualizar
+                tickets asignados</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Registrar ventas y cobros"> Registrar ventas y
+                cobros</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
+                  type="checkbox" class="chk-permiso" value="Abrir y cerrar corte de caja"> Abrir y cerrar corte de
+                caja</label>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-rol')">Cancelar</button><button class="btn btn-primary" onclick="createRol()">Guardar Rol</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-nuevo-rol')">Cancelar</button><button
+          class="btn btn-primary" onclick="createRol()">Guardar Rol</button>
       </div>
     </div>
   </div>
@@ -1035,4 +2017,5 @@
   <!-- Cargar JS como Módulo -->
   <script type="module" src="js/main.js"></script>
 </body>
+
 </html>

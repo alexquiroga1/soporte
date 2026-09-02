@@ -700,3 +700,100 @@ export async function saveGarantiaDias() {
 
 // Agregar al scope global (pon esto al final de tickets.js para evitar que falle el onclick en HTML):
 window.saveGarantiaDias = saveGarantiaDias;
+// ==========================================
+// APROBACIÓN DIGITAL DE PRESUPUESTO
+// ==========================================
+
+export function compartirLinkPresupuesto() {
+    if(!currentTicketId) return;
+    const url = `${window.location.origin}${window.location.pathname}?p=${currentTicketId}`;
+    
+    // Copiar al portapapeles
+    navigator.clipboard.writeText(url).then(() => {
+        toast('Link de aprobación copiado al portapapeles');
+    }).catch(err => {
+        alert("Link de aprobación: \n" + url);
+    });
+}
+
+// Esta variable guardará el ID público temporalmente para la vista del cliente
+let publicTicketId = null; 
+
+export async function initPublicPresupuesto(tkId) {
+    publicTicketId = tkId;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = 'none';
+    const screen = document.getElementById('public-presupuesto-screen');
+    screen.style.display = 'flex';
+    
+    try {
+        const doc = await window.db.collection('tickets').doc(tkId).get();
+        if(!doc.exists) {
+            document.getElementById('pub-loading').textContent = 'El ticket solicitado no existe.';
+            return;
+        }
+        
+        const t = doc.data();
+        document.getElementById('pub-loading').style.display = 'none';
+        
+        if (t.presupuestoAprobado === true || t.presupuestoAprobado === false) {
+            document.getElementById('pub-success').style.display = 'block';
+            document.getElementById('pub-icon').textContent = t.presupuestoAprobado ? '✅' : '❌';
+            document.getElementById('pub-msg-title').textContent = t.presupuestoAprobado ? 'Presupuesto ya aprobado' : 'Presupuesto rechazado';
+            document.getElementById('pub-msg-desc').textContent = 'Este presupuesto ya ha sido respondido previamente.';
+            return;
+        }
+
+        document.getElementById('pub-content').style.display = 'block';
+        document.getElementById('pub-tk').textContent = '#' + t.id;
+        document.getElementById('pub-equipo').textContent = t.equipo;
+        document.getElementById('pub-falla').textContent = t.falla;
+        document.getElementById('pub-diag').textContent = t.diagnostico || 'Pendiente de diagnóstico técnico detallado';
+        document.getElementById('pub-total').textContent = fmt(t.presupuestoEstimado || 0);
+        
+    } catch (e) {
+        document.getElementById('pub-loading').textContent = 'Error al cargar la información.';
+        console.error(e);
+    }
+}
+
+export async function responderPresupuesto(respuesta) {
+    if(!publicTicketId) return;
+    const aprobado = respuesta === 'aprobado';
+    
+    document.getElementById('pub-content').style.display = 'none';
+    document.getElementById('pub-loading').style.display = 'block';
+    document.getElementById('pub-loading').textContent = 'Registrando su respuesta...';
+    
+    const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    
+    // Firma / Auditoría
+    const logEntry = { 
+        fecha: fechaStr, 
+        autor: 'Cliente (Vía Web)', 
+        accion: aprobado ? 'Presupuesto APROBADO' : 'Presupuesto RECHAZADO', 
+        detalle: 'Aceptación digital registrada.' 
+    };
+
+    try {
+        await window.db.collection('tickets').doc(publicTicketId).update({
+            presupuestoAprobado: aprobado,
+            stage: aprobado ? 'reparacion' : 'noreparable', // Automatizamos el avance del kanban
+            historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry)
+        });
+        
+        document.getElementById('pub-loading').style.display = 'none';
+        document.getElementById('pub-success').style.display = 'block';
+        document.getElementById('pub-icon').textContent = aprobado ? '✅' : '❌';
+        document.getElementById('pub-msg-title').textContent = aprobado ? '¡Presupuesto Aprobado!' : 'Presupuesto Rechazado';
+        document.getElementById('pub-msg-desc').textContent = aprobado ? 'Gracias por confirmar. Nuestro equipo comenzará a trabajar en su dispositivo.' : 'Hemos registrado su rechazo. Por favor, comuníquese para retirar su equipo.';
+        
+    } catch (e) {
+        document.getElementById('pub-loading').textContent = 'Ocurrió un error. Por favor intente más tarde o comuníquese por WhatsApp.';
+        console.error(e);
+    }
+}
+
+// Exponemos las funciones al entorno global para el HTML
+window.compartirLinkPresupuesto = compartirLinkPresupuesto;
+window.responderPresupuesto = responderPresupuesto;

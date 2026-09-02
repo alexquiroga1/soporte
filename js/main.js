@@ -8,7 +8,14 @@ import { initAuth, doLogin, doLogout } from './core/auth.js';
 import { initUI, openModal, closeModal, goView, closeDropdowns } from './modules/ui.js';
 
 // 2. IMPORTACIONES: MÓDULOS DE NEGOCIO
-import { renderTicketsTable, renderTicketsKanban, eliminarTicketConCodigo, onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, addTicketNota, changeTicketStage, createTicket } from './modules/tickets.js';
+import { 
+  renderTicketsTable, renderTicketsKanban, eliminarTicketConCodigo, 
+  onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, 
+  fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, 
+  saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, 
+  addTicketNota, changeTicketStage, createTicket, saveGarantiaDias,
+  compartirLinkPresupuesto, responderPresupuesto, initPublicPresupuesto // <-- NUEVAS
+} from './modules/tickets.js';
 import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil } from './modules/clientes.js';
 import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
 import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
@@ -19,7 +26,7 @@ import { renderDashboard, renderReportes } from './modules/dashboard.js';
 // 3. IMPORTACIONES DE CAJA Y CRÉDITOS
 import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual } from './modules/caja.js';
 
-// 4. NUEVO MÓDULO: FACTURACIÓN
+// 4. IMPORTACIONES DE FACTURACIÓN (Si ya está el módulo)
 import { renderFacturasTable, openFacturaModal, anularFactura, imprimirFactura } from './modules/facturacion.js';
 
 // =========================================================
@@ -31,7 +38,7 @@ window.openModal = openModal; window.closeModal = closeModal; window.goView = go
 window.doLogin = () => doLogin(window.auth); window.doLogout = () => doLogout(window.auth, closeDropdowns);
 window.closeDropdowns = closeDropdowns;
 
-// Tickets
+// Tickets y Presupuestos
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
 window.eliminarTicketConCodigo = eliminarTicketConCodigo;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
@@ -41,6 +48,9 @@ window.saveDiagnostico = saveDiagnostico; window.addPiezaToTicket = addPiezaToTi
 window.removePiezaFromTicket = removePiezaFromTicket; window.enviarAFacturacion = enviarAFacturacion; 
 window.addTicketNota = addTicketNota; window.changeTicketStage = changeTicketStage; 
 window.createTicket = createTicket; window.renderTicketsTable = renderTicketsTable;
+window.saveGarantiaDias = saveGarantiaDias; 
+window.compartirLinkPresupuesto = compartirLinkPresupuesto; 
+window.responderPresupuesto = responderPresupuesto; 
 
 // Clientes
 window.renderClientesTable = renderClientesTable; window.switchClientTab = switchClientTab;
@@ -73,7 +83,7 @@ window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago =
 window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
 
-// Facturación (NUEVO)
+// Facturación
 window.renderFacturasTable = renderFacturasTable; window.openFacturaModal = openFacturaModal;
 window.anularFactura = anularFactura; window.imprimirFactura = imprimirFactura;
 
@@ -114,7 +124,7 @@ window.renderAll = function() {
     renderCreditosTable();
     renderCRMKanban();
     renderReportes();
-    renderFacturasTable(); // RENDER FACTURAS
+    if(typeof renderFacturasTable === 'function') renderFacturasTable();
     renderConfig();
 }
 
@@ -130,7 +140,18 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("No se detectó Firebase.");
         return;
     }
-    initAuth(window.auth, window.db, () => {
-        initStore(window.db, window.renderAll);
-    });
+
+    // NUEVO: Intercepción del Link de Presupuesto Público
+    const urlParams = new URLSearchParams(window.location.search);
+    const presupuestoId = urlParams.get('p');
+    
+    if (presupuestoId) {
+        // Si hay link público, NO iniciamos sesión, vamos directo a la vista del cliente
+        initPublicPresupuesto(presupuestoId);
+    } else {
+        // Flujo normal de administrador
+        initAuth(window.auth, window.db, () => {
+            initStore(window.db, window.renderAll);
+        });
+    }
 });
