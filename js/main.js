@@ -112,6 +112,9 @@ window.anularFacturaActual = anularFacturaActual;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
 window.openNuevaFacturaModal = openNuevaFacturaModal;
 window.emitirFacturaManual = emitirFacturaManual;
+window.showNuevaFactura = showNuevaFactura;
+window.hideNuevaFactura = hideNuevaFactura;
+window.emitirFacturaManual = emitirFacturaManual;
 
 // Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {

@@ -680,40 +680,91 @@
               </div>
             </div>
 
-            <!-- ================= FACTURACIÓN (PANEL PRINCIPAL) ================= -->
+           <!-- ================= FACTURACIÓN ================= -->
         <div class="view" id="view-facturacion">
-          <div class="page-head">
-            <div>
-              <h1>Facturación y Comprobantes</h1>
-              <p>CONTROL INTERNO Y NOTAS DE CRÉDITO</p>
+          
+          <!-- SUBVISTA: LISTADO DE COMPROBANTES -->
+          <div id="fac-lista" class="subview">
+            <div class="page-head">
+              <div>
+                <h1>Facturación</h1>
+                <p>CENTRO DE COMPROBANTES FISCALES Y NOTAS DE CRÉDITO</p>
+              </div>
+              <button class="btn btn-primary" onclick="showNuevaFactura()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Emitir Comprobante</button>
             </div>
-          <button class="btn btn-primary" onclick="openNuevaFacturaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Emitir Manual</button>
+
+            <div class="toolbar">
+              <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+              <input id="fac-search" placeholder="Buscar por cliente, DNI o Ticket (ej. TK-1042)..." oninput="renderFacturasTable()"></div>
+              <select class="sel" id="fac-filter-tipo" onchange="renderFacturasTable()">
+                <option value="">Todos los tipos</option>
+                <option value="Factura">Factura Interna</option>
+                <option value="Nota de Crédito">Nota de Crédito</option>
+              </select>
+              <select class="sel" id="fac-filter-estado" onchange="renderFacturasTable()">
+                <option value="">Todos los estados</option>
+                <option value="Emitida">🟢 Emitida</option>
+                <option value="Anulada">🔴 Anulada / NC</option>
+              </select>
+            </div>
+
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr><th>Fecha</th><th>Comprobante</th><th>Cliente / DNI</th><th>Tipo</th><th>Ref. Origen</th><th>Estado</th><th>Total</th><th>Acciones</th></tr>
+                </thead>
+                <tbody id="facturacion-table-body"></tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="toolbar">
-            <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-            <input id="fac-search" placeholder="Buscar por cliente, DNI o Ref (ej. TK-1042)..." oninput="renderFacturasTable()"></div>
-            <select class="sel" id="fac-filter-tipo" onchange="renderFacturasTable()">
-              <option value="">Todos los tipos</option>
-              <option value="Factura">Factura Interna</option>
-              <option value="Nota de Crédito">Nota de Crédito</option>
-            </select>
-            <select class="sel" id="fac-filter-estado" onchange="renderFacturasTable()">
-              <option value="">Todos los estados</option>
-              <option value="Emitida">🟢 Emitida</option>
-              <option value="Anulada">🔴 Anulada / NC</option>
-            </select>
-          </div>
-
-          <div class="panel">
-            <table>
-              <thead><tr><th>Fecha</th><th>Comprobante</th><th>Cliente / DNI</th><th>Tipo</th><th>Ref. Origen</th><th>Estado</th><th>Total</th><th>Acción</th></tr></thead>
-              <tbody id="facturacion-table-body"></tbody>
-            </table>
+          <!-- SUBVISTA: EMITIR NUEVA FACTURA (SIN MODAL) -->
+          <div id="fac-nueva" class="subview" style="display:none;">
+            <div class="page-head" style="margin-bottom: 16px;">
+              <div>
+                <h1 style="font-size:20px;">Emitir Nuevo Comprobante</h1>
+                <p>Generación manual de documentos</p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-ghost" onclick="hideNuevaFactura()">Cancelar</button>
+                <button class="btn btn-primary" onclick="emitirFacturaManual()">Generar Comprobante</button>
+              </div>
+            </div>
+            
+            <div class="panel" style="max-width: 800px; padding: 24px;">
+              <div class="form-grid">
+                <div class="full">
+                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Cliente (Base de datos)</label>
+                  <select id="nf-cliente" class="sel" style="font-size:14px; padding:12px;"></select>
+                </div>
+                <div>
+                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Tipo de Comprobante</label>
+                  <select id="nf-tipo" class="sel" style="font-size:14px; padding:12px;">
+                    <option value="Factura">Factura de Venta / Servicio</option>
+                    <option value="Nota de Crédito">Nota de Crédito / Devolución</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Estado de Pago</label>
+                  <select id="nf-pago" class="sel" style="font-size:14px; padding:12px;">
+                    <option value="Pagado Total">🟢 Pagado Total</option>
+                    <option value="Pendiente">🟡 Pendiente de Cobro</option>
+                  </select>
+                </div>
+                <div class="full" style="margin-top:10px;">
+                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Concepto / Detalle de los ítems</label>
+                  <input id="nf-concepto" class="inp" placeholder="Ej. Reparación de equipo + Respaldo de datos" style="font-size:14px; padding:12px;">
+                </div>
+                <div class="full" style="margin-top:10px;">
+                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Total facturado ($)</label>
+                  <input id="nf-total" type="number" min="0" step="0.01" class="inp" placeholder="0.00" style="font-size:24px; font-weight:bold; color:var(--teal); font-family:var(--font-mono); padding:16px;">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- ================= FACTURACIÓN (VISTA DETALLE) ================= -->
+        <!-- ================= FACTURACIÓN (VISTA DETALLE - ESTILO MOCKUP) ================= -->
         <div class="view" id="view-facturacion-detalle">
           <div class="page-head" style="margin-bottom: 16px;">
             <div>
@@ -724,62 +775,87 @@
               <p id="fd-fecha" style="margin-top:4px; font-size:12px; color:var(--muted);"></p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn btn-ghost" id="btn-fd-anular" style="color:var(--red); border-color:var(--red);" onclick="anularFacturaActual()">🔴 Anular / Crear NC</button>
+              <button class="btn btn-ghost" id="btn-fd-anular" style="color:var(--red); border-color:var(--red);" onclick="anularFacturaActual()">🔴 Anular / NC</button>
               <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / PDF</button>
               <button class="btn btn-ghost" onclick="goView('facturacion')">← Volver</button>
             </div>
           </div>
           
-          <div class="panel" style="background: var(--teal-dim); border-color: rgba(37,206,158,0.3); padding: 12px 20px; display: flex; gap:24px; align-items: center;">
-            <div style="font-size:12.5px; color:#064E3B;"><b>Validación:</b> <span class="mono">Comprobante Interno (No Fiscal)</span></div>
+          <!-- BARRA TIPO CAE (Adaptada a control interno por ahora) -->
+          <div class="panel" style="background: var(--teal-dim); border-color: rgba(37,206,158,0.3); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size:12.5px; color:#064E3B;"><b>Validación:</b> <span class="mono">Control Interno SERVIX</span></div>
+            <div style="font-size:12.5px; color:#064E3B;"><b>Ref. Fiscal:</b> <span class="mono">Pendiente ARCA</span></div>
             <div style="font-size:12.5px; color:#064E3B;"><b>Punto de Venta:</b> <span class="mono">0001</span></div>
           </div>
 
+          <!-- GRID 3 COLUMNAS -->
           <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px;">
-            <div class="stack">
+            <!-- COLUMNA 1 -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
               <div class="panel" style="flex:1;">
-                <div class="panel-head"><h3>Origen de Operación</h3></div>
-                <div class="panel-body" style="font-size:12.5px; line-height:1.6;">
+                <div class="panel-head" style="padding:12px 18px; background:#fafbfc; border-bottom:1px solid var(--line);">
+                  <h3 style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Origen de Operación</h3>
+                </div>
+                <div class="panel-body" style="padding:16px; font-size:12.5px; line-height:1.6;">
                   <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Módulo Origen</span> <b id="fd-origen"></b></div>
-                  <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Ref. Vinculada</span> <span id="fd-ref" class="mono" style="color:var(--copper); font-weight:bold;"></span></div>
-                  <div><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Ref. de Caja</span> <span id="fd-caja" class="mono" style="color:var(--teal);"></span></div>
+                  <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Ticket/Venta Vinculada</span> <span id="fd-ref" class="mono" style="color:var(--copper); font-weight:bold;"></span></div>
+                  <div><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Movimiento de Caja</span> <span id="fd-caja" class="mono" style="color:var(--teal);"></span></div>
                 </div>
               </div>
             </div>
-            <div class="stack">
+            
+            <!-- COLUMNA 2 -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
               <div class="panel" style="flex:1;">
-                <div class="panel-head"><h3>Datos del Cliente</h3></div>
-                <div class="panel-body" style="font-size:12.5px; line-height:1.6;">
+                <div class="panel-head" style="padding:12px 18px; background:#fafbfc; border-bottom:1px solid var(--line);">
+                  <h3 style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Datos del Cliente</h3>
+                </div>
+                <div class="panel-body" style="padding:16px; font-size:12.5px; line-height:1.6;">
                   <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Razón Social / Nombre</span> <b id="fd-cliente"></b></div>
                   <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">CUIT / DNI</span> <span id="fd-doc" class="mono"></span></div>
+                  <div><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Condición IVA</span> Consumidor Final</div>
                 </div>
               </div>
             </div>
-            <div class="stack">
+
+            <!-- COLUMNA 3 -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
               <div class="panel" style="flex:1;">
-                <div class="panel-head"><h3>Control y Auditoría</h3></div>
-                <div class="panel-body" style="font-size:12.5px; line-height:1.6;">
+                <div class="panel-head" style="padding:12px 18px; background:#fafbfc; border-bottom:1px solid var(--line);">
+                  <h3 style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Control Interno</h3>
+                </div>
+                <div class="panel-body" style="padding:16px; font-size:12.5px; line-height:1.6;">
                   <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Usuario Emisor</span> <span id="fd-usuario"></span></div>
                   <div style="margin-bottom:8px;"><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Estado de Pago</span> <span id="fd-pago-status" style="font-weight:bold;"></span></div>
+                  <div><span style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; display:block;">Comprobantes Asociados</span> Ninguno</div>
                 </div>
               </div>
             </div>
           </div>
 
+          <!-- SECCIÓN CENTRAL: CONCEPTOS E ÍTEMS FACTURADOS -->
           <div class="panel" style="margin-bottom: 16px;">
-            <div class="panel-head"><h3>Conceptos Facturados</h3></div>
+            <div class="panel-head" style="padding:12px 18px; background:#fafbfc; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Conceptos Facturados</h3>
+              <span class="meta" style="font-size:11px; color:var(--muted);">Detalle de la operación</span>
+            </div>
             <table>
-              <thead><tr><th>Descripción</th><th>Cant.</th><th>Precio Unit.</th><th style="text-align:right;">Subtotal</th></tr></thead>
+              <thead>
+                <tr><th style="font-size:10px; text-transform:uppercase; color:var(--muted); padding:10px 14px; background:#fafbfc;">Descripción</th><th style="font-size:10px; text-transform:uppercase; color:var(--muted); padding:10px 14px; background:#fafbfc;">Cant.</th><th style="font-size:10px; text-transform:uppercase; color:var(--muted); padding:10px 14px; background:#fafbfc;">Precio Unit.</th><th style="text-align:right; font-size:10px; text-transform:uppercase; color:var(--muted); padding:10px 14px; background:#fafbfc;">Subtotal</th></tr>
+              </thead>
               <tbody id="fd-items"></tbody>
             </table>
             <div style="padding: 14px 18px; background: #fafbfc; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; align-items: center; gap: 24px;">
-              <div style="font-size:16px; font-weight:bold;">TOTAL: <span id="fd-total" class="mono" style="color:var(--teal); font-size:20px; margin-left:8px;"></span></div>
+              <div style="font-size:16px; font-weight:bold;">TOTAL FACTURADO: <span id="fd-total" class="mono" style="color:var(--teal); font-size:20px; margin-left:8px;"></span></div>
             </div>
           </div>
 
+          <!-- BITÁCORA -->
           <div class="panel">
-            <div class="panel-head"><h3>Bitácora e Historial del Comprobante</h3></div>
-            <div class="panel-body" id="fd-historial" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <div class="panel-head" style="padding:12px 18px; background:#fafbfc; border-bottom:1px solid var(--line);">
+              <h3 style="font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Bitácora e Historial del Comprobante</h3>
+            </div>
+            <div class="panel-body" id="fd-historial" style="padding:16px; display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
 
@@ -2327,49 +2403,7 @@
           </div>
         </div>
       </div>
-<!-- MODAL: NUEVA FACTURA MANUAL -->
-  <div class="modal-overlay" id="modal-nueva-factura">
-    <div class="modal narrow">
-      <div class="modal-head">
-        <h3>Emitir Comprobante Manual</h3>
-        <button class="modal-close" onclick="closeModal('modal-nueva-factura')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="full">
-            <label>Cliente</label>
-            <select id="nf-cliente" class="sel"></select>
-          </div>
-          <div>
-            <label>Tipo de Comprobante</label>
-            <select id="nf-tipo" class="sel">
-              <option value="Factura">Factura Interna</option>
-              <option value="Nota de Crédito">Nota de Crédito</option>
-            </select>
-          </div>
-          <div>
-            <label>Estado de Pago</label>
-            <select id="nf-pago" class="sel">
-              <option value="Pagado Total">Pagado Total</option>
-              <option value="Pendiente">Pendiente</option>
-            </select>
-          </div>
-          <div class="full">
-            <label>Concepto / Detalle principal</label>
-            <input id="nf-concepto" class="inp" placeholder="Ej. Servicio de mantenimiento a empresa">
-          </div>
-          <div class="full">
-            <label>Total facturado ($)</label>
-            <input id="nf-total" type="number" min="0" step="0.01" class="inp" placeholder="0.00" style="font-size:16px; font-weight:bold; color:var(--teal);">
-          </div>
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modal-nueva-factura')">Cancelar</button>
-        <button class="btn btn-primary" onclick="emitirFacturaManual()">Generar Comprobante</button>
-      </div>
-    </div>
-  </div>
+
 
       <div id="toast-wrap"></div>
 

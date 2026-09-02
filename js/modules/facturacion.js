@@ -2,13 +2,10 @@
 import { DATA } from '../core/store.js';
 import { fmt, fDate, toast, getFullName } from '../core/utils.js';
 import { currentUserProfile } from '../core/auth.js';
-import { goView, openModal, closeModal } from './ui.js';
+import { goView } from './ui.js';
 
 let currentFacturaId = null;
 
-// =====================================
-// RENDERIZAR TABLA PRINCIPAL
-// =====================================
 export function renderFacturasTable() {
     if (!DATA.facturas) DATA.facturas = [];
     const tbody = document.getElementById('facturacion-table-body');
@@ -45,14 +42,11 @@ export function renderFacturasTable() {
           <td class="mono" style="color:${colorRef}; font-weight:600;">${f.refId}</td>
           <td>${estBadge}</td>
           <td class="mono" style="font-weight:700; color:${colorTot}; font-size:13.5px;">${signo}${fmt(f.total)}</td>
-          <td><button class="btn btn-ghost btn-sm" onclick="openFacturaDetalle('${f.id}')">👁️ Ver</button></td>
+          <td><button class="btn btn-ghost btn-sm" style="padding:6px 10px; font-size:11px;" onclick="openFacturaDetalle('${f.id}')">👁️ Ver</button></td>
         </tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--muted);">No hay comprobantes con estos filtros.</td></tr>';
 }
 
-// =====================================
-// ABRIR VISTA DETALLE DE COMPROBANTE
-// =====================================
 export function openFacturaDetalle(id) {
     const f = DATA.facturas.find(x => x.id === id);
     if (!f) return;
@@ -61,14 +55,13 @@ export function openFacturaDetalle(id) {
     document.getElementById('fd-id').textContent = f.id;
     document.getElementById('fd-fecha').textContent = `Fecha de emisión: ${fDate(f.fecha)} · ${f.hora} hs`;
     
-    // Badge y Anulación
     const badgeEl = document.getElementById('fd-badge-estado');
     const btnAnular = document.getElementById('btn-fd-anular');
     if (f.estado === 'Emitida' && f.tipo === 'Factura') {
         badgeEl.innerHTML = `<span class="badge" style="background:var(--teal-dim); color:var(--teal);">🟢 EMITIDA</span>`;
         btnAnular.style.display = 'inline-flex';
     } else if (f.tipo === 'Nota de Crédito') {
-        badgeEl.innerHTML = `<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🟣 NOTA DE CRÉDITO</span>`;
+        badgeEl.innerHTML = `<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🟣 NC APLICADA</span>`;
         btnAnular.style.display = 'none';
     } else {
         badgeEl.innerHTML = `<span class="badge" style="background:var(--red-dim); color:var(--red);">🔴 ANULADA</span>`;
@@ -89,30 +82,29 @@ export function openFacturaDetalle(id) {
     pSt.style.color = f.estadoPago === 'Pagado Total' ? 'var(--teal)' : 'var(--amber)';
 
     let itemsHtml = (f.items || []).map(i => `<tr>
-        <td>${i.desc}</td><td class="mono">${i.cant}</td><td class="mono">${fmt(i.precio)}</td><td class="mono" style="text-align:right; font-weight:bold;">${fmt(i.cant * i.precio)}</td>
+        <td style="padding:10px 14px; border-bottom:1px solid var(--line);">${i.desc}</td>
+        <td class="mono" style="padding:10px 14px; border-bottom:1px solid var(--line);">${i.cant}</td>
+        <td class="mono" style="padding:10px 14px; border-bottom:1px solid var(--line);">${fmt(i.precio)}</td>
+        <td class="mono" style="padding:10px 14px; border-bottom:1px solid var(--line); text-align:right; font-weight:bold;">${fmt(i.cant * i.precio)}</td>
     </tr>`).join('');
-    document.getElementById('fd-items').innerHTML = itemsHtml || '<tr><td colspan="4" style="text-align:center; color:var(--muted);">Sin conceptos</td></tr>';
+    document.getElementById('fd-items').innerHTML = itemsHtml || '<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">Sin conceptos</td></tr>';
 
     let totalStr = f.tipo === 'Nota de Crédito' ? `-${fmt(f.total)}` : fmt(f.total);
     document.getElementById('fd-total').textContent = totalStr;
 
-    // Historial
     const hist = f.historial || [];
     document.getElementById('fd-historial').innerHTML = hist.slice().reverse().map(h => `
         <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:2px; font-size:11px;">
             <b style="color:var(--ink);">${h.accion}</b> <span style="color:var(--muted);">${h.fecha}</span>
           </div>
-          <div style="font-size:12px; color:var(--ink);">${h.detalle}</div>
+          <div style="font-size:11.5px; color:var(--muted);">${h.detalle}</div>
         </div>
     `).join('');
 
     goView('facturacion-detalle');
 }
 
-// =====================================
-// CREAR NOTA DE CRÉDITO (ANULAR)
-// =====================================
 export async function anularFacturaActual() {
     if (!currentFacturaId) return;
     const original = DATA.facturas.find(x => x.id === currentFacturaId);
@@ -127,14 +119,12 @@ export async function anularFacturaActual() {
         const hTimeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
         const logDate = fDate(fDateStr) + ' ' + hTimeStr;
 
-        // 1. Marcar original como anulada
         await window.db.collection('facturas').doc(original.id).update({
             estado: 'Anulada',
             historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Comprobante Anulado', detalle: `Se generó Nota de Crédito. Usuario: ${user}` })
         });
         original.estado = 'Anulada';
 
-        // 2. Generar el nuevo ID de la NC
         let nuevoNum = 1;
         const contadoresRef = window.db.collection('negocio').doc('contadores');
         await window.db.runTransaction(async (transaction) => {
@@ -144,10 +134,8 @@ export async function anularFacturaActual() {
         });
         const ncId = 'NC-' + nuevoNum.toString().padStart(4, '0');
 
-        // 3. Crear la Nota de Crédito
         const ncData = {
-            id: ncId,
-            fecha: fDateStr, hora: hTimeStr,
+            id: ncId, fecha: fDateStr, hora: hTimeStr,
             cliente: original.cliente, doc: original.doc, clienteId: original.clienteId,
             tipo: 'Nota de Crédito', refModulo: 'Factura', refId: original.id, refPago: original.refPago,
             estado: 'Emitida', total: original.total, items: original.items, usuario: user, estadoPago: 'Aplicada',
@@ -157,18 +145,12 @@ export async function anularFacturaActual() {
         if(!DATA.facturas) DATA.facturas = [];
         DATA.facturas.push(ncData);
 
-        toast(`✅ Nota de Crédito ${ncId} generada exitosamente`);
+        toast(`✅ Nota de Crédito ${ncId} generada`);
         openFacturaDetalle(original.id); 
         
-    } catch (e) {
-        console.error(e);
-        toast("❌ Error al procesar anulación");
-    }
+    } catch (e) { toast("❌ Error al procesar anulación"); }
 }
 
-// =====================================
-// GENERAR FACTURA AUTOMÁTICA (Desde Caja)
-// =====================================
 export async function emitirComprobanteInterno(origen, refId, refPago, clienteId, clienteNombre, items, total, estadoPago) {
     try {
         const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
@@ -205,16 +187,11 @@ export async function emitirComprobanteInterno(origen, refId, refPago, clienteId
         DATA.facturas.push(facData);
 
         return facId; 
-    } catch (e) {
-        console.error("Error emitiendo factura interna", e);
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
-// =====================================
-// EMISIÓN MANUAL DESDE EL PANEL
-// =====================================
-export function openNuevaFacturaModal() {
+// === NUEVAS FUNCIONES PARA LA PANTALLA COMPLETA (SIN MODAL) ===
+export function showNuevaFactura() {
     const sel = document.getElementById('nf-cliente');
     if (sel) {
         sel.innerHTML = '<option value="">Consumidor Final (Sin registrar)</option>' + 
@@ -222,7 +199,14 @@ export function openNuevaFacturaModal() {
     }
     document.getElementById('nf-concepto').value = '';
     document.getElementById('nf-total').value = '';
-    openModal('modal-nueva-factura');
+    
+    document.getElementById('fac-lista').style.display = 'none';
+    document.getElementById('fac-nueva').style.display = 'block';
+}
+
+export function hideNuevaFactura() {
+    document.getElementById('fac-nueva').style.display = 'none';
+    document.getElementById('fac-lista').style.display = 'block';
 }
 
 export async function emitirFacturaManual() {
@@ -257,7 +241,6 @@ export async function emitirFacturaManual() {
         const hTimeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
         const logDate = fDate(fDateStr) + ' ' + hTimeStr;
 
-        // Generar número correlativo
         let nuevoNum = 1;
         const contadoresRef = window.db.collection('negocio').doc('contadores');
         await window.db.runTransaction(async (transaction) => {
@@ -282,11 +265,8 @@ export async function emitirFacturaManual() {
         DATA.facturas.push(facData);
 
         toast(`✅ ${tipo} emitido con éxito`);
-        closeModal('modal-nueva-factura');
+        hideNuevaFactura(); // Cierra la pantalla y vuelve a la lista
         renderFacturasTable();
 
-    } catch (e) {
-        console.error(e);
-        toast('❌ Error al emitir el comprobante');
-    }
+    } catch (e) { toast('❌ Error al emitir el comprobante'); }
 }
