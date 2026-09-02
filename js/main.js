@@ -36,7 +36,7 @@ import {
 
 import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
-import { renderDashboard, renderReportes } from './modules/dashboard.js';
+import { renderDashboard, renderReportes, renderNotificaciones } from './modules/dashboard.js';
 
 // 3. IMPORTACIONES DE CAJA Y CRÉDITOS
 import { 
@@ -47,8 +47,9 @@ import {
   generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual 
 } from './modules/caja.js';
 
-// 4. IMPORTACIONES DE FACTURACIÓN (Para el futuro módulo fiscal)
-import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno } from './modules/facturacion.js';
+// 4. IMPORTACIONES DE FACTURACIÓN
+import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno, openNuevaFacturaModal, emitirFacturaManual } from './modules/facturacion.js';
+
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
 // =========================================================
@@ -77,7 +78,7 @@ window.renderClientesTable = renderClientesTable; window.switchClientTab = switc
 window.openClientModal = openClientModal; window.saveClientLimit = saveClientLimit;
 window.createCliente = createCliente; window.populateClienteSelectPOS = populateClienteSelectPOS;
 window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
-window.openTicketWithDevice = openTicketWithDevice; // <-- NUEVO ATAJO DE EQUIPOS
+window.openTicketWithDevice = openTicketWithDevice; 
 
 // Productos y Promociones
 window.setProductoFiltro = setProductoFiltro; window.createProducto = createProducto;
@@ -111,29 +112,6 @@ window.anularFacturaActual = anularFacturaActual;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
 window.openNuevaFacturaModal = openNuevaFacturaModal;
 window.emitirFacturaManual = emitirFacturaManual;
-window.renderAll = function() {
-    console.log("Pintando la aplicación completa desde los módulos...");
-    renderDashboard();
-    renderTicketsTable(); 
-    renderTicketsKanban();
-    renderClientesTable(); 
-    populateClienteSelectPOS();
-    renderProductosTabs(); 
-    renderProductosTable(); 
-    renderPromocionesTable();
-    renderPayMethods();
-    populatePOSPromos();
-    renderPOSProducts();
-    renderCart();
-    renderVentasHistorial();
-    renderCajaView();
-    renderCreditosTable();
-    renderCRMKanban();
-    renderReportes();
-    renderNotificaciones(); 
-    renderFacturasTable(); // <--- NUEVA LÍNEA AÑADIDA
-    renderConfig();
-}
 
 // Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {
@@ -172,7 +150,8 @@ window.renderAll = function() {
     renderCreditosTable();
     renderCRMKanban();
     renderReportes();
-    // if(typeof renderFacturasTable === 'function') renderFacturasTable(); // Futuro
+    renderNotificaciones(); 
+    renderFacturasTable(); 
     renderConfig();
 }
 
