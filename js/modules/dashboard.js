@@ -1,11 +1,10 @@
 // js/modules/dashboard.js
 import { DATA } from '../core/store.js';
-import { fmt, fmtK, fDate } from '../core/utils.js';
+import { fmt, fmtK, fDate, getFullName } from '../core/utils.js';
 import { calcularDiasMora } from './caja.js';
-import { getFullName } from '../core/utils.js';
 
 export function renderDashboard(){
-  const abiertos = (DATA.tickets||[]).filter(t=>t.stage!=='entregado').length;
+  const abiertos = (DATA.tickets||[]).filter(t=>t.stage!=='entregado' && t.stage!=='cancelado' && t.stage!=='noreparable').length;
   
   const hoyStr = new Date().toLocaleDateString('es-AR');
   const ventasHoy = (DATA.ventas||[]).filter(v => (v.hora||'').includes(hoyStr) || new Date().toISOString().split('T')[0] === v.fecha).reduce((s,v)=>s+v.total,0);
@@ -38,6 +37,46 @@ export function renderDashboard(){
             <td>${t.tecnico}</td>
           </tr>`;
       }).join('') || '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:16px;">Sin tickets recientes</td></tr>';
+  }
+
+  // PANEL DE EQUIPOS OLVIDADOS (LISTOS SIN RETIRAR)
+  const panelRetiros = document.getElementById('panel-retiros');
+  const bodyRetiros = document.getElementById('dash-retiros-body');
+  
+  if (panelRetiros && bodyRetiros) {
+      const listos = (DATA.tickets||[]).filter(t => t.stage === 'listo' && t.fechaListo);
+      const hoy = new Date();
+      let retirosHtml = '';
+      let olvidadosCount = 0;
+
+      listos.forEach(t => {
+          const fListo = new Date(t.fechaListo);
+          const diffTime = Math.abs(hoy - fListo);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if(diffDays >= 3) {
+              olvidadosCount++;
+              let color = 'var(--amber)'; let icono = '🟠'; let texto = `Listo hace ${diffDays} días`;
+              if(diffDays >= 15) { color = 'var(--red)'; icono = '⚠️'; texto = `Hace ${diffDays} días - Contactar urg.`; }
+              else if(diffDays >= 7) { color = 'var(--copper)'; icono = '🔴'; texto = `Retiro pendiente hace ${diffDays} días`; }
+
+              retirosHtml += `
+              <div style="background:var(--bg); border-left:3px solid ${color}; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                      <div style="font-size:12.5px; font-weight:700; color:var(--ink);">${icono} #${t.id} - ${t.cliente}</div>
+                      <div style="font-size:11px; color:var(--muted); margin-top:2px;">${texto}</div>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" style="padding:4px 8px; font-size:11px;" onclick="openTicketModal('${t.id}')">Ver</button>
+              </div>`;
+          }
+      });
+
+      if (olvidadosCount > 0) {
+          panelRetiros.style.display = 'block';
+          bodyRetiros.innerHTML = retirosHtml;
+      } else {
+          panelRetiros.style.display = 'none';
+      }
   }
 
   const cajaBox = document.getElementById('dash-caja');
