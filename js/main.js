@@ -47,8 +47,8 @@ import {
   generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual 
 } from './modules/caja.js';
 
-// 4. IMPORTACIONES DE FACTURACIÓN
-import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno, openNuevaFacturaModal, emitirFacturaManual } from './modules/facturacion.js';
+// 4. IMPORTACIONES DE FACTURACIÓN (CORREGIDAS)
+import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno, showNuevaFactura, hideNuevaFactura, emitirFacturaManual } from './modules/facturacion.js';
 
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
@@ -105,13 +105,11 @@ window.createCreditoManual = createCreditoManual;
 window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago = seleccionarPlanDePago;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
 
-// Facturacion
+// Facturacion (CORREGIDO)
 window.renderFacturasTable = renderFacturasTable;
 window.openFacturaDetalle = openFacturaDetalle;
 window.anularFacturaActual = anularFacturaActual;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
-window.openNuevaFacturaModal = openNuevaFacturaModal;
-window.emitirFacturaManual = emitirFacturaManual;
 window.showNuevaFactura = showNuevaFactura;
 window.hideNuevaFactura = hideNuevaFactura;
 window.emitirFacturaManual = emitirFacturaManual;
@@ -176,10 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const presupuestoId = urlParams.get('p');
     
     if (presupuestoId) {
-        // Si hay link público, NO iniciamos sesión, vamos directo a la vista del cliente
         initPublicPresupuesto(presupuestoId);
     } else {
-        // Flujo normal de administrador
         initAuth(window.auth, window.db, () => {
             initStore(window.db, window.renderAll);
         });
