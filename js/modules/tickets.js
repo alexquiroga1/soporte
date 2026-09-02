@@ -1,19 +1,15 @@
 // js/modules/tickets.js
 import { DATA, TICKET_STAGES } from '../core/store.js';
 import { fDate, fmt, initials, toast, getFullName } from '../core/utils.js';
-import { openModal, closeModal, wireKanbanDrag } from './ui.js';
+import { openModal, closeModal, wireKanbanDrag, goView } from './ui.js';
 import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
 let isCreatingTicket = false;
 let publicTicketId = null; 
 
-// Fallback por si algún estado no existe
 export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key) || {label: key, color:'#8891A3', badge:'pend'};
 
-// ==========================================
-// SISTEMA DE BITÁCORA / AUDITORÍA
-// ==========================================
 export async function logTicketEvent(ticketId, accion, detalle = '') {
   const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
   const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
@@ -61,10 +57,6 @@ export async function addTicketNota(){
   toast('Nota guardada');
 }
 
-// ==========================================
-// BÚSQUEDA Y LISTADO
-// ==========================================
-
 export function onClientSearchInput(){
   const q = document.getElementById('nt-cliente-input').value.toLowerCase().trim();
   const box = document.getElementById('nt-client-suggestions');
@@ -93,7 +85,6 @@ export function selectClientForTicket(id, nombre){
   document.getElementById('nt-cliente-input').value = nombre;
   document.getElementById('nt-client-suggestions').style.display = 'none';
 
-  // Verificar garantías activas
   const today = new Date().toISOString().split('T')[0];
   const garantias = DATA.tickets.filter(t => t.clienteId === id && t.garantiaVencimiento && t.garantiaVencimiento >= today);
   
@@ -158,9 +149,6 @@ export function renderTicketsTable(){
   document.getElementById('badge-tickets').textContent = abiertos;
 }
 
-// ==========================================
-// COMPROBANTE CHECK-IN / IMPRESIÓN
-// ==========================================
 export function printTicket(id){
   const t = DATA.tickets.find(x => x.id === id);
   if(!t) return;
@@ -178,7 +166,7 @@ export function printTicket(id){
       <div class="box"><div class="box-title">1. Datos del Cliente</div><p><b>Nombre:</b> ${t.cliente}</p></div>
       <div class="box"><div class="box-title">2. Ficha Técnica</div><div class="grid-2"><div><b>Equipo:</b> ${t.equipo} ${t.marca || ''} ${t.modelo || ''}</div><div><b>Nº Serie:</b> ${t.serie || 'N/A'}</div><div><b>S.O./Specs:</b> ${t.specs || 'N/A'}</div><div><b>PIN/Pass:</b> ${t.pin || 'N/A'}</div></div></div>
       
-      ${t.tipoServicio === 'Taller' ? `<div class="box"><div class="box-title">3. Estado Físico y Accesorios</div><div class="grid-2"><div><div style="font-weight:bold; margin-bottom:6px;">Estado Físico OK:</div><div class="check-list"><div class="check-item">${check(t.estadoFisico?.pantalla)} Pantalla</div><div class="check-item">${check(t.estadoFisico?.carcasa)} Carcasa</div><div class="check-item">${check(t.estadoFisico?.teclado)} Teclado</div><div class="check-item">${check(t.estadoFisico?.cargador)} Cargador</div><div class="check-item">${check(t.estadoFisico?.bateria)} Batería</div></div></div><div><div style="font-weight:bold; margin-bottom:6px;">Accesorios Recibidos:</div><div class="check-list"><div class="check-item">${check(t.accesoriosObj?.cargador)} Cargador</div><div class="check-item">${check(t.accesoriosObj?.funda)} Funda</div><div class="check-item">${check(t.accesoriosObj?.cable)} Cable</div></div></div></div><div style="margin-top:15px; border-top:1px dashed #E4E6EC; padding-top:10px;"><b>Observaciones:</b><br>${t.condicion || 'Sin observaciones.'}</div></div>` : ''}
+      ${t.tipoServicio === 'Taller' ? `<div class="box"><div class="box-title">3. Estado Físico y Accesorios</div><div class="grid-2"><div><div style="font-weight:bold; margin-bottom:6px;">Estado Físico OK:</div><div class="check-list"><div class="check-item">${check(t.estadoFisico?.pantalla)} Pantalla</div><div class="check-item">${check(t.estadoFisico?.carcasa)} Carcasa</div><div class="check-item">${check(t.estadoFisico?.teclado)} Teclado</div><div class="check-item">${check(t.estadoFisico?.cargador)} Cargador</div><div class="check-item">${check(t.estadoFisico?.bateria)} Batería</div><div class="check-item">${check(t.estadoFisico?.puertos)} Puertos</div></div></div><div><div style="font-weight:bold; margin-bottom:6px;">Accesorios Recibidos:</div><div class="check-list"><div class="check-item">${check(t.accesoriosObj?.cargador)} Cargador</div><div class="check-item">${check(t.accesoriosObj?.funda)} Funda</div><div class="check-item">${check(t.accesoriosObj?.cable)} Cable</div></div></div></div><div style="margin-top:15px; border-top:1px dashed #E4E6EC; padding-top:10px;"><b>Observaciones:</b><br>${t.condicion || 'Sin observaciones.'}</div></div>` : ''}
       
       ${t.tipoServicio === 'Domicilio' ? `<div class="box"><div class="box-title">3. Datos de Visita a Domicilio</div><div class="grid-2"><div><b>Dirección:</b> ${t.datosDomicilio?.direccion}</div><div><b>Fecha Prog.:</b> ${t.datosDomicilio?.fecha} ${t.datosDomicilio?.hora}</div><div><b>Contacto:</b> ${t.datosDomicilio?.contacto}</div></div></div>` : ''}
       
@@ -193,10 +181,6 @@ export function printTicket(id){
   `);
   win.document.close();
 }
-
-// ==========================================
-// KANBAN Y ESTADOS
-// ==========================================
 
 export function renderTicketsKanban(){
   const board = document.getElementById('tickets-kanban');
@@ -250,10 +234,6 @@ export function changeTicketStage(){
     changeTicketStageAt(currentTicketId, newStage);
 }
 
-// ==========================================
-// VISTA DETALLE DEL TICKET 
-// ==========================================
-
 export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
@@ -281,6 +261,7 @@ export function openTicketModal(id){
       if(t.estadoFisico.teclado) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Teclado</span>';
       if(t.estadoFisico.cargador) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Cargador</span>';
       if(t.estadoFisico.bateria) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Batería</span>';
+      if(t.estadoFisico.puertos) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Puertos</span>';
       efContainer.innerHTML = efHtml || '<span style="font-size:11px; color:var(--muted);">Sin detalles OK</span>';
   } else if (efContainer) { efContainer.innerHTML = '<span style="font-size:11px; color:var(--muted);">N/A</span>'; }
 
@@ -365,10 +346,6 @@ export function openTicketModal(id){
   
   if(window.goView) window.goView('ticket-detalle');
 }
-
-// ==========================================
-// FINANZAS Y REPUESTOS DEL TICKET
-// ==========================================
 
 export async function fijarPresupuesto() {
   const val = parseFloat(document.getElementById('input-presupuesto').value);
@@ -520,9 +497,26 @@ export async function enviarAFacturacion(){
   } catch(error) { toast('Error al enviar a caja'); }
 }
 
-// ==========================================
-// CREACIÓN Y ELIMINACIÓN DE TICKETS
-// ==========================================
+export function limpiarFormularioTicket() {
+    ['nt-marca','nt-modelo','nt-serie','nt-pin','nt-specs','nt-condicion','nt-falla','nt-cliente-input','nt-cliente-id', 'nt-dom-dir', 'nt-dom-fecha', 'nt-dom-hora', 'nt-dom-contacto', 'nt-rem-id', 'nt-rem-pass'].forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).value = '';
+    });
+    ['nt-chk-pantalla','nt-chk-carcasa','nt-chk-teclado','nt-chk-cargador','nt-chk-bateria','nt-acc-cargador','nt-acc-funda','nt-acc-cable', 'nt-chk-puertos'].forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).checked = false;
+    });
+    if(document.getElementById('nt-fotos')) document.getElementById('nt-fotos').value = '';
+    if(document.getElementById('nt-alerta-garantia')) document.getElementById('nt-alerta-garantia').style.display = 'none';
+    
+    if(document.getElementById('nt-tipo-servicio')) {
+        document.getElementById('nt-tipo-servicio').value = 'Taller';
+        toggleTipoServicio(); 
+    }
+    if(document.getElementById('nt-prioridad')) {
+        document.getElementById('nt-prioridad').value = 'P2';
+        const r2 = document.querySelector('input[name="nt-prio-radio"][value="P2"]');
+        if(r2) r2.checked = true;
+    }
+}
 
 export function toggleTipoServicio() {
     const tipo = document.getElementById('nt-tipo-servicio')?.value || 'Taller';
@@ -584,6 +578,7 @@ export async function createTicket(){
       teclado: document.getElementById('nt-chk-teclado')?.checked || false,
       cargador: document.getElementById('nt-chk-cargador')?.checked || false,
       bateria: document.getElementById('nt-chk-bateria')?.checked || false,
+      puertos: document.getElementById('nt-chk-puertos')?.checked || false,
   };
 
   const accesoriosObj = {
@@ -608,7 +603,7 @@ export async function createTicket(){
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
   const btn = document.getElementById('btn-crear-ticket');
-  const originalText = btn ? btn.innerHTML : 'Crear ticket';
+  const originalText = btn ? btn.innerHTML : 'Registrar Ingreso';
 
   try {
       isCreatingTicket = true;
@@ -650,18 +645,10 @@ export async function createTicket(){
       };
 
       await window.db.collection('tickets').doc(id).set(t);
-
-      // Limpiamos los campos SOLO si fue exitoso
-      ['nt-marca','nt-modelo','nt-serie','nt-pin','nt-specs','nt-condicion','nt-falla','nt-cliente-input','nt-cliente-id', 'nt-dom-dir', 'nt-dom-fecha', 'nt-dom-hora', 'nt-dom-contacto', 'nt-rem-id', 'nt-rem-pass'].forEach(id => {
-          if(document.getElementById(id)) document.getElementById(id).value = '';
-      });
-      ['nt-chk-pantalla','nt-chk-carcasa','nt-chk-teclado','nt-chk-cargador','nt-chk-bateria','nt-acc-cargador','nt-acc-funda','nt-acc-cable'].forEach(id => {
-          if(document.getElementById(id)) document.getElementById(id).checked = false;
-      });
-      if(document.getElementById('nt-fotos')) document.getElementById('nt-fotos').value = '';
       
-      closeModal('modal-nuevo-ticket');
+      limpiarFormularioTicket();
       toast('✓ Ticket #'+id+' creado exitosamente');
+      if(window.goView) window.goView('tickets');
 
   } catch (error) {
       console.error("Error al crear ticket:", error);
@@ -689,19 +676,12 @@ export async function eliminarTicketConCodigo() {
     } else { alert("❌ Código incorrecto. Operación cancelada."); }
 }
 
-// ==========================================
-// APROBACIÓN DIGITAL DE PRESUPUESTO PÚBLICA
-// ==========================================
-
 export function compartirLinkPresupuesto() {
     if(!currentTicketId) return;
     const url = `${window.location.origin}${window.location.pathname}?p=${currentTicketId}`;
-    
     navigator.clipboard.writeText(url).then(() => {
         toast('Link de aprobación copiado al portapapeles');
-    }).catch(err => {
-        alert("Link de aprobación: \n" + url);
-    });
+    }).catch(err => { alert("Link de aprobación: \n" + url); });
 }
 
 export async function initPublicPresupuesto(tkId) {
@@ -713,10 +693,7 @@ export async function initPublicPresupuesto(tkId) {
     
     try {
         const doc = await window.db.collection('tickets').doc(tkId).get();
-        if(!doc.exists) {
-            document.getElementById('pub-loading').textContent = 'El ticket solicitado no existe.';
-            return;
-        }
+        if(!doc.exists) { document.getElementById('pub-loading').textContent = 'El ticket no existe.'; return; }
         
         const t = doc.data();
         document.getElementById('pub-loading').style.display = 'none';
@@ -738,7 +715,6 @@ export async function initPublicPresupuesto(tkId) {
         
     } catch (e) {
         document.getElementById('pub-loading').textContent = 'Error al cargar la información.';
-        console.error(e);
     }
 }
 
@@ -753,16 +729,14 @@ export async function responderPresupuesto(respuesta) {
     const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
     
     const logEntry = { 
-        fecha: fechaStr, 
-        autor: 'Cliente (Vía Web)', 
+        fecha: fechaStr, autor: 'Cliente (Vía Web)', 
         accion: aprobado ? 'Presupuesto APROBADO' : 'Presupuesto RECHAZADO', 
         detalle: 'Aceptación digital registrada.' 
     };
 
     try {
         await window.db.collection('tickets').doc(publicTicketId).update({
-            presupuestoAprobado: aprobado,
-            stage: aprobado ? 'reparacion' : 'noreparable', 
+            presupuestoAprobado: aprobado, stage: aprobado ? 'reparacion' : 'noreparable', 
             historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry)
         });
         
@@ -771,9 +745,5 @@ export async function responderPresupuesto(respuesta) {
         document.getElementById('pub-icon').textContent = aprobado ? '✅' : '❌';
         document.getElementById('pub-msg-title').textContent = aprobado ? '¡Presupuesto Aprobado!' : 'Presupuesto Rechazado';
         document.getElementById('pub-msg-desc').textContent = aprobado ? 'Gracias por confirmar. Nuestro equipo comenzará a trabajar en su dispositivo.' : 'Hemos registrado su rechazo. Por favor, comuníquese para retirar su equipo.';
-        
-    } catch (e) {
-        document.getElementById('pub-loading').textContent = 'Ocurrió un error. Por favor intente más tarde o comuníquese por WhatsApp.';
-        console.error(e);
-    }
+    } catch (e) { document.getElementById('pub-loading').textContent = 'Ocurrió un error. Por favor intente más tarde.'; }
 }

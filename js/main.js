@@ -1,20 +1,16 @@
-// =========================================================
-// js/main.js - ORQUESTADOR PRINCIPAL DE SERVIX
-// =========================================================
-
-// 1. IMPORTACIONES: CORE Y AUTENTICACIÓN
+// js/main.js
 import { initStore } from './core/store.js';
 import { initAuth, doLogin, doLogout } from './core/auth.js';
 import { initUI, openModal, closeModal, goView, closeDropdowns } from './modules/ui.js';
 
-// 2. IMPORTACIONES: MÓDULOS DE NEGOCIO
 import { 
   renderTicketsTable, renderTicketsKanban, eliminarTicketConCodigo, 
   onClientSearchInput, selectClientForTicket, printTicket, openTicketModal, 
   fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, 
   saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, 
   addTicketNota, changeTicketStage, createTicket, saveGarantiaDias,
-  compartirLinkPresupuesto, responderPresupuesto, initPublicPresupuesto
+  compartirLinkPresupuesto, responderPresupuesto, initPublicPresupuesto,
+  limpiarFormularioTicket, toggleTipoServicio
 } from './modules/tickets.js';
 
 import { 
@@ -38,7 +34,6 @@ import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
 import { renderDashboard, renderReportes, renderNotificaciones } from './modules/dashboard.js';
 
-// 3. IMPORTACIONES DE CAJA Y CRÉDITOS
 import { 
   renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, 
   procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, 
@@ -47,19 +42,19 @@ import {
   generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual 
 } from './modules/caja.js';
 
-// 4. IMPORTACIONES DE FACTURACIÓN (CORREGIDAS)
-import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno, showNuevaFactura, hideNuevaFactura, emitirFacturaManual } from './modules/facturacion.js';
+import { renderFacturasTable, openFacturaDetalle, emitirComprobanteInterno, showNuevaFactura, hideNuevaFactura, emitirFacturaManual } from './modules/facturacion.js';
 
-// =========================================================
-// EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
-// =========================================================
-
-// UI y Sesión
+// EXPOSICIÓN GLOBAL
 window.openModal = openModal; window.closeModal = closeModal; window.goView = goView;
 window.doLogin = () => doLogin(window.auth); window.doLogout = () => doLogout(window.auth, closeDropdowns);
 window.closeDropdowns = closeDropdowns;
 
-// Tickets y Presupuestos
+// Nuevo Ticket a Pantalla Completa
+window.showNuevoTicketView = () => {
+    limpiarFormularioTicket();
+    goView('nuevo-ticket');
+};
+
 window.onClientSearchInput = onClientSearchInput; window.selectClientForTicket = selectClientForTicket;
 window.eliminarTicketConCodigo = eliminarTicketConCodigo;
 window.printTicket = printTicket; window.openTicketModal = openTicketModal;
@@ -69,31 +64,26 @@ window.saveDiagnostico = saveDiagnostico; window.addPiezaToTicket = addPiezaToTi
 window.removePiezaFromTicket = removePiezaFromTicket; window.enviarAFacturacion = enviarAFacturacion; 
 window.addTicketNota = addTicketNota; window.changeTicketStage = changeTicketStage; 
 window.createTicket = createTicket; window.renderTicketsTable = renderTicketsTable;
-window.saveGarantiaDias = saveGarantiaDias; 
-window.compartirLinkPresupuesto = compartirLinkPresupuesto; 
-window.responderPresupuesto = responderPresupuesto; 
+window.saveGarantiaDias = saveGarantiaDias; window.compartirLinkPresupuesto = compartirLinkPresupuesto; 
+window.responderPresupuesto = responderPresupuesto; window.toggleTipoServicio = toggleTipoServicio;
 
-// Clientes y CRM
 window.renderClientesTable = renderClientesTable; window.switchClientTab = switchClientTab;
 window.openClientModal = openClientModal; window.saveClientLimit = saveClientLimit;
 window.createCliente = createCliente; window.populateClienteSelectPOS = populateClienteSelectPOS;
 window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
 window.openTicketWithDevice = openTicketWithDevice; 
 
-// Productos y Promociones
 window.setProductoFiltro = setProductoFiltro; window.createProducto = createProducto;
 window.editProducto = editProducto; window.saveEditProducto = saveEditProducto;
 window.eliminarProducto = eliminarProducto; window.togglePromocion = togglePromocion;
 window.createPromocion = createPromocion; window.renderProductosTable = renderProductosTable;
 
-// POS / Ventas
 window.renderPOSProducts = renderPOSProducts; window.populatePOSPromos = populatePOSPromos;
 window.renderCart = renderCart; window.setPayMethod = setPayMethod; 
 window.addToCart = addToCart; window.changeQty = changeQty; 
 window.removeFromCart = removeFromCart; window.checkout = checkout; 
 window.renderVentasHistorial = renderVentasHistorial;
 
-// Caja y Créditos 
 window.abrirModalCobro = abrirModalCobro; window.setCobroMetodo = setCobroMetodo;
 window.calcularCambio = calcularCambio; window.procesarCobroFinal = procesarCobroFinal;
 window.addMovimiento = addMovimiento; window.abrirModalCierre = abrirModalCierre; 
@@ -105,17 +95,13 @@ window.createCreditoManual = createCreditoManual;
 window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago = seleccionarPlanDePago;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
 
-// Facturacion (CORREGIDO)
 window.renderFacturasTable = renderFacturasTable;
 window.openFacturaDetalle = openFacturaDetalle;
-window.anularFacturaActual = anularFacturaActual;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
 window.showNuevaFactura = showNuevaFactura;
 window.hideNuevaFactura = hideNuevaFactura;
 window.emitirFacturaManual = emitirFacturaManual;
-window.goView = goView;
 
-// Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {
   const group = el.parentElement;
   group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -126,57 +112,27 @@ window.switchCreditoTab = function(tabId, el) {
   });
 };
 
-// CRM y Configuración
 window.createOportunidad = createOportunidad; window.saveConfigNegocio = saveConfigNegocio;
 window.createUsuario = createUsuario; window.toggleUsuario = toggleUsuario; window.createRol = createRol;
 
-// =========================================================
-// FUNCIÓN MAESTRA DE RENDERIZADO
-// =========================================================
 window.renderAll = function() {
-    console.log("Pintando la aplicación completa desde los módulos...");
-    renderDashboard();
-    renderTicketsTable(); 
-    renderTicketsKanban();
-    renderClientesTable(); 
-    populateClienteSelectPOS();
-    renderProductosTabs(); 
-    renderProductosTable(); 
-    renderPromocionesTable();
-    renderPayMethods();
-    populatePOSPromos();
-    renderPOSProducts();
-    renderCart();
-    renderVentasHistorial();
-    renderCajaView();
-    renderCreditosTable();
-    renderCRMKanban();
-    renderReportes();
-    renderNotificaciones(); 
-    renderFacturasTable(); 
-    renderConfig();
+    renderDashboard(); renderTicketsTable(); renderTicketsKanban(); renderClientesTable(); 
+    populateClienteSelectPOS(); renderProductosTabs(); renderProductosTable(); 
+    renderPromocionesTable(); renderPayMethods(); populatePOSPromos(); renderPOSProducts();
+    renderCart(); renderVentasHistorial(); renderCajaView(); renderCreditosTable();
+    renderCRMKanban(); renderReportes(); renderNotificaciones(); renderFacturasTable(); renderConfig();
 }
 
-// =========================================================
-// INICIALIZACIÓN AL CARGAR EL DOM
-// =========================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUI();
-    if (window.firebase) {
-        window.db = window.firebase.firestore();
-        window.auth = window.firebase.auth();
-    } else {
-        console.error("No se detectó Firebase.");
-        return;
-    }
+    if (window.firebase) { window.db = window.firebase.firestore(); window.auth = window.firebase.auth(); } 
+    else { console.error("No se detectó Firebase."); return; }
 
-    // Intercepción del Link de Presupuesto Público
     const urlParams = new URLSearchParams(window.location.search);
     const presupuestoId = urlParams.get('p');
     
-    if (presupuestoId) {
-        initPublicPresupuesto(presupuestoId);
-    } else {
+    if (presupuestoId) { initPublicPresupuesto(presupuestoId); } 
+    else {
         initAuth(window.auth, window.db, () => {
             initStore(window.db, window.renderAll);
         });

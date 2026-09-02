@@ -474,3 +474,29 @@ select.sel:focus, input.inp:focus, textarea.inp:focus{border-color:var(--copper)
     min-width:130px;
   }
 }
+/* Checkboxes estilo botones (para Pantalla, Cargador, etc.) */
+.toggle-checkbox {
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-checkbox input {
+  display: none;
+}
+.toggle-checkbox span {
+  display: inline-block;
+  padding: 8px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: all 0.2s ease;
+}
+.toggle-checkbox input:checked + span {
+  background: var(--teal-dim);
+  border-color: var(--teal);
+  color: var(--teal);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
+}
