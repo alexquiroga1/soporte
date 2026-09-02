@@ -1500,20 +1500,74 @@
           </svg></button>
       </div>
       <div class="modal-body">
-        <div class="form-grid">
-          <div class="full" style="position:relative;">
-            <label>Cliente (Buscar por nombre o apellido)</label>
-            <div style="display:flex; gap:6px;">
-              <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..."
-                oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')"
-                title="Crear cliente nuevo">+ Nuevo</button>
+        
+        <!-- 1. DATOS DEL CLIENTE -->
+        <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">1. Datos de Ingreso</h4>
+          <div class="form-grid">
+            <div class="full" style="position:relative;">
+              <label>Cliente (Buscar por nombre o apellido)</label>
+              <div style="display:flex; gap:6px;">
+                <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')" title="Crear cliente nuevo">+ Nuevo</button>
+              </div>
+              <input type="hidden" id="nt-cliente-id" value="">
+              <div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
             </div>
-            <input type="hidden" id="nt-cliente-id" value="">
-            <div id="nt-client-suggestions"
-              style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);">
+            <div>
+              <label>Tipo de Servicio</label>
+              <select class="sel" id="nt-tipo-servicio">
+                <option value="Taller">🖥️ Reparación en Taller</option>
+                <option value="Domicilio">🏠 Servicio a Domicilio</option>
+                <option value="Remoto">🌐 Soporte Remoto</option>
+              </select>
+            </div>
+            <div>
+              <label>Prioridad</label>
+              <select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select>
             </div>
           </div>
+        </div>
+
+        <!-- 2. FICHA TÉCNICA -->
+        <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">2. Ficha Técnica del Equipo</h4>
+          <div class="form-grid">
+            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel"><option>Notebook</option><option>PC Escritorio</option><option>Smartphone</option><option>Tablet</option><option>Consola</option><option>Impresora</option><option>Otro</option></select></div>
+            <div><label>Marca</label><input id="nt-marca" class="inp" placeholder="Ej. Lenovo, Samsung"></div>
+            <div><label>Modelo</label><input id="nt-modelo" class="inp" placeholder="Ej. IdeaPad 3, Galaxy S23"></div>
+            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp" placeholder="Identificador único"></div>
+            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp" placeholder="Ej. 1234 o 'Sin Pass'"></div>
+            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13"></div>
+            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp" placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
+          </div>
+        </div>
+
+        <!-- 3. RECEPCIÓN Y EVIDENCIA -->
+        <div>
+          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">3. Estado Físico y Recepción</h4>
+          <div class="form-grid">
+            <div class="full">
+              <label>Checklist Rápido (Tildar si incluye o está OK)</label>
+              <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-cargador"> Cargador Original</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-bateria"> Batería OK</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-pantalla"> Pantalla OK</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-teclado"> Teclado OK</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-carcasa"> Carcasa OK</label>
+              </div>
+            </div>
+            <div class="full"><label>Observaciones de Condición (Rayones, golpes, accesorios extra)</label><input class="inp" id="nt-condicion" placeholder="Ej. Rayón en esquina inferior derecha, incluye funda..."></div>
+            <div class="full"><<div id="view-ticket-detalle"><div id="view-ticket-detalle"><div id="view-ticket-detalle"></div>>Falla Reportada por el Cliente</label><textarea class="inp" id="nt-falla" rows="2" placeholder="Describa el problema..."></textarea></div>
+            <div class="full">
+              <label>📷 Evidencia Fotográfica (Max 3 fotos)</label>
+              <input type="file" id="nt-fotos" class="inp" multiple accept="image/*" style="padding: 4px;">
+            </div>
+            <div class="full"><label>Técnico Asignado</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option></select></div>
+          </div>
+        </div>
+
+      </div>
 
           <div class="full"><label>Equipo</label><input class="inp" id="nt-equipo"
               placeholder="Ej. Laptop Dell Inspiron 15"></div>
@@ -1802,6 +1856,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 
   <script>
     const firebaseConfig = {

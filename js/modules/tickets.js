@@ -5,6 +5,7 @@ import { openModal, closeModal, wireKanbanDrag } from './ui.js';
 import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
+let isCreatingTicket = false; // Flag para evitar doble envío
 
 export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key);
 
@@ -121,8 +122,12 @@ export function printTicket(id){
       <h2>${negNombre} · Orden de Servicio #${t.id}</h2>
       <div class="mono">Fecha de ingreso: ${t.ingreso} · Prioridad: ${t.prioridad} · Presupuesto: ${t.presupuestoFijado ? 'APROBADO' : 'PENDIENTE'}</div>
       <div class="box">
-        <p><b>Cliente:</b> ${t.cliente}</p><p><b>Equipo:</b> ${t.equipo}</p><p><b>Accesorios recibidos:</b> ${t.accesorios || 'Ninguno'}</p>
-        <p><b>Condición física:</b> ${t.condicion || 'Sin registrar'}</p><p><b>Falla reportada:</b> ${t.falla}</p><p><b>Diagnóstico técnico:</b> ${t.diagnostico || 'Pendiente'}</p>
+        <p><b>Cliente:</b> ${t.cliente}</p>
+        <p><b>Equipo:</b> ${t.equipo} ${(t.marca || '')} ${(t.modelo || '')}</p>
+        <p><b>Nº Serie / IMEI:</b> ${t.serie || 'N/A'}</p>
+        <p><b>Condición física:</b> ${t.condicion || 'Sin registrar'}</p>
+        <p><b>Falla reportada:</b> ${t.falla}</p>
+        <p><b>Diagnóstico técnico:</b> ${t.diagnostico || 'Pendiente'}</p>
         <p><b>Presupuesto Estimado Cotizado:</b> ${fmt(t.presupuestoEstimado || 0)}</p>
       </div>
       <h3>Repuestos / Servicios aplicados</h3>
@@ -163,7 +168,6 @@ export function renderTicketsKanban(){
   });
 }
 
-// NUEVO: Movimiento de estado Kanban (Atómico)
 export async function changeTicketStageAt(id, newStage) {
     const t = DATA.tickets.find(x=>x.id===id);
     if(t && t.stage !== newStage){
@@ -191,17 +195,52 @@ export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
   currentTicketId = id;
+  
   document.getElementById('mt-id').textContent = '#'+t.id;
   document.getElementById('mt-ingreso').textContent = 'Ingresó el ' + t.ingreso;
   document.getElementById('mt-cliente').textContent = t.cliente;
-  document.getElementById('mt-equipo').textContent = t.equipo;
-  document.getElementById('mt-accesorios').textContent = t.accesorios || 'Ninguno';
-  document.getElementById('mt-condicion').textContent = t.condicion || 'Sin registrar';
+  
+  // Render de Ficha Técnica
+  document.getElementById('mt-equipo').textContent = t.equipo || 'Equipo';
+  document.getElementById('mt-marca-modelo').textContent = (t.marca || '') + ' ' + (t.modelo || '');
+  document.getElementById('mt-serie').textContent = t.serie || 'N/A';
+  document.getElementById('mt-specs').textContent = (t.os ? t.os + ' | ' : '') + (t.specs || 'N/A');
+  document.getElementById('mt-pin').textContent = t.pin || 'N/A';
+  
+  // Render de Checklist
+  const chkContainer = document.getElementById('mt-checklist');
+  if(t.checklist && chkContainer) {
+      let chkHtml = '';
+      if(t.checklist.cargador) chkHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">🔌 Cargador</span>';
+      if(t.checklist.bateria) chkHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">🔋 Batería OK</span>';
+      if(t.checklist.pantalla) chkHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">📱 Pantalla OK</span>';
+      if(t.checklist.teclado) chkHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">⌨️ Teclado OK</span>';
+      if(t.checklist.carcasa) chkHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">📦 Carcasa OK</span>';
+      chkContainer.innerHTML = chkHtml || '<span style="font-size:11px; color:var(--muted);">Sin componentes marcados</span>';
+  } else if (chkContainer) {
+      chkContainer.innerHTML = '<span style="font-size:11px; color:var(--muted);">Sin componentes marcados</span>';
+  }
+
+  document.getElementById('mt-condicion').textContent = t.condicion ? `Obs: ${t.condicion}` : 'Sin observaciones de condición';
   document.getElementById('mt-prioridad').innerHTML = `<span class="badge ${t.prioridad.toLowerCase()}">${t.prioridad}</span>`;
   document.getElementById('mt-tecnico').innerHTML = `<span style="background:var(--ink); color:#fff; width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:9px; font-weight:bold; margin-right:6px;">${initials(t.tecnico)}</span> ${t.tecnico}`;
   document.getElementById('mt-falla').textContent = t.falla;
   document.getElementById('mt-estado-select').value = t.stage;
   document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
+  
+  // Render de Fotos de Evidencia
+  const fotosContainer = document.getElementById('mt-fotos-container');
+  const fotosGallery = document.getElementById('mt-fotos-gallery');
+  if(t.fotos && t.fotos.length > 0 && fotosContainer && fotosGallery) {
+      fotosContainer.style.display = 'block';
+      fotosGallery.innerHTML = t.fotos.map(url => `
+          <a href="${url}" target="_blank" title="Ver foto completa">
+            <img src="${url}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line);">
+          </a>
+      `).join('');
+  } else if (fotosContainer) {
+      fotosContainer.style.display = 'none';
+  }
   
   const stagesKeys = ['pendiente', 'diagnostico', 'reparacion', 'repuesto', 'listo'];
   let reachedCurrent = false;
@@ -232,7 +271,6 @@ export function openTicketModal(id){
   if(window.goView) window.goView('ticket-detalle');
 }
 
-// NUEVO: Fijar y desbloquear presupuesto atómicamente
 export async function fijarPresupuesto() {
   const val = parseFloat(document.getElementById('input-presupuesto').value);
   if(!val || val <= 0) { toast('Ingresa un monto válido'); return; }
@@ -259,7 +297,6 @@ export async function desbloquearPresupuesto() {
   } catch(e) { toast('Error al desbloquear'); }
 }
 
-// NUEVO: Envío Real de WhatsApp API (Punto 10)
 export function sendWhatsAppNotice(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
@@ -270,7 +307,6 @@ export function sendWhatsAppNotice(){
       return; 
   }
   
-  // Limpiamos el número de espacios, guiones y agregamos +549 si es de Argentina y no lo tiene
   let phone = cli.tel.replace(/\D/g, '');
   if (!phone.startsWith('54') && phone.length === 10) { 
       phone = '549' + phone; 
@@ -295,7 +331,6 @@ export function checkBillingButtonVisibility(t){
   }
 }
 
-// NUEVO: Guardar Diagnóstico atómicamente
 export async function saveDiagnostico(){
   const diagnostico = document.getElementById('mt-diagnostico-input').value.trim();
   try {
@@ -334,7 +369,6 @@ export function renderTicketPiezas(t){
   document.getElementById('mt-total-costo').textContent = fmt(total);
 }
 
-// NUEVO: Mutación de Array de Piezas en Firestore
 export async function updatePiezaPrice(idx, newPrice) {
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   const val = parseFloat(newPrice);
@@ -383,7 +417,6 @@ export async function removePiezaFromTicket(idx){
   } catch(e) { toast('Error eliminando repuesto'); }
 }
 
-// NUEVO: Envío a Caja de forma Atómica a la nueva colección
 export async function enviarAFacturacion(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
@@ -394,8 +427,6 @@ export async function enviarAFacturacion(){
       return; 
   }
 
-  // Verificamos si ya existe en la cola (Ahora leyendo de la colección real DATA.cajaPendientes u object)
-  // Nota: store.js debe escuchar 'caja_pendientes' en la Fase 1
   const yaExiste = (DATA.caja_pendientes || []).some(p => p.ref === t.id);
   if(yaExiste){ 
       alert('Este ticket ya fue enviado a facturación previamente.'); 
@@ -436,7 +467,6 @@ export function renderTicketNotas(t){
   `).join('') : '<div style="color:var(--muted);font-size:11px;text-align:center;padding:10px;">Sin notas.</div>';
 }
 
-// NUEVO: ArrayUnion para Notas (Punto 13 / Trazabilidad)
 export async function addTicketNota(){
   const input = document.getElementById('mt-nota-input');
   const texto = input.value.trim();
@@ -460,13 +490,28 @@ export function changeTicketStage(){
   changeTicketStageAt(currentTicketId, newStage);
 }
 
-// NUEVO: Creación de Ticket mediante Transacción Atómica (Garantiza números únicos)
-export async function createTicket(){
- // Variable bandera (flag) fuera de la función para bloqueo de doble envío
-let isCreatingTicket = false;
+// FUNCION AUXILIAR: Subir fotos a Firebase Storage
+async function uploadTicketFotos(files, ticketId) {
+    if (!window.firebase.storage) {
+        console.warn("Storage no inicializado. Ignorando fotos.");
+        return [];
+    }
+    const urls = [];
+    const storageRef = window.firebase.storage().ref();
+    
+    // Limitamos a 3 fotos máximo para cuidar el espacio
+    const limit = Math.min(files.length, 3);
+    for (let i = 0; i < limit; i++) {
+        const file = files[i];
+        const fileRef = storageRef.child(`tickets/${ticketId}/${Date.now()}_${file.name}`);
+        await fileRef.put(file);
+        const url = await fileRef.getDownloadURL();
+        urls.push(url);
+    }
+    return urls;
+}
 
 export async function createTicket(){
-  // 1. Bloqueo lógico: Si ya está procesando, abortamos cualquier clic adicional
   if (isCreatingTicket) return; 
 
   const clienteId = document.getElementById('nt-cliente-id').value;
@@ -474,12 +519,27 @@ export async function createTicket(){
   const cliente = clienteId ? DATA.clientes.find(c=>c.id===clienteId) : null;
   const clienteNombre = cliente ? getFullName(cliente) : (clienteInputVal || 'Mostrador');
 
-  const equipo = document.getElementById('nt-equipo').value.trim();
-  const accesorios = document.getElementById('nt-accesorios').value.trim();
-  const condicion = document.getElementById('nt-condicion').value.trim();
-  const falla = document.getElementById('nt-falla').value.trim();
+  const tipoServicio = document.getElementById('nt-tipo-servicio') ? document.getElementById('nt-tipo-servicio').value : 'Taller';
+  const equipo = document.getElementById('nt-tipo-equipo') ? document.getElementById('nt-tipo-equipo').value : 'Otro';
+  const marca = document.getElementById('nt-marca') ? document.getElementById('nt-marca').value.trim() : '';
+  const modelo = document.getElementById('nt-modelo') ? document.getElementById('nt-modelo').value.trim() : '';
+  const serie = document.getElementById('nt-serie') ? document.getElementById('nt-serie').value.trim() : '';
+  const pin = document.getElementById('nt-pin') ? document.getElementById('nt-pin').value.trim() : '';
+  const os = document.getElementById('nt-os') ? document.getElementById('nt-os').value.trim() : '';
+  const specs = document.getElementById('nt-specs') ? document.getElementById('nt-specs').value.trim() : '';
+  const condicion = document.getElementById('nt-condicion') ? document.getElementById('nt-condicion').value.trim() : '';
+  const falla = document.getElementById('nt-falla') ? document.getElementById('nt-falla').value.trim() : '';
   
-  if(!equipo || !falla){ toast('Completa equipo y falla'); return; }
+  // Checklist
+  const checklist = {
+      cargador: document.getElementById('nt-chk-cargador') ? document.getElementById('nt-chk-cargador').checked : false,
+      bateria: document.getElementById('nt-chk-bateria') ? document.getElementById('nt-chk-bateria').checked : false,
+      pantalla: document.getElementById('nt-chk-pantalla') ? document.getElementById('nt-chk-pantalla').checked : false,
+      teclado: document.getElementById('nt-chk-teclado') ? document.getElementById('nt-chk-teclado').checked : false,
+      carcasa: document.getElementById('nt-chk-carcasa') ? document.getElementById('nt-chk-carcasa').checked : false,
+  };
+
+  if(!marca || !falla){ toast('Completa la marca y la falla al menos'); return; }
   
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
@@ -488,17 +548,12 @@ export async function createTicket(){
   const originalText = btn ? btn.innerHTML : 'Crear ticket';
 
   try {
-      // 2. Bloqueo visual: Deshabilitamos el botón y mostramos estado
       isCreatingTicket = true;
-      if (btn) {
-          btn.disabled = true;
-          btn.innerHTML = '⏳ Creando ticket...';
-      }
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Generando...'; }
 
       let nuevoNumero;
       const contadoresRef = window.db.collection('negocio').doc('contadores');
       
-      // Transacción para obtener y aumentar el número de ticket de forma totalmente segura
       await window.db.runTransaction(async (transaction) => {
           const doc = await transaction.get(contadoresRef);
           if (!doc.exists) {
@@ -511,65 +566,60 @@ export async function createTicket(){
       });
 
       const id = 'TK-' + nuevoNumero;
+      
+      const fotosInput = document.getElementById('nt-fotos');
+      let urlsFotos = [];
+      if(fotosInput && fotosInput.files.length > 0) {
+          if (btn) btn.innerHTML = '📷 Subiendo fotos...';
+          urlsFotos = await uploadTicketFotos(fotosInput.files, id);
+      }
+
       const t = {
         id, clienteId: cliente ? cliente.id : null, cliente: clienteNombre,
-        equipo, accesorios, condicion, 
+        tipoServicio, estadoPago: 'Pendiente', estadoFacturacion: 'No facturado',
+        equipo, marca, modelo, serie, pin, os, specs,
+        checklist, condicion, falla, fotos: urlsFotos,
         presupuestoFijado: false, presupuestoEstimado: 0,
-        falla, prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
+        prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
         tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
         diagnostico:'Pendiente de revisión inicial.', piezas:[],
         historial:[{estado:'Recibido', fecha:fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
       };
 
-      // Guardamos en Firebase
       await window.db.collection('tickets').doc(id).set(t);
 
-      // 3. ÉXITO: Solo si Firebase responde bien, limpiamos y cerramos
-      document.getElementById('nt-equipo').value=''; 
-      document.getElementById('nt-accesorios').value='';
-      document.getElementById('nt-condicion').value='';
-      document.getElementById('nt-falla').value='';
-      document.getElementById('nt-cliente-input').value='';
-      document.getElementById('nt-cliente-id').value='';
+      ['nt-marca','nt-modelo','nt-serie','nt-pin','nt-os','nt-specs','nt-condicion','nt-falla','nt-cliente-input','nt-cliente-id'].forEach(id => {
+          if(document.getElementById(id)) document.getElementById(id).value = '';
+      });
+      ['nt-chk-cargador','nt-chk-bateria','nt-chk-pantalla','nt-chk-teclado','nt-chk-carcasa'].forEach(id => {
+          if(document.getElementById(id)) document.getElementById(id).checked = false;
+      });
+      if(document.getElementById('nt-fotos')) document.getElementById('nt-fotos').value = '';
       
       closeModal('modal-nuevo-ticket');
       toast('✓ Ticket #'+id+' creado exitosamente');
 
   } catch (error) {
-      // 4. ERROR: Avisamos, pero NO limpiamos el formulario
-      console.error("Error en transacción de ticket:", error);
-      toast('❌ No se pudo crear el ticket. Intenta de nuevo.');
+      console.error("Error en transacción:", error);
+      toast('❌ Error al crear el ticket.');
   } finally {
-      // 5. RESTAURACIÓN: Siempre (con éxito o error) devolvemos el botón a la normalidad
       isCreatingTicket = false;
-      if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = originalText;
-      }
+      if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
   }
 }
-// Función para eliminar tickets con código de seguridad
+
 export async function eliminarTicketConCodigo() {
     if (!currentTicketId) return;
     
-    // 1. Pedimos el código secreto
     const codigo = prompt("🔒 ACCIÓN PROTEGIDA\nPara eliminar este ticket de forma permanente, ingresa el código secreto:");
-    
-    // Si cancela la ventana
     if (codigo === null) return; 
     
-    // 2. Verificamos si el código es correcto
     if (codigo === "780923") {
-        // Doble confirmación por seguridad
         const confirmacion = confirm("⚠️ ¿Estás 100% seguro? Esta acción borrará el ticket para siempre y no se puede deshacer.");
-        
         if (confirmacion) {
             try {
-                // Borramos de Firebase
                 await window.db.collection('tickets').doc(currentTicketId).delete();
                 toast('✅ Ticket eliminado correctamente');
-                
-                // Volvemos a la lista de tickets
                 if (window.goView) window.goView('tickets');
             } catch (error) {
                 console.error("Error borrando ticket:", error);
