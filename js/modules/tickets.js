@@ -462,6 +462,13 @@ export function changeTicketStage(){
 
 // NUEVO: Creación de Ticket mediante Transacción Atómica (Garantiza números únicos)
 export async function createTicket(){
+ // Variable bandera (flag) fuera de la función para bloqueo de doble envío
+let isCreatingTicket = false;
+
+export async function createTicket(){
+  // 1. Bloqueo lógico: Si ya está procesando, abortamos cualquier clic adicional
+  if (isCreatingTicket) return; 
+
   const clienteId = document.getElementById('nt-cliente-id').value;
   const clienteInputVal = document.getElementById('nt-cliente-input').value.trim();
   const cliente = clienteId ? DATA.clientes.find(c=>c.id===clienteId) : null;
@@ -477,7 +484,17 @@ export async function createTicket(){
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
   
+  const btn = document.getElementById('btn-crear-ticket');
+  const originalText = btn ? btn.innerHTML : 'Crear ticket';
+
   try {
+      // 2. Bloqueo visual: Deshabilitamos el botón y mostramos estado
+      isCreatingTicket = true;
+      if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '⏳ Creando ticket...';
+      }
+
       let nuevoNumero;
       const contadoresRef = window.db.collection('negocio').doc('contadores');
       
@@ -504,21 +521,31 @@ export async function createTicket(){
         historial:[{estado:'Recibido', fecha:fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), autor:user}], notas:[]
       };
 
+      // Guardamos en Firebase
       await window.db.collection('tickets').doc(id).set(t);
 
+      // 3. ÉXITO: Solo si Firebase responde bien, limpiamos y cerramos
       document.getElementById('nt-equipo').value=''; 
       document.getElementById('nt-accesorios').value='';
       document.getElementById('nt-condicion').value='';
       document.getElementById('nt-falla').value='';
       document.getElementById('nt-cliente-input').value='';
       document.getElementById('nt-cliente-id').value='';
-      closeModal('modal-nuevo-ticket');
       
-      toast('Ticket #'+id+' creado exitosamente');
+      closeModal('modal-nuevo-ticket');
+      toast('✓ Ticket #'+id+' creado exitosamente');
 
   } catch (error) {
+      // 4. ERROR: Avisamos, pero NO limpiamos el formulario
       console.error("Error en transacción de ticket:", error);
-      toast('Ocurrió un error al crear el ticket.');
+      toast('❌ No se pudo crear el ticket. Intenta de nuevo.');
+  } finally {
+      // 5. RESTAURACIÓN: Siempre (con éxito o error) devolvemos el botón a la normalidad
+      isCreatingTicket = false;
+      if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+      }
   }
 }
 // Función para eliminar tickets con código de seguridad
