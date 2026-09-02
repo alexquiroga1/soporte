@@ -388,18 +388,22 @@
             </select>
             <select class="sel" id="tk-filter-estado" onchange="renderTicketsTable()">
               <option value="">Todos los estados</option>
-              <option value="pendiente">Pendiente</option>
+              <option value="pendiente">Recibido</option>
               <option value="diagnostico">En diagnóstico</option>
+              <option value="presupuesto">Esperando Aprobación</option>
               <option value="reparacion">En reparación</option>
               <option value="repuesto">Esperando repuesto</option>
               <option value="listo">Listo para entrega</option>
               <option value="entregado">Entregado</option>
+              <option value="noreparable">No reparable</option>
+              <option value="cancelado">Cancelado / Retirado</option>
+              <option value="garantia">Garantía</option>
             </select>
             <select class="sel" id="tk-filter-prio" onchange="renderTicketsTable()">
               <option value="">Toda prioridad</option>
-              <option value="P1">P1 · Urgente</option>
-              <option value="P2">P2 · Media</option>
-              <option value="P3">P3 · Baja</option>
+              <option value="P1">Urgente</option>
+              <option value="P2">Media</option>
+              <option value="P3">Baja</option>
             </select>
           </div>
 
@@ -474,7 +478,8 @@
                 <div class="cart-totals">
                   <div class="ct-line"><span>Subtotal</span><span id="ct-subtotal">$0.00</span></div>
                   <div class="ct-line" id="ct-desc-line" style="display:none; color:var(--teal);">
-                    <span>Descuento</span><span id="ct-descuento">-$0.00</span></div>
+                    <span>Descuento</span><span id="ct-descuento">-$0.00</span>
+                  </div>
                   <div class="ct-line"><span>IVA (16%)</span><span id="ct-iva">$0.00</span></div>
                   <div class="ct-line total"><span>Total</span><span class="v" id="ct-total">$0.00</span></div>
                 </div>
@@ -908,16 +913,67 @@
         <!-- ================= DETALLE TICKET (VISTA COMPACTA NO MODAL) ================= -->
         <div class="view" id="view-ticket-detalle">
           <style>
-            .stepper-sm { display: flex; justify-content: space-between; }
-            .step-sm { flex: 1; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); position: relative; }
-            .step-sm::before { content: ''; display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--line); margin: 0 auto 6px auto; z-index: 2; position: relative; }
-            .step-sm::after { content: ''; position: absolute; top: 5px; left: -50%; width: 100%; height: 2px; background: var(--line); z-index: 1; }
-            .step-sm:first-child::after { display: none; }
-            .step-sm.active { color: var(--copper); }
-            .step-sm.active::before { background: var(--copper); box-shadow: 0 0 0 3px var(--copper-dim); }
-            .step-sm.completed { color: var(--ink); }
-            .step-sm.completed::before { background: var(--teal); }
-            .step-sm.completed::after { background: var(--teal); }
+            .stepper-sm {
+              display: flex;
+              justify-content: space-between;
+            }
+
+            .step-sm {
+              flex: 1;
+              text-align: center;
+              font-size: 11px;
+              font-weight: 600;
+              color: var(--muted);
+              position: relative;
+            }
+
+            .step-sm::before {
+              content: '';
+              display: block;
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background: var(--line);
+              margin: 0 auto 6px auto;
+              z-index: 2;
+              position: relative;
+            }
+
+            .step-sm::after {
+              content: '';
+              position: absolute;
+              top: 5px;
+              left: -50%;
+              width: 100%;
+              height: 2px;
+              background: var(--line);
+              z-index: 1;
+            }
+
+            .step-sm:first-child::after {
+              display: none;
+            }
+
+            .step-sm.active {
+              color: var(--copper);
+            }
+
+            .step-sm.active::before {
+              background: var(--copper);
+              box-shadow: 0 0 0 3px var(--copper-dim);
+            }
+
+            .step-sm.completed {
+              color: var(--ink);
+            }
+
+            .step-sm.completed::before {
+              background: var(--teal);
+            }
+
+            .step-sm.completed::after {
+              background: var(--teal);
+            }
           </style>
 
           <div class="page-head" style="margin-bottom: 12px;">
@@ -929,22 +985,29 @@
               <p id="mt-ingreso" style="margin-top:4px;"></p>
             </div>
             <div style="display: flex; gap: 10px;">
-              <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);" onclick="eliminarTicketConCodigo()">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px; vertical-align:text-bottom;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);"
+                onclick="eliminarTicketConCodigo()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                  style="margin-right:6px; vertical-align:text-bottom;">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
                 Eliminar Ticket
               </button>
-              <button class="btn btn-primary" onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨️ Comprobante de Recepción</button>
+              <button class="btn btn-primary"
+                onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨️ Comprobante de
+                Recepción</button>
               <button class="btn btn-ghost" onclick="goView('tickets')">← Volver a la Lista</button>
             </div>
           </div>
-          
+
           <div class="panel" style="margin-bottom:16px; padding:12px 24px;">
             <div class="stepper-sm" id="mt-stepper">
               <div class="step-sm" data-step="pendiente">Recibido</div>
-              <div class="step-sm" data-step="diagnostico">En Diagnóstico</div>
-              <div class="step-sm" data-step="reparacion">En Reparación</div>
-              <div class="step-sm" data-step="repuesto">Esperando Repuesto</div>
-              <div class="step-sm" data-step="listo">Listo / Entregado</div>
+              <div class="step-sm" data-step="diagnostico">Diagnóstico</div>
+              <div class="step-sm" data-step="presupuesto">Aprobación</div>
+              <div class="step-sm" data-step="reparacion">Reparación</div>
+              <div class="step-sm" data-step="listo">Listo</div>
             </div>
           </div>
 
@@ -956,36 +1019,73 @@
                   <h3>Check-in del Equipo</h3>
                 </div>
                 <div class="panel-body" style="padding:16px; font-size:12.5px;">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; background:var(--bg); padding:10px; border-radius:8px;">
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Cliente</div><div id="mt-cliente" style="font-weight:600;"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Equipo</div><div id="mt-equipo" style="font-weight:600;"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Marca/Modelo</div><div id="mt-marca-modelo"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S/N - IMEI</div><div id="mt-serie" class="mono"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S.O. / Specs</div><div id="mt-specs"></div></div>
-                    <div><div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Contraseña/PIN</div><div id="mt-pin" style="color:var(--copper); font-family:monospace; font-weight:bold;"></div></div>
-                  </div>
-                  
-                  <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Estado Físico OK</div>
-                    <div id="mt-estado-fisico" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;"></div>
-                  </div>
-                  <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">Accesorios Entregados</div>
-                    <div id="mt-accesorios-obj" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;"></div>
+                  <div
+                    style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; background:var(--bg); padding:10px; border-radius:8px;">
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Cliente</div>
+                      <div id="mt-cliente" style="font-weight:600;"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Equipo</div>
+                      <div id="mt-equipo" style="font-weight:600;"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Marca/Modelo</div>
+                      <div id="mt-marca-modelo"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S/N
+                        - IMEI</div>
+                      <div id="mt-serie" class="mono"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">S.O.
+                        / Specs</div>
+                      <div id="mt-specs"></div>
+                    </div>
+                    <div>
+                      <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                        Contraseña/PIN</div>
+                      <div id="mt-pin" style="color:var(--copper); font-family:monospace; font-weight:bold;"></div>
+                    </div>
                   </div>
 
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Observaciones al Ingreso</div>
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">
+                      Estado Físico OK</div>
+                    <div id="mt-estado-fisico" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+                    </div>
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:4px;">
+                      Accesorios Entregados</div>
+                    <div id="mt-accesorios-obj" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom:12px;">
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                      Observaciones al Ingreso</div>
                     <div id="mt-condicion" style="font-style:italic; color:var(--muted); margin-top:2px;"></div>
                   </div>
 
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--red); font-weight:700; text-transform:uppercase;">Falla Reportada</div>
-                    <div id="mt-falla" style="background:var(--red-dim); padding:8px; border-radius:6px; margin-top:4px;"></div>
+                    <div style="font-size:10px; color:var(--red); font-weight:700; text-transform:uppercase;">Falla
+                      Reportada</div>
+                    <div id="mt-falla"
+                      style="background:var(--red-dim); padding:8px; border-radius:6px; margin-top:4px;"></div>
                   </div>
 
-                  <div id="mt-fotos-container" style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:10px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">📷 Evidencia Fotográfica</div>
+                  <div id="mt-fotos-container"
+                    style="display:none; margin-top:12px; border-top:1px solid var(--line); padding-top:10px;">
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+                      📷 Evidencia Fotográfica</div>
                     <div id="mt-fotos-gallery" style="display:flex; gap:8px; overflow-x:auto;"></div>
                   </div>
                 </div>
@@ -995,8 +1095,10 @@
                   <h3>Diagnóstico Técnico</h3>
                 </div>
                 <div class="panel-body" style="padding:12px 16px;">
-                  <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Detalle técnico..." style="width:100%; font-size:12px;"></textarea>
-                  <div style="text-align: right; margin-top: 6px;"><button class="btn btn-ghost btn-sm" onclick="saveDiagnostico()">Guardar</button></div>
+                  <textarea class="inp" id="mt-diagnostico-input" rows="3" placeholder="Detalle técnico..."
+                    style="width:100%; font-size:12px;"></textarea>
+                  <div style="text-align: right; margin-top: 6px;"><button class="btn btn-ghost btn-sm"
+                      onclick="saveDiagnostico()">Guardar</button></div>
                 </div>
               </div>
             </div>
@@ -1004,32 +1106,50 @@
             <!-- COLUMNA 2 -->
             <div class="stack" style="gap:12px;">
               <div class="panel" style="border: 1px solid var(--amber);">
-                <div class="panel-head" style="background:var(--amber-dim); padding:12px 16px; border-bottom:1px solid rgba(245,158,11,0.2);">
+                <div class="panel-head"
+                  style="background:var(--amber-dim); padding:12px 16px; border-bottom:1px solid rgba(245,158,11,0.2);">
                   <h3 style="color:#A5520F;">Finanzas y Materiales</h3>
                 </div>
                 <div class="panel-body" style="padding:16px;">
-                  <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:6px;">Presupuesto a Cobrar</div>
+                  <div
+                    style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:6px;">
+                    Presupuesto a Cobrar</div>
 
                   <div id="view-edit-budget" style="display:flex; gap:8px;">
-                    <input type="number" class="inp" id="input-presupuesto" placeholder="0.00" style="font-size:14px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--copper); padding:8px;">
+                    <input type="number" class="inp" id="input-presupuesto" placeholder="0.00"
+                      style="font-size:14px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--copper); padding:8px;">
                     <button class="btn btn-primary btn-sm" onclick="fijarPresupuesto()">Fijar</button>
                   </div>
 
-                  <div id="view-locked-budget" style="display:none; background:var(--teal-dim); border:1px dashed var(--teal); padding:10px; border-radius:8px; text-align:center;">
-                    <div id="txt-presupuesto-fijado" style="font-size:18px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--teal); margin-bottom:4px;"></div>
-                    <div style="font-size:10px; color:var(--teal); font-weight:700; margin-bottom:8px;">✓ APROBADO</div>
-                    <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()" style="font-size:10px; padding:4px 8px; color:var(--amber); border-color:var(--amber);">Modificar</button>
+                  <div id="view-locked-budget"
+                    style="display:none; background:var(--teal-dim); border:1px dashed var(--teal); padding:10px; border-radius:8px; text-align:center;">
+                    <div id="txt-presupuesto-fijado"
+                      style="font-size:18px; font-weight:bold; font-family:'IBM Plex Mono', monospace; color:var(--teal); margin-bottom:4px;">
+                    </div>
+                    <div style="font-size:10px; color:var(--teal); font-weight:700; margin-bottom:8px;">✓ APROBADO
+                    </div>
+                    <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()"
+                      style="font-size:10px; padding:4px 8px; color:var(--amber); border-color:var(--amber);">Modificar</button>
                   </div>
 
                   <div style="margin-top: 16px; border-top:1px dashed var(--line); padding-top:16px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">Repuestos / Servicios Aplicados</div>
+                    <div
+                      style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+                      Repuestos / Servicios Aplicados</div>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
                       <select id="mt-repuesto-select" class="sel" style="flex:1; font-size:12px; padding:6px;"></select>
                       <button class="btn btn-ghost btn-sm" onclick="addPiezaToTicket()">Añadir</button>
                     </div>
                     <div style="max-height:160px; overflow-y:auto;">
                       <table style="font-size:11.5px;">
-                        <thead><tr><th style="padding:6px;">Artículo</th><th style="padding:6px;">Cant.</th><th style="padding:6px;">Costo</th><th></th></tr></thead>
+                        <thead>
+                          <tr>
+                            <th style="padding:6px;">Artículo</th>
+                            <th style="padding:6px;">Cant.</th>
+                            <th style="padding:6px;">Costo</th>
+                            <th></th>
+                          </tr>
+                        </thead>
                         <tbody id="mt-piezas"></tbody>
                       </table>
                     </div>
@@ -1046,17 +1166,30 @@
                 </div>
                 <div class="panel-body" style="padding:16px; font-size:12.5px;">
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Técnico Asignado</div>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">
+                      Técnico Asignado</div>
                     <div id="mt-tecnico" style="margin-top:4px;"></div>
                   </div>
                   <div style="margin-bottom:12px;">
-                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Fase / Estado</div>
-                    <select class="sel" id="mt-estado-select" onchange="changeTicketStage()" style="margin-top:4px; font-size:12px; padding:6px;">
-                      <option value="pendiente">Pendiente</option><option value="diagnostico">En diagnóstico</option><option value="reparacion">En reparación</option>
-                      <option value="repuesto">Esperando repuesto</option><option value="listo">Listo para entrega</option><option value="entregado">Entregado</option>
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Fase /
+                      Estado</div>
+                    <select class="sel" id="mt-estado-select" onchange="changeTicketStage()"
+                      style="margin-top:4px; font-size:12px; padding:6px;">
+                      <option value="pendiente">Recibido</option>
+                      <option value="diagnostico">En diagnóstico</option>
+                      <option value="presupuesto">Esperando Aprobación</option>
+                      <option value="reparacion">En reparación</option>
+                      <option value="repuesto">Esperando repuesto</option>
+                      <option value="listo">Listo para entrega</option>
+                      <option value="entregado">Entregado</option>
+                      <option value="noreparable">No reparable</option>
+                      <option value="cancelado">Cancelado / Retirado</option>
+                      <option value="garantia">Garantía</option>
                     </select>
                   </div>
-                  <button class="btn" style="background:#25D366; color:#fff; width:100%; border:none; justify-content:center; font-size:12px; padding:8px;" onclick="sendWhatsAppNotice()">WhatsApp Cliente</button>
+                  <button class="btn"
+                    style="background:#25D366; color:#fff; width:100%; border:none; justify-content:center; font-size:12px; padding:8px;"
+                    onclick="sendWhatsAppNotice()">WhatsApp Cliente</button>
                 </div>
               </div>
 
@@ -1064,10 +1197,14 @@
                 <div class="panel-head" style="padding:12px 16px;">
                   <h3>Bitácora Interna</h3>
                 </div>
-                <div class="panel-body" style="padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:10px;">
-                  <div id="mt-notas" style="flex:1; overflow-y:auto; max-height:140px; display:flex; flex-direction:column; gap:6px;"></div>
+                <div class="panel-body"
+                  style="padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:10px;">
+                  <div id="mt-notas"
+                    style="flex:1; overflow-y:auto; max-height:140px; display:flex; flex-direction:column; gap:6px;">
+                  </div>
                   <div style="display:flex; gap:6px; margin-top:auto;">
-                    <input class="inp" id="mt-nota-input" placeholder="Nota..." style="flex:1; font-size:12px; padding:6px;">
+                    <input class="inp" id="mt-nota-input" placeholder="Nota..."
+                      style="flex:1; font-size:12px; padding:6px;">
                     <button class="btn btn-ghost btn-sm" onclick="addTicketNota()">Enviar</button>
                   </div>
                 </div>
@@ -1076,9 +1213,15 @@
           </div>
 
           <!-- FOOTER -->
-          <div class="panel" style="margin-top:16px; padding:12px 24px; display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:13px; font-weight:600; color:var(--muted);">Costos registrados: <span id="mt-total-costo" style="color:var(--ink); font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:bold; margin-left:8px;">$0.00</span></div>
-            <button class="btn btn-primary" id="btn-facturar-ticket" style="display:none; padding:8px 16px; font-size:13px;" onclick="enviarAFacturacion()">Facturar en Caja</button>
+          <div class="panel"
+            style="margin-top:16px; padding:12px 24px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:13px; font-weight:600; color:var(--muted);">Costos registrados: <span
+                id="mt-total-costo"
+                style="color:var(--ink); font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:bold; margin-left:8px;">$0.00</span>
+            </div>
+            <button class="btn btn-primary" id="btn-facturar-ticket"
+              style="display:none; padding:8px 16px; font-size:13px;" onclick="enviarAFacturacion()">Facturar en
+              Caja</button>
           </div>
         </div>
 
@@ -1414,22 +1557,32 @@
   <div class="modal-overlay" id="modal-nuevo-ticket">
     <div class="modal narrow">
       <div class="modal-head">
-        <h3>Recepción de Equipo (Check-in)</h3><button class="modal-close" onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        <h3>Recepción de Equipo (Check-in)</h3><button class="modal-close"
+          onclick="closeModal('modal-nuevo-ticket')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg></button>
       </div>
       <div class="modal-body">
-        
+
         <!-- 1. DATOS DEL CLIENTE -->
         <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">1. Datos de Ingreso</h4>
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            1. Datos de Ingreso</h4>
           <div class="form-grid">
             <div class="full" style="position:relative;">
               <label>Cliente (Buscar por nombre o apellido)</label>
               <div style="display:flex; gap:6px;">
-                <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..." oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')" title="Crear cliente nuevo">+ Nuevo</button>
+                <input id="nt-cliente-input" class="inp" placeholder="Escribe para buscar o registrar..."
+                  oninput="onClientSearchInput()" autocomplete="off" style="flex:1;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="openModal('modal-nuevo-cliente')"
+                  title="Crear cliente nuevo">+ Nuevo</button>
               </div>
               <input type="hidden" id="nt-cliente-id" value="">
-              <div id="nt-client-suggestions" style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);"></div>
+              <div id="nt-client-suggestions"
+                style="position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; max-height:140px; overflow-y:auto; z-index:10; display:none; box-shadow:0 4px 12px rgba(0,0,0,.1);">
+              </div>
             </div>
             <div>
               <label>Tipo de Servicio</label>
@@ -1441,61 +1594,102 @@
             </div>
             <div>
               <label>Prioridad</label>
-              <select class="sel" id="nt-prioridad"><option value="P1">P1 · Urgente</option><option value="P2" selected>P2 · Media</option><option value="P3">P3 · Baja</option></select>
+              <select class="sel" id="nt-prioridad">
+                <option value="P1">P1 · Urgente</option>
+                <option value="P2" selected>P2 · Media</option>
+                <option value="P3">P3 · Baja</option>
+              </select>
             </div>
           </div>
         </div>
 
         <!-- 2. FICHA TÉCNICA -->
         <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">2. Ficha Técnica del Equipo</h4>
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            2. Ficha Técnica del Equipo</h4>
           <div class="form-grid">
-            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel"><option>Notebook</option><option>PC Escritorio</option><option>Smartphone</option><option>Tablet</option><option>Consola</option><option>Impresora</option><option>Otro</option></select></div>
+            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel">
+                <option>Notebook</option>
+                <option>PC Escritorio</option>
+                <option>Smartphone</option>
+                <option>Tablet</option>
+                <option>Consola</option>
+                <option>Impresora</option>
+                <option>Otro</option>
+              </select></div>
             <div><label>Marca</label><input id="nt-marca" class="inp" placeholder="Ej. Lenovo, Samsung"></div>
             <div><label>Modelo</label><input id="nt-modelo" class="inp" placeholder="Ej. IdeaPad 3, Galaxy S23"></div>
-            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp" placeholder="Identificador único"></div>
-            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp" placeholder="Ej. 1234 o 'Sin Pass'"></div>
-            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13"></div>
-            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp" placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
+            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp"
+                placeholder="Identificador único"></div>
+            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp"
+                placeholder="Ej. 1234 o 'Sin Pass'"></div>
+            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13">
+            </div>
+            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp"
+                placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
           </div>
         </div>
 
         <!-- 3. ESTADO FÍSICO Y ACCESORIOS -->
         <div>
-          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">3. Estado Físico y Accesorios</h4>
+          <h4
+            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
+            3. Estado Físico y Accesorios</h4>
           <div class="form-grid">
             <div class="full">
               <label>Estado Físico (Tildar si está OK / Sin daños)</label>
-              <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-pantalla"> Pantalla</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-carcasa"> Carcasa</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-teclado"> Teclado</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-touchpad"> Touchpad</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-bisagras"> Bisagras</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-puertos"> Puertos</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-est-cargador"> Cargador (Estado)</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-chk-bateria"> Batería</label>
-              </div>
-            </div>
-            
-            <div class="full">
-              <label>Accesorios (Tildar lo que entrega el cliente)</label>
-              <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-cargador"> Cargador</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-mouse"> Mouse</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-funda"> Funda / Maletín</label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-cable"> Cable</label>
-                <div style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-otro" onchange="document.getElementById('nt-acc-otro-texto').disabled = !this.checked"> Otro: <input type="text" id="nt-acc-otro-texto" class="inp" style="padding:2px 6px; font-size:11px; width:120px;" disabled></div>
+              <div
+                style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-pantalla"> Pantalla</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-carcasa"> Carcasa</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-teclado"> Teclado</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-touchpad"> Touchpad</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-bisagras"> Bisagras</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-puertos"> Puertos</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-est-cargador"> Cargador (Estado)</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-chk-bateria"> Batería</label>
               </div>
             </div>
 
-            <div class="full"><label>Observaciones Adicionales (Rayones, golpes, detalles importantes)</label><input class="inp" id="nt-condicion" placeholder="Ej. Rayón profundo en tapa superior..."></div>
-            <div class="full"><label>Falla Declarada por el Cliente</label><textarea class="inp" id="nt-falla" rows="2" placeholder="Describa el problema reportado..."></textarea></div>
+            <div class="full">
+              <label>Accesorios (Tildar lo que entrega el cliente)</label>
+              <div
+                style="display:flex; flex-wrap:wrap; gap:14px; margin-top:6px; font-size:12.5px; background:var(--bg); padding:10px; border-radius:8px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-cargador"> Cargador</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-mouse"> Mouse</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-funda"> Funda / Maletín</label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;"><input type="checkbox"
+                    id="nt-acc-cable"> Cable</label>
+                <div style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="nt-acc-otro"
+                    onchange="document.getElementById('nt-acc-otro-texto').disabled = !this.checked"> Otro: <input
+                    type="text" id="nt-acc-otro-texto" class="inp" style="padding:2px 6px; font-size:11px; width:120px;"
+                    disabled></div>
+              </div>
+            </div>
+
+            <div class="full"><label>Observaciones Adicionales (Rayones, golpes, detalles importantes)</label><input
+                class="inp" id="nt-condicion" placeholder="Ej. Rayón profundo en tapa superior..."></div>
+            <div class="full"><label>Falla Declarada por el Cliente</label><textarea class="inp" id="nt-falla" rows="2"
+                placeholder="Describa el problema reportado..."></textarea></div>
             <div class="full">
               <label>📷 Evidencia Fotográfica (Max 3 fotos)</label>
               <input type="file" id="nt-fotos" class="inp" multiple accept="image/*" style="padding: 4px;">
             </div>
-            <div class="full"><label>Técnico Receptor</label><select class="sel" id="nt-tecnico"><option>Sin asignar</option></select></div>
+            <div class="full"><label>Técnico Receptor</label><select class="sel" id="nt-tecnico">
+                <option>Sin asignar</option>
+              </select></div>
           </div>
         </div>
 
@@ -1563,7 +1757,8 @@
             </select></div>
           <div><label>Precio Base ($)</label><input id="np-precio" class="inp" type="number" min="0" step="0.01"
               placeholder="$0.00"></div>
-          <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0" placeholder="0"></div>
+          <div><label>Stock inicial</label><input id="np-stock" class="inp" type="number" min="0" placeholder="0">
+          </div>
         </div>
       </div>
       <div class="modal-foot"><button class="btn btn-ghost"
@@ -1596,7 +1791,8 @@
             </select></div>
           <div><label>Precio Base ($)</label><input id="ep-precio" class="inp" type="number" min="0" step="0.01"
               placeholder="$0.00"></div>
-          <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0" placeholder="0"></div>
+          <div><label>Stock actual</label><input id="ep-stock" class="inp" type="number" min="0" placeholder="0">
+          </div>
         </div>
       </div>
       <div class="modal-foot"><button class="btn btn-ghost"
@@ -1737,7 +1933,8 @@
                   type="checkbox" class="chk-permiso" value="Gestionar usuarios y roles"> Gestionar usuarios y
                 roles</label>
               <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
-                  type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes financieros</label>
+                  type="checkbox" class="chk-permiso" value="Ver reportes financieros"> Ver reportes
+                financieros</label>
               <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input
                   type="checkbox" class="chk-permiso" value="Editar catálogo de productos"> Editar catálogo de
                 productos</label>

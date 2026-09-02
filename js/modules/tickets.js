@@ -7,10 +7,11 @@ import { currentUserProfile } from '../core/auth.js';
 let currentTicketId = null;
 let isCreatingTicket = false;
 
-export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key);
+// Fallback por si algún estado no existe
+export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key) || {label: key, color:'#8891A3', badge:'pend'};
 
 // ==========================================
-// NUEVO: SISTEMA DE BITÁCORA / AUDITORÍA
+// SISTEMA DE BITÁCORA / AUDITORÍA
 // ==========================================
 export async function logTicketEvent(ticketId, accion, detalle = '') {
   const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
@@ -22,7 +23,6 @@ export async function logTicketEvent(ticketId, accion, detalle = '') {
           historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry)
       });
       
-      // Actualizamos UI en tiempo real si el modal está abierto
       const t = DATA.tickets.find(x => x.id === ticketId);
       if(t){
           if(!t.historial) t.historial = [];
@@ -36,7 +36,6 @@ export async function logTicketEvent(ticketId, accion, detalle = '') {
 
 export function renderTicketNotas(t){
   const hist = t.historial || [];
-  // Renderizamos el historial invertido (lo más nuevo arriba)
   document.getElementById('mt-notas').innerHTML = hist.slice().reverse().map(h=>`
     <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper); margin-bottom:8px;">
       <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
@@ -62,7 +61,7 @@ export async function addTicketNota(){
 }
 
 // ==========================================
-// RESTO DEL MÓDULO TICKETS
+// BÚSQUEDA Y LISTADO
 // ==========================================
 
 export function onClientSearchInput(){
@@ -137,11 +136,14 @@ export function renderTicketsTable(){
     </tr>`;
   }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:26px;">No hay tickets con estos filtros.</td></tr>';
 
-  const abiertos = DATA.tickets.filter(t=>t.stage!=='entregado').length;
+  const abiertos = DATA.tickets.filter(t=>t.stage!=='entregado' && t.stage!=='cancelado' && t.stage!=='noreparable').length;
   document.getElementById('tickets-meta').textContent = DATA.tickets.length + ' TOTALES · ' + abiertos + ' ABIERTOS';
   document.getElementById('badge-tickets').textContent = abiertos;
 }
 
+// ==========================================
+// COMPROBANTE CHECK-IN / IMPRESIÓN
+// ==========================================
 export function printTicket(id){
   const t = DATA.tickets.find(x => x.id === id);
   if(!t) return;
@@ -154,7 +156,7 @@ export function printTicket(id){
     <head><title>Comprobante de Recepción #${t.id}</title><style>body { font-family: 'Inter', Helvetica, sans-serif; padding: 40px; color: #171A21; background: #fff; font-size: 13px; line-height: 1.5; } .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #171A21; } .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; } .header h2 { margin: 5px 0 0 0; font-size: 16px; color: #565E70; } .row { display: flex; justify-content: space-between; margin-bottom: 10px; } .box { border: 1px solid #E4E6EC; padding: 15px; border-radius: 8px; margin-bottom: 20px; } .box-title { font-weight: bold; text-transform: uppercase; font-size: 11px; color: #8891A3; margin-bottom: 10px; border-bottom: 1px solid #E4E6EC; padding-bottom: 5px; } .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .check-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .check-item { display: flex; align-items: center; gap: 6px; } .signatures { margin-top: 50px; display: flex; justify-content: space-between; } .sig-box { width: 45%; text-align: center; border-top: 1px solid #171A21; padding-top: 10px; } .legal { font-size: 10px; color: #8891A3; text-align: justify; margin-top: 30px; }</style></head>
     <body>
       <div class="header"><h1>${negNombre}</h1><h2>COMPROBANTE DE INGRESO / CHECK-IN</h2></div>
-      <div class="row"><div><b>Ticket Nº:</b> ${t.id}</div><div><b>Fecha/Hora:</b> ${t.historial[0]?.fecha || t.ingreso}</div></div>
+      <div class="row"><div><b>Ticket Nº:</b> ${t.id}</div><div><b>Fecha/Hora:</b> ${t.historial && t.historial.length ? t.historial[0].fecha : t.ingreso}</div></div>
       <div class="row"><div><b>Técnico Receptor:</b> ${t.tecnico}</div><div><b>Prioridad:</b> ${t.prioridad}</div></div>
       <div class="box"><div class="box-title">1. Datos del Cliente</div><p><b>Nombre/Razón Social:</b> ${t.cliente}</p></div>
       <div class="box"><div class="box-title">2. Ficha Técnica del Equipo</div><div class="grid-2"><div><b>Equipo:</b> ${t.equipo} ${t.marca || ''} ${t.modelo || ''}</div><div><b>Nº Serie/IMEI:</b> ${t.serie || 'N/A'}</div><div><b>S.O. / Specs:</b> ${t.os ? t.os+' | ' : ''}${t.specs || 'N/A'}</div><div><b>PIN/Pass:</b> ${t.pin || 'N/A'}</div></div></div>
@@ -168,6 +170,10 @@ export function printTicket(id){
   `);
   win.document.close();
 }
+
+// ==========================================
+// KANBAN Y ESTADOS
+// ==========================================
 
 export function renderTicketsKanban(){
   const board = document.getElementById('tickets-kanban');
@@ -194,7 +200,6 @@ export async function changeTicketStageAt(id, newStage) {
         
         try {
             await window.db.collection('tickets').doc(id).update({ stage: newStage });
-            // Registramos en bitácora
             await logTicketEvent(id, 'Estado cambiado', `${oldStageStr} → ${newStageStr}`);
             toast(`Ticket movido a "${newStageStr}"`);
         } catch(error) {
@@ -208,20 +213,28 @@ export function changeTicketStage(){
     changeTicketStageAt(currentTicketId, newStage);
 }
 
+// ==========================================
+// VISTA DETALLE DEL TICKET
+// ==========================================
+
 export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
   currentTicketId = id;
+
+  const setText = (elId, text) => { const el = document.getElementById(elId); if(el) el.textContent = text; };
+  const setHTML = (elId, html) => { const el = document.getElementById(elId); if(el) el.innerHTML = html; };
+  const setVal  = (elId, val)  => { const el = document.getElementById(elId); if(el) el.value = val; };
   
-  document.getElementById('mt-id').textContent = '#'+t.id;
-  document.getElementById('mt-ingreso').textContent = 'Ingresó el ' + t.ingreso;
-  document.getElementById('mt-cliente').textContent = t.cliente;
+  setText('mt-id', '#'+t.id);
+  setText('mt-ingreso', 'Ingresó el ' + t.ingreso);
+  setText('mt-cliente', t.cliente);
   
-  document.getElementById('mt-equipo').textContent = t.equipo || 'Equipo';
-  document.getElementById('mt-marca-modelo').textContent = (t.marca || '') + ' ' + (t.modelo || '');
-  document.getElementById('mt-serie').textContent = t.serie || 'N/A';
-  document.getElementById('mt-specs').textContent = (t.os ? t.os + ' | ' : '') + (t.specs || 'N/A');
-  document.getElementById('mt-pin').textContent = t.pin || 'N/A';
+  setText('mt-equipo', t.equipo || 'Equipo');
+  setText('mt-marca-modelo', (t.marca || '') + ' ' + (t.modelo || ''));
+  setText('mt-serie', t.serie || 'N/A');
+  setText('mt-specs', (t.os ? t.os + ' | ' : '') + (t.specs || 'N/A'));
+  setText('mt-pin', t.pin || 'N/A');
   
   const efContainer = document.getElementById('mt-estado-fisico');
   if(t.estadoFisico && efContainer) {
@@ -248,38 +261,59 @@ export function openTicketModal(id){
       accContainer.innerHTML = accHtml || '<span style="font-size:11px; color:var(--muted);">Ninguno</span>';
   } else if (accContainer) { accContainer.innerHTML = '<span style="font-size:11px; color:var(--muted);">N/A</span>'; }
 
-  document.getElementById('mt-condicion').textContent = t.condicion ? `${t.condicion}` : 'Sin observaciones adicionales';
-  document.getElementById('mt-prioridad').innerHTML = `<span class="badge ${t.prioridad.toLowerCase()}">${t.prioridad}</span>`;
-  document.getElementById('mt-tecnico').innerHTML = `<span style="background:var(--ink); color:#fff; width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:9px; font-weight:bold; margin-right:6px;">${initials(t.tecnico)}</span> ${t.tecnico}`;
-  document.getElementById('mt-falla').textContent = t.falla;
-  document.getElementById('mt-estado-select').value = t.stage;
-  document.getElementById('mt-diagnostico-input').value = t.diagnostico || '';
+  setText('mt-condicion', t.condicion ? `${t.condicion}` : 'Sin observaciones adicionales');
+  setHTML('mt-prioridad', `<span class="badge ${t.prioridad.toLowerCase()}">${t.prioridad}</span>`);
+  setHTML('mt-tecnico', `<span style="background:var(--ink); color:#fff; width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size:9px; font-weight:bold; margin-right:6px;">${initials(t.tecnico)}</span> ${t.tecnico}`);
+  setText('mt-falla', t.falla);
+  setVal('mt-estado-select', t.stage);
+  setVal('mt-diagnostico-input', t.diagnostico || '');
   
   const fotosContainer = document.getElementById('mt-fotos-container');
   const fotosGallery = document.getElementById('mt-fotos-gallery');
   if(t.fotos && t.fotos.length > 0 && fotosContainer && fotosGallery) {
       fotosContainer.style.display = 'block';
-      fotosGallery.innerHTML = t.fotos.map(url => `<a href="${url}" target="_blank" title="Ver foto completa"><img src="${url}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line);"></a>`).join('');
+      fotosGallery.innerHTML = t.fotos.map(url => `
+          <a href="${url}" target="_blank" title="Ver foto completa">
+            <img src="${url}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line);">
+          </a>
+      `).join('');
   } else if (fotosContainer) { fotosContainer.style.display = 'none'; }
   
-  let reachedCurrent = false;
+  // LÓGICA INTELIGENTE DEL STEPPER
+  const linearStages = ['pendiente', 'diagnostico', 'presupuesto', 'reparacion', 'repuesto', 'listo', 'entregado'];
+  const currentIndex = linearStages.indexOf(t.stage);
+  
   document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
     const stepKey = el.getAttribute('data-step');
+    const stepIndex = linearStages.indexOf(stepKey);
     el.className = 'step-sm'; 
-    if(t.stage === 'entregado') { el.classList.add('completed'); return; }
-    if(stepKey === t.stage) { el.classList.add('active'); reachedCurrent = true; }
-    else if (!reachedCurrent) { el.classList.add('completed'); }
+    
+    if(t.stage === 'entregado') { 
+        el.classList.add('completed'); 
+    } else if (t.stage === 'cancelado' || t.stage === 'noreparable') {
+        if(stepIndex === 0) el.classList.add('completed'); 
+    } else if (t.stage === 'garantia') {
+        if(stepKey === 'reparacion') el.classList.add('active');
+    } else {
+        if(stepKey === t.stage) el.classList.add('active');
+        else if (stepIndex < currentIndex && currentIndex !== -1) el.classList.add('completed');
+    }
   });
 
   if(!t.presupuestoFijado) t.presupuestoFijado = false;
-  document.getElementById('input-presupuesto').value = t.presupuestoEstimado || '';
+  setVal('input-presupuesto', t.presupuestoEstimado || '');
+  
+  const elTxtPresupuesto = document.getElementById('txt-presupuesto-fijado');
+  const viewEdit = document.getElementById('view-edit-budget');
+  const viewLocked = document.getElementById('view-locked-budget');
+
   if(t.presupuestoFijado) {
-    document.getElementById('txt-presupuesto-fijado').textContent = fmt(t.presupuestoEstimado);
-    document.getElementById('view-edit-budget').style.display = 'none';
-    document.getElementById('view-locked-budget').style.display = 'block';
+    if(elTxtPresupuesto) elTxtPresupuesto.textContent = fmt(t.presupuestoEstimado);
+    if(viewEdit) viewEdit.style.display = 'none';
+    if(viewLocked) viewLocked.style.display = 'block';
   } else {
-    document.getElementById('view-locked-budget').style.display = 'none';
-    document.getElementById('view-edit-budget').style.display = 'flex';
+    if(viewLocked) viewLocked.style.display = 'none';
+    if(viewEdit) viewEdit.style.display = 'flex';
   }
   
   populateRepuestosSelect();
@@ -289,6 +323,10 @@ export function openTicketModal(id){
   
   if(window.goView) window.goView('ticket-detalle');
 }
+
+// ==========================================
+// FINANZAS Y REPUESTOS DEL TICKET
+// ==========================================
 
 export async function fijarPresupuesto() {
   const val = parseFloat(document.getElementById('input-presupuesto').value);
@@ -303,8 +341,7 @@ export async function fijarPresupuesto() {
       document.getElementById('view-edit-budget').style.display = 'none';
       document.getElementById('view-locked-budget').style.display = 'block';
       
-      // LOG
-      await logTicketEvent(currentTicketId, 'Presupuesto fijado', fmt(val));
+      await logTicketEvent(currentTicketId, 'Presupuesto fijado', `Cotizado: ${fmt(val)}`);
       toast('Presupuesto fijado exitosamente');
   } catch(e) { toast('Error al fijar presupuesto'); }
 }
@@ -315,7 +352,6 @@ export async function desbloquearPresupuesto() {
       document.getElementById('view-locked-budget').style.display = 'none';
       document.getElementById('view-edit-budget').style.display = 'flex';
       
-      // LOG
       await logTicketEvent(currentTicketId, 'Presupuesto editado', 'Se habilitó la modificación del monto');
   } catch(e) { toast('Error al desbloquear'); }
 }
@@ -336,7 +372,7 @@ export function sendWhatsAppNotice(){
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   
   window.open(url, '_blank');
-  logTicketEvent(currentTicketId, 'Notificación enviada', 'Cliente notificado por WhatsApp');
+  logTicketEvent(currentTicketId, 'Notificación enviada', 'El cliente fue notificado vía WhatsApp');
 }
 
 export function checkBillingButtonVisibility(t){
@@ -445,6 +481,10 @@ export async function enviarAFacturacion(){
   } catch(error) { toast('Error al enviar a caja'); }
 }
 
+// ==========================================
+// CREACIÓN Y ELIMINACIÓN DE TICKETS
+// ==========================================
+
 async function uploadTicketFotos(files, ticketId) {
     if (!window.firebase.storage) { return []; }
     const urls = [];
@@ -535,13 +575,12 @@ export async function createTicket(){
         prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
         tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
         diagnostico:'Pendiente de revisión inicial.', piezas:[],
-        // EL REGISTRO HISTORICO INICIAL DE LA AUDITORIA
         historial:[{
             accion:'Ticket creado', 
             detalle: 'Check-in inicial del equipo en ' + tipoServicio,
             fecha: fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
             autor: user
-        }]
+        }], notas:[]
       };
 
       await window.db.collection('tickets').doc(id).set(t);

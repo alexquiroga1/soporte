@@ -3,13 +3,19 @@ import { toast } from './utils.js';
 import { aplicarPermisosEnUI } from './auth.js';
 
 export const TICKET_STAGES = [
-  {key:'pendiente',   label:'Pendiente',           color:'#F2A93B', badge:'pend'},
+
+  {key:'pendiente',   label:'Recibido',            color:'#F2A93B', badge:'pend'},
   {key:'diagnostico', label:'En diagnóstico',      color:'#6D5DD3', badge:'info'},
+  {key:'presupuesto', label:'Esperando Aprob.',    color:'#E17A2D', badge:'wait'}, // NUEVO
   {key:'reparacion',  label:'En reparación',       color:'#4368E8', badge:'prog'},
-  {key:'repuesto',    label:'Esperando repuesto',  color:'#E17A2D', badge:'wait'},
+  {key:'repuesto',    label:'Esperando repuesto',  color:'#A5520F', badge:'wait'},
   {key:'listo',       label:'Listo para entrega',  color:'#25CE9E', badge:'ready'},
-  {key:'entregado',   label:'Entregado',           color:'#17B893', badge:'done'}
+  {key:'entregado',   label:'Entregado',           color:'#17B893', badge:'done'},
+  {key:'noreparable', label:'No reparable',        color:'#E14848', badge:'urg'},  // NUEVO
+  {key:'cancelado',   label:'Cancelado/Retirado',  color:'#8891A3', badge:'urg'},  // NUEVO
+  {key:'garantia',    label:'Garantía',            color:'#6D5DD3', badge:'info'}  // NUEVO
 ];
+
 
 export const CRM_STAGES = [
   {key:'prospecto',   label:'Prospecto',    color:'#8891A3'},
@@ -65,3 +71,4 @@ export function initStore(db, renderCallback) {
 
 // Obsoleto intencionalmente. Todo es atómico ahora.
 export function saveToLocal() {}
+
