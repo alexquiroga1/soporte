@@ -1663,31 +1663,82 @@
           </div>
         </div>
 
-        <!-- 2. FICHA TÉCNICA -->
-        <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
-          <h4
-            style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">
-            2. Ficha Técnica del Equipo</h4>
-          <div class="form-grid">
-            <div><label>Tipo de Equipo</label><select id="nt-tipo-equipo" class="sel">
-                <option>Notebook</option>
-                <option>PC Escritorio</option>
-                <option>Smartphone</option>
-                <option>Tablet</option>
-                <option>Consola</option>
-                <option>Impresora</option>
-                <option>Otro</option>
-              </select></div>
-            <div><label>Marca</label><input id="nt-marca" class="inp" placeholder="Ej. Lenovo, Samsung"></div>
-            <div><label>Modelo</label><input id="nt-modelo" class="inp" placeholder="Ej. IdeaPad 3, Galaxy S23"></div>
-            <div><label>Nº Serie / IMEI / Service Tag</label><input id="nt-serie" class="inp"
-                placeholder="Identificador único"></div>
-            <div><label>Contraseña / PIN de acceso</label><input id="nt-pin" class="inp"
-                placeholder="Ej. 1234 o 'Sin Pass'"></div>
-            <div><label>Sistema Operativo</label><input id="nt-os" class="inp" placeholder="Ej. Windows 11, Android 13">
+        <!-- SELECTOR DE SERVICIO DINÁMICO (Asegurate que el select tenga este onchange) -->
+        <div class="form-grid" style="margin-bottom:16px;">
+            <div class="full">
+              <label>Tipo de Servicio</label>
+              <select class="sel" id="nt-tipo-servicio" onchange="toggleTipoServicio()" style="font-weight:bold; color:var(--copper);">
+                <option value="Taller">🖥️ Local / Taller</option>
+                <option value="Domicilio">🏠 Visita a Domicilio</option>
+                <option value="Remoto">🌐 Soporte Remoto</option>
+                <option value="Consulta">📞 Consulta / Asistencia</option>
+              </select>
             </div>
-            <div class="full"><label>Specs (Procesador / RAM / Almacenamiento)</label><input id="nt-specs" class="inp"
-                placeholder="Ej. Core i5, 8GB RAM, 256GB SSD"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- BLOQUE A: TALLER (Ficha Técnica y Físico)  -->
+        <!-- ========================================== -->
+        <div id="bloque-taller">
+          <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+            <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">Ficha Técnica del Equipo</h4>
+            <div class="form-grid">
+              <div><label>Tipo</label><select id="nt-tipo-equipo" class="sel"><option>Notebook</option><option>PC Escritorio</option><option>Smartphone</option><option>Tablet</option><option>Impresora</option><option>Otro</option></select></div>
+              <div><label>Marca</label><input id="nt-marca" class="inp" placeholder="Ej. Lenovo"></div>
+              <div><label>Modelo</label><input id="nt-modelo" class="inp" placeholder="Ej. IdeaPad 3"></div>
+              <div><label>Nº Serie / IMEI</label><input id="nt-serie" class="inp" placeholder="Identificador"></div>
+              <div><label>PIN de acceso</label><input id="nt-pin" class="inp" placeholder="Ej. 1234"></div>
+              <div class="full"><label>Specs (OS / RAM / Disco)</label><input id="nt-specs" class="inp" placeholder="Ej. Win 11, 8GB, 256SSD"></div>
+            </div>
+          </div>
+
+          <div style="border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+            <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">Estado Físico y Accesorios</h4>
+            <div class="form-grid">
+              <div class="full">
+                <label>Estado Físico (Tildar OK)</label>
+                <div style="display:flex; flex-wrap:wrap; gap:14px; background:var(--bg); padding:10px; border-radius:8px;">
+                  <label><input type="checkbox" id="nt-chk-pantalla"> Pantalla</label>
+                  <label><input type="checkbox" id="nt-chk-carcasa"> Carcasa</label>
+                  <label><input type="checkbox" id="nt-chk-teclado"> Teclado</label>
+                  <label><input type="checkbox" id="nt-chk-cargador"> Cargador</label>
+                  <label><input type="checkbox" id="nt-chk-bateria"> Batería</label>
+                </div>
+              </div>
+              <div class="full">
+                <label>Accesorios Entregados</label>
+                <div style="display:flex; flex-wrap:wrap; gap:14px; background:var(--bg); padding:10px; border-radius:8px;">
+                  <label><input type="checkbox" id="nt-acc-cargador"> Cargador</label>
+                  <label><input type="checkbox" id="nt-acc-funda"> Funda</label>
+                  <label><input type="checkbox" id="nt-acc-cable"> Cable USB</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- BLOQUE B: VISITA A DOMICILIO               -->
+        <!-- ========================================== -->
+        <div id="bloque-domicilio" style="display:none; border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">Datos de Visita</h4>
+          <div class="form-grid">
+            <div class="full"><label>Dirección de Visita</label><input id="nt-dom-dir" class="inp" placeholder="Calle, Nro, Barrio, Depto..."></div>
+            <div><label>Fecha programada</label><input id="nt-dom-fecha" type="date" class="inp"></div>
+            <div><label>Hora aproximada</label><input id="nt-dom-hora" type="time" class="inp"></div>
+            <div class="full"><label>Contacto en el lugar</label><input id="nt-dom-contacto" class="inp" placeholder="Ej. Preguntar por portero..."></div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- BLOQUE C: SOPORTE REMOTO                   -->
+        <!-- ========================================== -->
+        <div id="bloque-remoto" style="display:none; border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 12px;">
+          <h4 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); margin-bottom: 12px;">Conexión Remota</h4>
+          <div class="form-grid">
+            <div><label>Plataforma</label><select id="nt-rem-plat" class="sel"><option>AnyDesk</option><option>TeamViewer</option><option>RustDesk</option><option>Otra</option></select></div>
+            <div><label>ID de Conexión / Enlace</label><input id="nt-rem-id" class="inp" placeholder="Ej. 123 456 789"></div>
+            <div class="full"><label>Clave temporal (Opcional)</label><input id="nt-rem-pass" class="inp" placeholder="Contraseña de acceso si aplica"></div>
           </div>
         </div>
 

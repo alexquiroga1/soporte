@@ -6,7 +6,7 @@ import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
 let isCreatingTicket = false;
-let publicTicketId = null; // Para la vista pública de aprobación
+let publicTicketId = null; 
 
 // Fallback por si algún estado no existe
 export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key) || {label: key, color:'#8891A3', badge:'pend'};
@@ -170,17 +170,23 @@ export function printTicket(id){
   const win = window.open('', '', 'width=800,height=900');
   win.document.write(`
     <html>
-    <head><title>Comprobante de Recepción #${t.id}</title><style>body { font-family: 'Inter', Helvetica, sans-serif; padding: 40px; color: #171A21; background: #fff; font-size: 13px; line-height: 1.5; } .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #171A21; } .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; } .header h2 { margin: 5px 0 0 0; font-size: 16px; color: #565E70; } .row { display: flex; justify-content: space-between; margin-bottom: 10px; } .box { border: 1px solid #E4E6EC; padding: 15px; border-radius: 8px; margin-bottom: 20px; } .box-title { font-weight: bold; text-transform: uppercase; font-size: 11px; color: #8891A3; margin-bottom: 10px; border-bottom: 1px solid #E4E6EC; padding-bottom: 5px; } .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .check-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .check-item { display: flex; align-items: center; gap: 6px; } .signatures { margin-top: 50px; display: flex; justify-content: space-between; } .sig-box { width: 45%; text-align: center; border-top: 1px solid #171A21; padding-top: 10px; } .legal { font-size: 10px; color: #8891A3; text-align: justify; margin-top: 30px; }</style></head>
+    <head><title>Comprobante #${t.id}</title><style>body { font-family: 'Inter', Helvetica, sans-serif; padding: 40px; color: #171A21; background: #fff; font-size: 13px; line-height: 1.5; } .header { text-align: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #171A21; } .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; } .header h2 { margin: 5px 0 0 0; font-size: 16px; color: #565E70; } .row { display: flex; justify-content: space-between; margin-bottom: 10px; } .box { border: 1px solid #E4E6EC; padding: 15px; border-radius: 8px; margin-bottom: 20px; } .box-title { font-weight: bold; text-transform: uppercase; font-size: 11px; color: #8891A3; margin-bottom: 10px; border-bottom: 1px solid #E4E6EC; padding-bottom: 5px; } .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .check-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .check-item { display: flex; align-items: center; gap: 6px; } .signatures { margin-top: 50px; display: flex; justify-content: space-between; } .sig-box { width: 45%; text-align: center; border-top: 1px solid #171A21; padding-top: 10px; } .legal { font-size: 10px; color: #8891A3; text-align: justify; margin-top: 30px; }</style></head>
     <body>
-      <div class="header"><h1>${negNombre}</h1><h2>COMPROBANTE DE INGRESO / CHECK-IN</h2></div>
+      <div class="header"><h1>${negNombre}</h1><h2>COMPROBANTE DE SERVICIO</h2></div>
       <div class="row"><div><b>Ticket Nº:</b> ${t.id}</div><div><b>Fecha/Hora:</b> ${t.historial && t.historial.length ? t.historial[0].fecha : t.ingreso}</div></div>
-      <div class="row"><div><b>Técnico Receptor:</b> ${t.tecnico}</div><div><b>Prioridad:</b> ${t.prioridad}</div></div>
-      <div class="box"><div class="box-title">1. Datos del Cliente</div><p><b>Nombre/Razón Social:</b> ${t.cliente}</p></div>
-      <div class="box"><div class="box-title">2. Ficha Técnica del Equipo</div><div class="grid-2"><div><b>Equipo:</b> ${t.equipo} ${t.marca || ''} ${t.modelo || ''}</div><div><b>Nº Serie/IMEI:</b> ${t.serie || 'N/A'}</div><div><b>S.O. / Specs:</b> ${t.os ? t.os+' | ' : ''}${t.specs || 'N/A'}</div><div><b>PIN/Pass:</b> ${t.pin || 'N/A'}</div></div></div>
-      <div class="box"><div class="box-title">3. Estado Físico y Accesorios al Ingreso</div><div class="grid-2"><div><div style="font-weight:bold; margin-bottom:6px;">Estado Físico (OK / Sin Daños):</div><div class="check-list"><div class="check-item">${check(t.estadoFisico?.pantalla)} Pantalla</div><div class="check-item">${check(t.estadoFisico?.carcasa)} Carcasa</div><div class="check-item">${check(t.estadoFisico?.teclado)} Teclado</div><div class="check-item">${check(t.estadoFisico?.touchpad)} Touchpad</div><div class="check-item">${check(t.estadoFisico?.bisagras)} Bisagras</div><div class="check-item">${check(t.estadoFisico?.puertos)} Puertos</div><div class="check-item">${check(t.estadoFisico?.cargador)} Cargador (Est.)</div><div class="check-item">${check(t.estadoFisico?.bateria)} Batería</div></div></div><div><div style="font-weight:bold; margin-bottom:6px;">Accesorios Recibidos:</div><div class="check-list"><div class="check-item">${check(t.accesoriosObj?.cargador)} Cargador</div><div class="check-item">${check(t.accesoriosObj?.mouse)} Mouse</div><div class="check-item">${check(t.accesoriosObj?.funda)} Funda/Maletín</div><div class="check-item">${check(t.accesoriosObj?.cable)} Cable</div></div><div style="margin-top:6px;"><b>Otros:</b> ${t.accesoriosObj?.otro || 'Ninguno'}</div></div></div><div style="margin-top:15px; border-top:1px dashed #E4E6EC; padding-top:10px;"><b>Observaciones Adicionales (Rayones, golpes, etc.):</b><br>${t.condicion || 'Sin observaciones.'}</div></div>
-      <div class="box"><div class="box-title">4. Falla Declarada por el Cliente</div><p>${t.falla}</p></div>
-      <div class="legal"><b>TÉRMINOS Y CONDICIONES DE RECEPCIÓN:</b> El cliente declara que los datos del equipo, accesorios y estado físico detallados en este comprobante son correctos y corresponden al estado en que se entrega el dispositivo. ${negNombre} no se responsabiliza por fallas ocultas o intermitentes no declaradas al momento del ingreso, ni por la pérdida de datos y/o información contenida en los dispositivos de almacenamiento. Se recomienda realizar una copia de seguridad previa. Todo equipo abandonado por más de 90 días será considerado en abandono.</div>
-      <div class="signatures"><div class="sig-box">Firma y Aclaración Cliente</div><div class="sig-box">Firma Técnico Receptor</div></div>
+      <div class="row"><div><b>Servicio:</b> ${t.tipoServicio}</div><div><b>Prioridad:</b> ${t.prioridad}</div></div>
+      <div class="box"><div class="box-title">1. Datos del Cliente</div><p><b>Nombre:</b> ${t.cliente}</p></div>
+      <div class="box"><div class="box-title">2. Ficha Técnica</div><div class="grid-2"><div><b>Equipo:</b> ${t.equipo} ${t.marca || ''} ${t.modelo || ''}</div><div><b>Nº Serie:</b> ${t.serie || 'N/A'}</div><div><b>S.O./Specs:</b> ${t.specs || 'N/A'}</div><div><b>PIN/Pass:</b> ${t.pin || 'N/A'}</div></div></div>
+      
+      ${t.tipoServicio === 'Taller' ? `<div class="box"><div class="box-title">3. Estado Físico y Accesorios</div><div class="grid-2"><div><div style="font-weight:bold; margin-bottom:6px;">Estado Físico OK:</div><div class="check-list"><div class="check-item">${check(t.estadoFisico?.pantalla)} Pantalla</div><div class="check-item">${check(t.estadoFisico?.carcasa)} Carcasa</div><div class="check-item">${check(t.estadoFisico?.teclado)} Teclado</div><div class="check-item">${check(t.estadoFisico?.cargador)} Cargador</div><div class="check-item">${check(t.estadoFisico?.bateria)} Batería</div></div></div><div><div style="font-weight:bold; margin-bottom:6px;">Accesorios Recibidos:</div><div class="check-list"><div class="check-item">${check(t.accesoriosObj?.cargador)} Cargador</div><div class="check-item">${check(t.accesoriosObj?.funda)} Funda</div><div class="check-item">${check(t.accesoriosObj?.cable)} Cable</div></div></div></div><div style="margin-top:15px; border-top:1px dashed #E4E6EC; padding-top:10px;"><b>Observaciones:</b><br>${t.condicion || 'Sin observaciones.'}</div></div>` : ''}
+      
+      ${t.tipoServicio === 'Domicilio' ? `<div class="box"><div class="box-title">3. Datos de Visita a Domicilio</div><div class="grid-2"><div><b>Dirección:</b> ${t.datosDomicilio?.direccion}</div><div><b>Fecha Prog.:</b> ${t.datosDomicilio?.fecha} ${t.datosDomicilio?.hora}</div><div><b>Contacto:</b> ${t.datosDomicilio?.contacto}</div></div></div>` : ''}
+      
+      ${t.tipoServicio === 'Remoto' ? `<div class="box"><div class="box-title">3. Conexión Remota</div><div class="grid-2"><div><b>Plataforma:</b> ${t.datosRemoto?.plataforma}</div><div><b>ID:</b> ${t.datosRemoto?.idConexion}</div></div></div>` : ''}
+
+      <div class="box"><div class="box-title">4. Motivo / Falla Declarada</div><p>${t.falla}</p></div>
+      <div class="legal"><b>TÉRMINOS Y CONDICIONES:</b> El cliente declara que los datos del equipo son correctos. ${negNombre} no se responsabiliza por fallas ocultas no declaradas al momento del ingreso, ni por la pérdida de datos. Todo equipo abandonado por más de 90 días será considerado en abandono.</div>
+      <div class="signatures"><div class="sig-box">Firma y Aclaración Cliente</div><div class="sig-box">Firma Responsable</div></div>
       <script>window.onload = function() { window.print(); }</script>
     </body>
     </html>
@@ -218,7 +224,6 @@ export async function changeTicketStageAt(id, newStage) {
         let updates = { stage: newStage };
         let logMsg = `${oldStageStr} → ${newStageStr}`;
 
-        // Cálculo de Garantía al entregar
         if(newStage === 'entregado') {
             const diasGarantia = t.garantiaDias !== undefined ? t.garantiaDias : 30; 
             const fVence = new Date();
@@ -230,18 +235,13 @@ export async function changeTicketStageAt(id, newStage) {
             logMsg += ` | Garantía activada por ${diasGarantia} días (hasta ${fDate(venceStr)}).`;
         }
 
-        // Registrar la fecha de "Listo" para las alertas del Dashboard
-        if(newStage === 'listo') {
-            updates.fechaListo = new Date().toISOString();
-        }
+        if(newStage === 'listo') { updates.fechaListo = new Date().toISOString(); }
         
         try {
             await window.db.collection('tickets').doc(id).update(updates);
             await logTicketEvent(id, 'Estado cambiado', logMsg);
             toast(`Ticket movido a "${newStageStr}"`);
-        } catch(error) {
-            toast("No se pudo actualizar el estado.");
-        }
+        } catch(error) { toast("No se pudo actualizar el estado."); }
     }
 }
 
@@ -251,7 +251,7 @@ export function changeTicketStage(){
 }
 
 // ==========================================
-// VISTA DETALLE DEL TICKET (A PRUEBA DE ERRORES)
+// VISTA DETALLE DEL TICKET 
 // ==========================================
 
 export function openTicketModal(id){
@@ -270,7 +270,7 @@ export function openTicketModal(id){
   setText('mt-equipo', t.equipo || 'Equipo');
   setText('mt-marca-modelo', (t.marca || '') + ' ' + (t.modelo || ''));
   setText('mt-serie', t.serie || 'N/A');
-  setText('mt-specs', (t.os ? t.os + ' | ' : '') + (t.specs || 'N/A'));
+  setText('mt-specs', t.specs || 'N/A');
   setText('mt-pin', t.pin || 'N/A');
   
   const efContainer = document.getElementById('mt-estado-fisico');
@@ -279,9 +279,6 @@ export function openTicketModal(id){
       if(t.estadoFisico.pantalla) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Pantalla</span>';
       if(t.estadoFisico.carcasa) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Carcasa</span>';
       if(t.estadoFisico.teclado) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Teclado</span>';
-      if(t.estadoFisico.touchpad) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Touchpad</span>';
-      if(t.estadoFisico.bisagras) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Bisagras</span>';
-      if(t.estadoFisico.puertos) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Puertos</span>';
       if(t.estadoFisico.cargador) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Cargador</span>';
       if(t.estadoFisico.bateria) efHtml += '<span class="badge" style="background:#f0f0f0; color:#333;">Batería</span>';
       efContainer.innerHTML = efHtml || '<span style="font-size:11px; color:var(--muted);">Sin detalles OK</span>';
@@ -291,10 +288,8 @@ export function openTicketModal(id){
   if(t.accesoriosObj && accContainer) {
       let accHtml = '';
       if(t.accesoriosObj.cargador) accHtml += '<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🔌 Cargador</span>';
-      if(t.accesoriosObj.mouse) accHtml += '<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🖱️ Mouse</span>';
       if(t.accesoriosObj.funda) accHtml += '<span class="badge" style="background:#e3f2fd; color:#0d47a1;">💼 Funda</span>';
       if(t.accesoriosObj.cable) accHtml += '<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🪢 Cable</span>';
-      if(t.accesoriosObj.otro) accHtml += `<span class="badge" style="background:#e3f2fd; color:#0d47a1;">➕ ${t.accesoriosObj.otro}</span>`;
       accContainer.innerHTML = accHtml || '<span style="font-size:11px; color:var(--muted);">Ninguno</span>';
   } else if (accContainer) { accContainer.innerHTML = '<span style="font-size:11px; color:var(--muted);">N/A</span>'; }
 
@@ -305,7 +300,6 @@ export function openTicketModal(id){
   setVal('mt-estado-select', t.stage);
   setVal('mt-diagnostico-input', t.diagnostico || '');
   
-  // Render de Garantía
   const inputDias = document.getElementById('mt-garantia-dias');
   const divVence = document.getElementById('mt-garantia-vence');
   if(inputDias) inputDias.value = t.garantiaDias !== undefined ? t.garantiaDias : 30;
@@ -321,7 +315,6 @@ export function openTicketModal(id){
       }
   }
 
-  // Render de Fotos de Evidencia
   const fotosContainer = document.getElementById('mt-fotos-container');
   const fotosGallery = document.getElementById('mt-fotos-gallery');
   if(t.fotos && t.fotos.length > 0 && fotosContainer && fotosGallery) {
@@ -333,7 +326,6 @@ export function openTicketModal(id){
       `).join('');
   } else if (fotosContainer) { fotosContainer.style.display = 'none'; }
   
-  // LÓGICA INTELIGENTE DEL STEPPER
   const linearStages = ['pendiente', 'diagnostico', 'presupuesto', 'reparacion', 'repuesto', 'listo', 'entregado'];
   const currentIndex = linearStages.indexOf(t.stage);
   
@@ -341,14 +333,10 @@ export function openTicketModal(id){
     const stepKey = el.getAttribute('data-step');
     const stepIndex = linearStages.indexOf(stepKey);
     el.className = 'step-sm'; 
-    
-    if(t.stage === 'entregado') { 
-        el.classList.add('completed'); 
-    } else if (t.stage === 'cancelado' || t.stage === 'noreparable') {
-        if(stepIndex === 0) el.classList.add('completed'); 
-    } else if (t.stage === 'garantia') {
-        if(stepKey === 'reparacion') el.classList.add('active');
-    } else {
+    if(t.stage === 'entregado') { el.classList.add('completed'); } 
+    else if (t.stage === 'cancelado' || t.stage === 'noreparable') { if(stepIndex === 0) el.classList.add('completed'); } 
+    else if (t.stage === 'garantia') { if(stepKey === 'reparacion') el.classList.add('active'); } 
+    else {
         if(stepKey === t.stage) el.classList.add('active');
         else if (stepIndex < currentIndex && currentIndex !== -1) el.classList.add('completed');
     }
@@ -385,16 +373,11 @@ export function openTicketModal(id){
 export async function fijarPresupuesto() {
   const val = parseFloat(document.getElementById('input-presupuesto').value);
   if(!val || val <= 0) { toast('Ingresa un monto válido'); return; }
-  
   try {
-      await window.db.collection('tickets').doc(currentTicketId).update({
-          presupuestoEstimado: val,
-          presupuestoFijado: true
-      });
+      await window.db.collection('tickets').doc(currentTicketId).update({ presupuestoEstimado: val, presupuestoFijado: true });
       document.getElementById('txt-presupuesto-fijado').textContent = fmt(val);
       document.getElementById('view-edit-budget').style.display = 'none';
       document.getElementById('view-locked-budget').style.display = 'block';
-      
       await logTicketEvent(currentTicketId, 'Presupuesto fijado', `Cotizado: ${fmt(val)}`);
       toast('Presupuesto fijado exitosamente');
   } catch(e) { toast('Error al fijar presupuesto'); }
@@ -405,7 +388,6 @@ export async function desbloquearPresupuesto() {
       await window.db.collection('tickets').doc(currentTicketId).update({ presupuestoFijado: false });
       document.getElementById('view-locked-budget').style.display = 'none';
       document.getElementById('view-edit-budget').style.display = 'flex';
-      
       await logTicketEvent(currentTicketId, 'Presupuesto editado', 'Se habilitó la modificación del monto');
   } catch(e) { toast('Error al desbloquear'); }
 }
@@ -414,18 +396,13 @@ export function sendWhatsAppNotice(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
   const cli = DATA.clientes.find(c => c.id === t.clienteId || getFullName(c) === t.cliente);
-  
   if(!cli || !cli.tel || cli.tel === '—') { alert('⚠️ El cliente no tiene un número de teléfono registrado.'); return; }
-  
   let phone = cli.tel.replace(/\D/g, '');
   if (!phone.startsWith('54') && phone.length === 10) { phone = '549' + phone; }
-  
   const empresa = DATA.negocio?.nombre || 'nuestro servicio técnico';
   const estadoStr = stageInfo(t.stage).label;
   const msg = `Hola ${t.cliente}, te escribimos de *${empresa}*.\n\nTe informamos que tu equipo *${t.equipo}* (Ticket #${t.id}) se encuentra actualmente en estado: *${estadoStr}*.\n\nCualquier consulta estamos a tu disposición.`;
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-  
-  window.open(url, '_blank');
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   logTicketEvent(currentTicketId, 'Notificación enviada', 'El cliente fue notificado vía WhatsApp');
 }
 
@@ -448,7 +425,6 @@ export async function saveGarantiaDias() {
     const dias = parseInt(input.value) || 0;
     if(!currentTicketId) return;
     const t = DATA.tickets.find(x => x.id === currentTicketId);
-    
     let updates = { garantiaDias: dias };
     if(t.stage === 'entregado') {
         const fVence = new Date();
@@ -486,10 +462,8 @@ export async function updatePiezaPrice(idx, newPrice) {
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   const val = parseFloat(newPrice);
   if(isNaN(val) || val < 0) return;
-  
   const nuevasPiezas = [...t.piezas];
   nuevasPiezas[idx].costo = val;
-  
   try {
       await window.db.collection('tickets').doc(currentTicketId).update({ piezas: nuevasPiezas });
       await logTicketEvent(currentTicketId, 'Costo modificado', `El precio de "${nuevasPiezas[idx].nombre}" se ajustó a ${fmt(val)}`);
@@ -500,17 +474,13 @@ export async function updatePiezaPrice(idx, newPrice) {
 export async function addPiezaToTicket(){
   const sku = document.getElementById('mt-repuesto-select').value;
   if(!sku) { toast('Selecciona un repuesto válido'); return; }
-  
   const prod = DATA.productos.find(p => p.sku === sku);
   if(!prod) return;
-
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   const nuevasPiezas = [...(t.piezas || [])];
-  
   const existing = nuevasPiezas.find(p => (p.sku && p.sku === prod.sku) || (!p.sku && p.nombre === prod.nombre));
   if(existing){ existing.cant++; existing.sku = existing.sku || prod.sku; } 
   else { nuevasPiezas.push({ sku: prod.sku, nombre: prod.nombre, cant: 1, costo: prod.precio }); }
-  
   try {
       await window.db.collection('tickets').doc(currentTicketId).update({ piezas: nuevasPiezas });
       document.getElementById('mt-repuesto-select').value = '';
@@ -533,19 +503,15 @@ export async function removePiezaFromTicket(idx){
 export async function enviarAFacturacion(){
   const t = DATA.tickets.find(x => x.id === currentTicketId);
   if(!t) return;
-  
   const total = (t.piezas || []).reduce((acc, p) => acc + (p.costo * p.cant), 0);
   if(total <= 0){ alert('ATENCIÓN: Debes agregar al menos un repuesto o servicio antes de enviarlo a Caja.'); return; }
-
   const yaExiste = (DATA.caja_pendientes || []).some(p => p.ref === t.id);
   if(yaExiste){ alert('Este ticket ya fue enviado a facturación previamente.'); return; }
-
   const cobroPendiente = {
     origen: 'Ticket', ref: t.id, clienteId: t.clienteId || null, cliente: t.cliente,
     concepto: t.piezas.map(p => `${p.cant}x ${p.nombre}`).join(', '),
     total: total, articulosCart: t.piezas.map(p => ({ sku: p.sku || null, nombre: p.nombre, cantidad: Number(p.cant) || 0, precio: Number(p.costo) || 0 }))
   };
-
   try {
       await window.db.collection('caja_pendientes').add(cobroPendiente);
       await logTicketEvent(currentTicketId, 'Enviado a Caja', `Monto a cobrar: ${fmt(total)}`);
@@ -557,6 +523,25 @@ export async function enviarAFacturacion(){
 // ==========================================
 // CREACIÓN Y ELIMINACIÓN DE TICKETS
 // ==========================================
+
+export function toggleTipoServicio() {
+    const tipo = document.getElementById('nt-tipo-servicio')?.value || 'Taller';
+    const blqTaller = document.getElementById('bloque-taller');
+    const blqDomicilio = document.getElementById('bloque-domicilio');
+    const blqRemoto = document.getElementById('bloque-remoto');
+    
+    if(blqTaller) blqTaller.style.display = 'none';
+    if(blqDomicilio) blqDomicilio.style.display = 'none';
+    if(blqRemoto) blqRemoto.style.display = 'none';
+    
+    if (tipo === 'Taller') {
+        if(blqTaller) blqTaller.style.display = 'block';
+    } else if (tipo === 'Domicilio') {
+        if(blqDomicilio) blqDomicilio.style.display = 'block';
+    } else if (tipo === 'Remoto') {
+        if(blqRemoto) blqRemoto.style.display = 'block';
+    } 
+}
 
 async function uploadTicketFotos(files, ticketId) {
     if (!window.firebase.storage) { return []; }
@@ -587,31 +572,38 @@ export async function createTicket(){
   const modelo = document.getElementById('nt-modelo') ? document.getElementById('nt-modelo').value.trim() : '';
   const serie = document.getElementById('nt-serie') ? document.getElementById('nt-serie').value.trim() : '';
   const pin = document.getElementById('nt-pin') ? document.getElementById('nt-pin').value.trim() : '';
-  const os = document.getElementById('nt-os') ? document.getElementById('nt-os').value.trim() : '';
   const specs = document.getElementById('nt-specs') ? document.getElementById('nt-specs').value.trim() : '';
   const condicion = document.getElementById('nt-condicion') ? document.getElementById('nt-condicion').value.trim() : '';
   const falla = document.getElementById('nt-falla') ? document.getElementById('nt-falla').value.trim() : '';
   
+  if(!falla) { toast('Completa al menos la falla o motivo de consulta'); return; }
+
   const estadoFisico = {
-      pantalla: document.getElementById('nt-chk-pantalla') ? document.getElementById('nt-chk-pantalla').checked : false,
-      carcasa: document.getElementById('nt-chk-carcasa') ? document.getElementById('nt-chk-carcasa').checked : false,
-      teclado: document.getElementById('nt-chk-teclado') ? document.getElementById('nt-chk-teclado').checked : false,
-      touchpad: document.getElementById('nt-chk-touchpad') ? document.getElementById('nt-chk-touchpad').checked : false,
-      bisagras: document.getElementById('nt-chk-bisagras') ? document.getElementById('nt-chk-bisagras').checked : false,
-      puertos: document.getElementById('nt-chk-puertos') ? document.getElementById('nt-chk-puertos').checked : false,
-      cargador: document.getElementById('nt-chk-est-cargador') ? document.getElementById('nt-chk-est-cargador').checked : false,
-      bateria: document.getElementById('nt-chk-bateria') ? document.getElementById('nt-chk-bateria').checked : false,
+      pantalla: document.getElementById('nt-chk-pantalla')?.checked || false,
+      carcasa: document.getElementById('nt-chk-carcasa')?.checked || false,
+      teclado: document.getElementById('nt-chk-teclado')?.checked || false,
+      cargador: document.getElementById('nt-chk-cargador')?.checked || false,
+      bateria: document.getElementById('nt-chk-bateria')?.checked || false,
   };
 
   const accesoriosObj = {
-      cargador: document.getElementById('nt-acc-cargador') ? document.getElementById('nt-acc-cargador').checked : false,
-      mouse: document.getElementById('nt-acc-mouse') ? document.getElementById('nt-acc-mouse').checked : false,
-      funda: document.getElementById('nt-acc-funda') ? document.getElementById('nt-acc-funda').checked : false,
-      cable: document.getElementById('nt-acc-cable') ? document.getElementById('nt-acc-cable').checked : false,
-      otro: (document.getElementById('nt-acc-otro') && document.getElementById('nt-acc-otro').checked) ? document.getElementById('nt-acc-otro-texto').value : ''
+      cargador: document.getElementById('nt-acc-cargador')?.checked || false,
+      funda: document.getElementById('nt-acc-funda')?.checked || false,
+      cable: document.getElementById('nt-acc-cable')?.checked || false,
   };
 
-  if(!marca || !falla){ toast('Completa la marca y la falla al menos'); return; }
+  const datosDomicilio = {
+      direccion: document.getElementById('nt-dom-dir')?.value || '',
+      fecha: document.getElementById('nt-dom-fecha')?.value || '',
+      hora: document.getElementById('nt-dom-hora')?.value || '',
+      contacto: document.getElementById('nt-dom-contacto')?.value || ''
+  };
+
+  const datosRemoto = {
+      plataforma: document.getElementById('nt-rem-plat')?.value || '',
+      idConexion: document.getElementById('nt-rem-id')?.value || '',
+      clave: document.getElementById('nt-rem-pass')?.value || ''
+  };
   
   const user = currentUserProfile ? currentUserProfile.nombre : 'Mostrador';
   const fechaIngreso = fDate(new Date().toISOString().split('T')[0]);
@@ -620,7 +612,7 @@ export async function createTicket(){
 
   try {
       isCreatingTicket = true;
-      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Generando...'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Creando ticket...'; }
 
       let nuevoNumero;
       const contadoresRef = window.db.collection('negocio').doc('contadores');
@@ -642,15 +634,16 @@ export async function createTicket(){
       const t = {
         id, clienteId: cliente ? cliente.id : null, cliente: clienteNombre,
         tipoServicio, estadoPago: 'Pendiente', estadoFacturacion: 'No facturado',
-        equipo, marca, modelo, serie, pin, os, specs,
+        equipo, marca, modelo, serie, pin, specs,
         estadoFisico, accesoriosObj, condicion, falla, fotos: urlsFotos,
+        datosDomicilio, datosRemoto,
         presupuestoFijado: false, presupuestoEstimado: 0,
-        prioridad: document.getElementById('nt-prioridad').value, stage:'pendiente',
-        tecnico: document.getElementById('nt-tecnico').value, ingreso: fechaIngreso,
+        prioridad: document.getElementById('nt-prioridad')?.value || 'P2', stage:'pendiente',
+        tecnico: document.getElementById('nt-tecnico')?.value || 'Sin asignar', ingreso: fechaIngreso,
         diagnostico:'Pendiente de revisión inicial.', piezas:[],
         historial:[{
             accion:'Ticket creado', 
-            detalle: 'Check-in inicial del equipo en ' + tipoServicio,
+            detalle: `Check-in inicial. Servicio: ${tipoServicio}`,
             fecha: fechaIngreso + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}), 
             autor: user
         }], notas:[]
@@ -658,24 +651,21 @@ export async function createTicket(){
 
       await window.db.collection('tickets').doc(id).set(t);
 
-      ['nt-marca','nt-modelo','nt-serie','nt-pin','nt-os','nt-specs','nt-condicion','nt-falla','nt-cliente-input','nt-cliente-id'].forEach(id => {
+      // Limpiamos los campos SOLO si fue exitoso
+      ['nt-marca','nt-modelo','nt-serie','nt-pin','nt-specs','nt-condicion','nt-falla','nt-cliente-input','nt-cliente-id', 'nt-dom-dir', 'nt-dom-fecha', 'nt-dom-hora', 'nt-dom-contacto', 'nt-rem-id', 'nt-rem-pass'].forEach(id => {
           if(document.getElementById(id)) document.getElementById(id).value = '';
       });
-      ['nt-chk-pantalla','nt-chk-carcasa','nt-chk-teclado','nt-chk-touchpad','nt-chk-bisagras','nt-chk-puertos','nt-chk-est-cargador','nt-chk-bateria','nt-acc-cargador','nt-acc-mouse','nt-acc-funda','nt-acc-cable','nt-acc-otro'].forEach(id => {
+      ['nt-chk-pantalla','nt-chk-carcasa','nt-chk-teclado','nt-chk-cargador','nt-chk-bateria','nt-acc-cargador','nt-acc-funda','nt-acc-cable'].forEach(id => {
           if(document.getElementById(id)) document.getElementById(id).checked = false;
       });
-      if(document.getElementById('nt-acc-otro-texto')) {
-          document.getElementById('nt-acc-otro-texto').value = '';
-          document.getElementById('nt-acc-otro-texto').disabled = true;
-      }
       if(document.getElementById('nt-fotos')) document.getElementById('nt-fotos').value = '';
       
       closeModal('modal-nuevo-ticket');
       toast('✓ Ticket #'+id+' creado exitosamente');
 
   } catch (error) {
-      console.error("Error en transacción:", error);
-      toast('❌ Error al crear el ticket.');
+      console.error("Error al crear ticket:", error);
+      toast('❌ Error al crear el ticket. Reintente.');
   } finally {
       isCreatingTicket = false;
       if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
