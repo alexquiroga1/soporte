@@ -1,248 +1,228 @@
 // js/modules/clientes.js
 import { DATA } from '../core/store.js';
-import { fmt, initials, toast, getFullName } from '../core/utils.js';
+import { getFullName, toast, fmt, fDate } from '../core/utils.js';
 import { openModal, closeModal } from './ui.js';
-import { stageInfo } from './tickets.js';
 
 let currentClientId = null;
 
-export function renderClientesTable(){
-  const searchEl = document.getElementById('cl-search');
-  const q = (searchEl ? searchEl.value : '').toLowerCase();
-  
-  const rows = DATA.clientes.filter(c => {
-    const full = getFullName(c) || '';
-    const tel = c.tel || '';
-    const dni = c.dni || '';
-    return !q || full.toLowerCase().includes(q) || tel.toLowerCase().includes(q) || dni.toLowerCase().includes(q);
-  });
-  
-  const tbody = document.getElementById('clientes-table-body');
-  if(!tbody) return;
+export function renderClientesTable() {
+    const q = document.getElementById('cl-search').value.toLowerCase();
+    const tbody = document.getElementById('clientes-table-body');
+    if (!tbody) return;
 
-  tbody.innerHTML = rows.map(c=>{
-    const nTickets = DATA.tickets ? DATA.tickets.filter(t=>t.clienteId===c.id).length : 0;
-    const totalCompras = (c.compras || []).reduce((s,p)=>s+p.monto,0);
-    const nombreSeguro = c.nombre || 'Sin Nombre';
-    const direccionSegura = c.direccion || '—';
-    const localidadSegura = c.localidad ? ` - ${c.localidad}` : '';
+    let match = DATA.clientes.filter(c => getFullName(c).toLowerCase().includes(q) || (c.tel || '').includes(q) || (c.dni || '').includes(q));
     
-    return `<tr class="tbl-row" onclick="openClientModal('${c.id}')">
-      <td><div class="cust"><div class="ci">${initials(nombreSeguro)}</div><div><b>${getFullName(c)}</b><span>${direccionSegura}${localidadSegura}</span></div></div></td>
-      <td class="mono">${c.tel || '—'}</td>
-      <td class="mono">${nTickets}</td>
-      <td class="mono">${fmt(totalCompras)}</td>
-      <td class="mono">${fmt(c.limiteCredito || 0)}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openClientModal('${c.id}')">Ver perfil</button></td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:26px;">Sin resultados o lista vacía.</td></tr>';
-  
-  const meta = document.getElementById('clientes-meta');
-  if(meta) meta.textContent = DATA.clientes.length + ' REGISTRADOS';
+    document.getElementById('clientes-meta').textContent = DATA.clientes.length + ' REGISTRADOS';
+
+    tbody.innerHTML = match.map(c => {
+        const tks = DATA.tickets.filter(t => t.clienteId === c.id || t.cliente === getFullName(c)).length;
+        const disp = c.limiteCredito !== undefined ? c.limiteCredito : 5000;
+        return `<tr>
+          <td><b>${getFullName(c)}</b><br><span style="font-size:11px;color:var(--muted);">${c.dni||'Sin DNI'}</span></td>
+          <td class="mono">${c.tel || '—'}</td>
+          <td class="mono">${tks}</td>
+          <td class="mono">—</td>
+          <td class="mono" style="color:var(--teal);">${fmt(disp)}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="openClientModal('${c.id}')">Ver Perfil CRM</button></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">No hay clientes registrados.</td></tr>';
 }
 
-export function switchClientTab(tabId, el){
-  const group = el.parentElement;
-  group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  const container = group.parentElement;
-  container.querySelectorAll('.client-subview').forEach(sv=>{
-    sv.style.display = sv.id === tabId ? 'block' : 'none';
-  });
-}
-
-export function openClientModal(id){
-  const c = DATA.clientes.find(x=>x.id===id);
-  if(!c) return;
-  currentClientId = id;
-  const fullName = getFullName(c);
-  
-  document.getElementById('mc-nombre').textContent = fullName;
-  document.getElementById('mc-email-header').textContent = (c.dni ? 'DNI: ' + c.dni : '') + ' | ' + (c.email || 'Sin correo');
-  document.getElementById('mc-tel').textContent = c.tel || '—';
-  
-  let dirCompleta = c.direccion || '—';
-  if(c.localidad) dirCompleta += `, ${c.localidad}`;
-  if(c.provincia) dirCompleta += ` (${c.provincia})`;
-  document.getElementById('mc-direccion').textContent = dirCompleta;
-  
-  const limInput = document.getElementById('mc-limite-input');
-  if(limInput) limInput.value = c.limiteCredito || 0;
-
-  const misTickets = DATA.tickets ? DATA.tickets.filter(t => t.clienteId === id || t.cliente === fullName) : [];
-  const elNtickets = document.getElementById('mc-ntickets');
-  if(elNtickets) elNtickets.textContent = misTickets.length;
-  
-  const tkAbiertos = misTickets.filter(t => t.stage !== 'entregado');
-  const tkCerrados = misTickets.filter(t => t.stage === 'entregado');
-  
-  const renderTk = (arr) => arr.length ? arr.map(t=>{
-    const st = stageInfo(t.stage);
-    return `<div class="note-item" style="cursor:pointer; display:flex; justify-content:space-between;" onclick="closeModal('modal-cliente'); if(window.openTicketModal) window.openTicketModal('${t.id}')">
-      <span><b>#${t.id}</b> — ${t.equipo}</span> <span class="badge ${st ? st.badge : 'pend'}">${st ? st.label : 'Pendiente'}</span>
-    </div>`;
-  }).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin tickets en esta categoría.</div>';
-  
-  const elTkAbiertos = document.getElementById('mc-tickets-abiertos');
-  if(elTkAbiertos) elTkAbiertos.innerHTML = renderTk(tkAbiertos);
-  const elTkCerrados = document.getElementById('mc-tickets-finalizados');
-  if(elTkCerrados) elTkCerrados.innerHTML = renderTk(tkCerrados);
-
-  const misVentas = DATA.ventas ? DATA.ventas.filter(v => v.cliente === fullName) : [];
-  const elVentas = document.getElementById('mc-ventas-list');
-  if(elVentas) {
-      elVentas.innerHTML = misVentas.length ? misVentas.map(v=>`
-        <tr><td class="mono">${v.folio}</td><td class="mono">${v.hora}</td><td>${v.articulos}</td><td class="mono">${fmt(v.total)}</td></tr>
-      `).join('') : '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:16px;">Sin compras registradas.</td></tr>';
-  }
-
-  const misCreditos = DATA.creditos ? DATA.creditos.filter(cr => cr.cliente === fullName) : [];
-  const crActivos = misCreditos.filter(cr => cr.saldo > 0);
-  const crPagados = misCreditos.filter(cr => cr.saldo <= 0);
-
-  const renderCr = (arr) => arr.length ? arr.map(cr=>`
-    <div class="note-item" style="border-left:3px solid ${cr.saldo>0?'var(--red)':'var(--teal)'}; border-radius:4px 9px 9px 4px;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-        <b>${cr.concepto}</b> <span class="mono">Carpeta: ${cr.id || ''}</span>
-      </div>
-      <div style="font-size:11.5px; color:var(--muted);">
-        Deuda Histórica: ${fmt(cr.original)} | Saldo actual: <b style="color:${cr.saldo>0?'var(--red)':'var(--teal)'};">${fmt(cr.saldo)}</b>
-      </div>
-    </div>
-  `).join('') : '<div style="color:var(--muted);font-size:12.5px;">Sin carpetas de crédito.</div>';
-
-  const elCrActivos = document.getElementById('mc-prestamos-activos');
-  if(elCrActivos) elCrActivos.innerHTML = renderCr(crActivos);
-  const elCrFin = document.getElementById('mc-prestamos-finalizados');
-  if(elCrFin) elCrFin.innerHTML = renderCr(crPagados);
-
-  const primerTab = document.querySelector('#modal-cliente .tabs .tab');
-  if(primerTab) switchClientTab('mc-tab-prestamos', primerTab);
-
-  openModal('modal-cliente');
-}
-
-// NUEVO: Guardado Atómico en Firestore
-export async function saveClientLimit(){
-  if(!currentClientId) return;
-  const newLimit = parseFloat(document.getElementById('mc-limite-input').value) || 0;
-  
-  try {
-    await window.db.collection('clientes').doc(currentClientId).update({
-      limiteCredito: newLimit
-    });
-    toast('Límite de crédito actualizado a ' + fmt(newLimit));
-  } catch (error) {
-    console.error("Error al actualizar límite:", error);
-    toast('Error de conexión al guardar el límite.');
-  }
-}
-
-// NUEVO: Creación Atómica en Firestore con ID oficial
-export async function createCliente(){
-  const elNombre = document.getElementById('ncl-nombre');
-  if(!elNombre || !elNombre.value.trim()){ toast('El nombre es obligatorio'); return; }
-  
-  const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
-  const nombre = elNombre.value.trim();
-  
-  // Generamos un ID real en la colección de Firebase
-  const docRef = window.db.collection('clientes').doc();
-  
-  const nuevoCliente = {
-    id: docRef.id, 
-    nombre, apellido: getVal('ncl-apellido'), dni: getVal('ncl-dni'),
-    tipo: 'Regular', contacto: nombre,
-    direccion: getVal('ncl-direccion') || '—', provincia: getVal('ncl-provincia'),
-    localidad: getVal('ncl-localidad'), barrio: getVal('ncl-barrio'),
-    tel: getVal('ncl-tel') || '—', email: getVal('ncl-email') || '—',
-    equipos:[], compras:[], notas:[],
-    limiteCredito: parseFloat(getVal('ncl-limite')) || 0
-  };
-  
-  try {
-    await docRef.set(nuevoCliente);
+export function openClientModal(id) {
+    const c = DATA.clientes.find(x => x.id === id);
+    if (!c) return;
+    currentClientId = id;
     
-    ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email','ncl-limite'].forEach(i=>{
-        if(document.getElementById(i)) document.getElementById(i).value='';
-    });
-    
-    closeModal('modal-nuevo-cliente');
-    
-    if(window.populateClienteSelectPOS) window.populateClienteSelectPOS();
-    if(document.getElementById('modal-nuevo-ticket') && document.getElementById('modal-nuevo-ticket').classList.contains('active')){
-      if(window.selectClientForTicket) window.selectClientForTicket(nuevoCliente.id, getFullName(nuevoCliente));
-    }
-    toast('Cliente guardado con éxito');
-  } catch (error) {
-    console.error("Error al crear cliente:", error);
-    toast('No se pudo guardar el cliente.');
-  }
-}
+    // 1. Datos básicos
+    document.getElementById('mc-nombre').textContent = getFullName(c);
+    document.getElementById('mc-id-header').textContent = 'ID: ' + c.id;
+    document.getElementById('mc-tel').textContent = c.tel || '—';
+    document.getElementById('mc-email').textContent = c.email || '—';
+    const dirFull = [c.direccion, c.barrio, c.localidad, c.provincia].filter(Boolean).join(', ');
+    document.getElementById('mc-direccion').textContent = dirFull || '—';
+    document.getElementById('mc-limite-input').value = c.limiteCredito !== undefined ? c.limiteCredito : 5000;
 
-export function populateClienteSelectPOS(){
-  const sel = document.getElementById('pos-cliente');
-  if(sel) {
-      sel.innerHTML = '<option value="Mostrador">Cliente: Mostrador</option>' + DATA.clientes.map(c=>`<option>Cliente: ${getFullName(c)}</option>`).join('');
-  }
-}
+    // 2. Extraer historiales
+    const cliName = getFullName(c);
+    const tickets = DATA.tickets.filter(t => t.clienteId === id || t.cliente === cliName);
+    const ventas = DATA.ventas.filter(v => v.clienteId === id || v.cliente === cliName);
+    const creditos = DATA.creditos.filter(cr => cr.clienteId === id || cr.cliente === cliName);
 
-// ====== NUEVAS FUNCIONES DE PRÉSTAMOS DESDE EL PERFIL ======
-
-export function nuevoCreditoDesdePerfil() {
-    const elNombre = document.getElementById('mc-nombre').textContent;
-    closeModal('modal-cliente');
-    if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
+    // 3. Cálculos de KPIs
+    const ltv = ventas.reduce((acc, v) => acc + (v.total || 0), 0); 
+    const deuda = creditos.reduce((acc, cr) => acc + (cr.saldo || 0), 0);
     
-    setTimeout(() => {
-        const sel = document.getElementById('ncr-cliente');
-        if(sel) {
-            for(let i=0; i<sel.options.length; i++) {
-                if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
+    let ultima = '—';
+    const fechas = [...tickets.map(t => t.ingreso), ...ventas.map(v => v.fecha)].filter(Boolean).sort().reverse();
+    if (fechas.length > 0) ultima = fechas[0];
+
+    document.getElementById('mc-kpi-tickets').textContent = tickets.length;
+    document.getElementById('mc-kpi-ltv').textContent = fmt(ltv);
+    document.getElementById('mc-kpi-deuda').textContent = fmt(deuda);
+    document.getElementById('mc-kpi-ultima').textContent = fDate(ultima);
+
+    // 4. Extracción de Equipos Únicos
+    const equiposUnicos = [];
+    tickets.forEach(t => {
+        if(t.equipo) {
+            const hash = `${t.equipo}-${t.marca}-${t.modelo}-${t.serie}`;
+            if(!equiposUnicos.some(eq => eq.hash === hash)) {
+                equiposUnicos.push({ hash, eq: t.equipo, marca: t.marca||'', mod: t.modelo||'', serie: t.serie||'S/N no reg.' });
             }
         }
-    }, 100);
+    });
+
+    const eqContainer = document.getElementById('mc-equipos-list');
+    let eqHtml = equiposUnicos.map(e => `
+        <div style="min-width:200px; border:1px solid var(--line); border-radius:12px; padding:16px; background:#fff; transition:0.2s;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="font-size:24px;">${e.eq.toLowerCase().includes('phone') || e.eq.toLowerCase().includes('cel') ? '📱' : '💻'}</span>
+            </div>
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px; line-height:1.2;">${e.eq} ${e.marca} ${e.mod}</div>
+            <div class="mono" style="font-size:10px; color:var(--muted); margin-bottom:12px;">S/N: ${e.serie}</div>
+            <button class="btn btn-ghost btn-sm" style="width:100%; justify-content:center; font-size:11px; padding:6px;" onclick="openTicketWithDevice('${c.id}', '${e.eq}', '${e.marca}', '${e.mod}', '${e.serie}')">+ Ingresar Ticket</button>
+        </div>
+    `).join('');
+    
+    // Botón Agregar genérico
+    eqHtml += `
+        <div style="min-width:180px; border:2px dashed var(--line); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; background:transparent; padding:20px; transition:0.2s;" onclick="openTicketWithDevice('${c.id}', '', '', '', '')">
+           <div style="font-size:24px; color:var(--muted); margin-bottom:8px; line-height:1;">+</div>
+           <div style="font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase;">Ingresar Equipo Nuevo</div>
+        </div>`;
+    eqContainer.innerHTML = eqHtml;
+
+    // 5. Historial de Tickets (Tabla)
+    document.getElementById('mc-tickets-lista').innerHTML = tickets.length > 0 
+        ? tickets.sort((a,b)=>a.id<b.id?1:-1).map(t => {
+            const cl = t.stage === 'entregado' ? 'teal' : 'amber';
+            return `<tr><td class="mono">${t.ingreso}</td><td class="mono">#${t.id}</td><td>${t.equipo} ${t.marca||''} <br><span style="font-size:10px; color:var(--muted);">${t.falla}</span></td><td><span class="badge" style="background:var(--${cl}-dim); color:var(--${cl});">${t.stage}</span></td><td class="mono" style="font-weight:bold;">${fmt(t.presupuestoEstimado||0)}</td></tr>`;
+          }).join('')
+        : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">No hay tickets registrados.</td></tr>';
+
+    // 6. Historial de Ventas
+    document.getElementById('mc-ventas-list').innerHTML = ventas.length > 0 
+        ? ventas.sort((a,b)=>a.folio<b.folio?1:-1).map(v => `<tr><td class="mono">#${v.folio}</td><td class="mono">${v.fecha} ${v.hora||''}</td><td>${v.items.length} articulos</td><td class="mono" style="color:var(--teal); font-weight:bold;">${fmt(v.total)}</td></tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--muted);">Sin historial de compras.</td></tr>';
+
+    // 7. Carpetas de Crédito
+    const activas = creditos.filter(x => x.saldo > 0);
+    const finalizadas = creditos.filter(x => x.saldo <= 0);
+
+    const renderCred = (arr) => arr.map(c => `<div style="background:var(--bg); padding:10px; border-radius:6px; margin-bottom:6px; font-size:13px; display:flex; justify-content:space-between;"><div><b>Carpeta #${c.id}</b> - ${c.concepto}</div><div class="mono" style="font-weight:bold; color:var(--copper);">${fmt(c.saldo)}</div></div>`).join('');
+    
+    document.getElementById('mc-prestamos-activos').innerHTML = activas.length ? renderCred(activas) : '<div style="color:var(--muted); font-size:12px;">Sin carpetas activas.</div>';
+    document.getElementById('mc-prestamos-finalizados').innerHTML = finalizadas.length ? renderCred(finalizadas) : '<div style="color:var(--muted); font-size:12px;">Sin historial.</div>';
+
+    openModal('modal-cliente');
 }
 
-// NUEVO: Refinanciación con Transacción Atómica de Lotes (Batch)
-export async function refinanciarDeudaPerfil() {
-    const elNombre = document.getElementById('mc-nombre').textContent;
-    const activos = DATA.creditos.filter(cr => cr.cliente === elNombre && cr.saldo > 0);
+export function openTicketWithDevice(cliId, eq, marca, mod, serie) {
+    closeModal('modal-cliente');
+    openModal('modal-nuevo-ticket');
     
-    if(activos.length === 0) { toast('El cliente no tiene deuda activa para refinanciar'); return; }
-    
-    let deudaTotal = activos.reduce((s, c) => s + c.saldo, 0);
+    const c = DATA.clientes.find(x => x.id === cliId);
+    if(c) {
+        document.getElementById('nt-cliente-id').value = cliId;
+        document.getElementById('nt-cliente-input').value = getFullName(c);
+        
+        const selEq = document.getElementById('nt-tipo-equipo');
+        if(selEq) {
+            let found = Array.from(selEq.options).some(opt => opt.value === eq);
+            selEq.value = found ? eq : 'Otro';
+        }
+        
+        if(document.getElementById('nt-marca')) document.getElementById('nt-marca').value = marca || '';
+        if(document.getElementById('nt-modelo')) document.getElementById('nt-modelo').value = mod || '';
+        if(document.getElementById('nt-serie')) document.getElementById('nt-serie').value = serie !== 'S/N no reg.' ? serie : '';
+        
+        setTimeout(() => { 
+            const fallaInput = document.getElementById('nt-falla');
+            if(fallaInput) fallaInput.focus(); 
+        }, 300);
+    }
+}
+
+export function switchClientTab(tabId, element) {
+    const group = element.parentElement;
+    group.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    element.classList.add('active');
+
+    const container = document.getElementById('modal-cliente').querySelector('.modal-body');
+    container.querySelectorAll('.client-subview').forEach(sv => sv.style.display = 'none');
+    document.getElementById(tabId).style.display = 'block';
+}
+
+export async function saveClientLimit() {
+    if (!currentClientId) return;
+    const val = parseFloat(document.getElementById('mc-limite-input').value);
+    if (isNaN(val) || val < 0) return toast('Monto inválido');
     
     try {
-        const batch = window.db.batch();
-        activos.forEach(c => {
-            const crRef = window.db.collection('creditos').doc(c.id);
-            batch.update(crRef, {
-                saldo: 0,
-                concepto: c.concepto + ' (Refinanciado)'
-            });
-        });
-        
-        await batch.commit();
+        await window.db.collection('clientes').doc(currentClientId).update({ limiteCredito: val });
+        const c = DATA.clientes.find(x => x.id === currentClientId);
+        if(c) c.limiteCredito = val;
+        toast('Límite de crédito actualizado');
+        renderClientesTable();
+    } catch(e) { toast('Error guardando límite'); }
+}
 
-        closeModal('modal-cliente');
-        if(window.openNuevoCreditoModal) window.openNuevoCreditoModal();
+export async function createCliente() {
+    const nombre = document.getElementById('ncl-nombre').value.trim();
+    const dni = document.getElementById('ncl-dni').value.trim();
+    if (!nombre) return toast('El nombre es obligatorio');
+    
+    const limiteStr = document.getElementById('ncl-limite').value;
+    const limiteCredito = parseFloat(limiteStr) || 5000;
+
+    const cliente = {
+        nombre,
+        apellido: document.getElementById('ncl-apellido').value.trim(),
+        dni,
+        direccion: document.getElementById('ncl-direccion').value.trim(),
+        provincia: document.getElementById('ncl-provincia').value.trim(),
+        localidad: document.getElementById('ncl-localidad').value.trim(),
+        barrio: document.getElementById('ncl-barrio').value.trim(),
+        tel: document.getElementById('ncl-tel').value.trim(),
+        email: document.getElementById('ncl-email').value.trim(),
+        limiteCredito,
+        fechaRegistro: new Date().toISOString()
+    };
+
+    try {
+        const docRef = await window.db.collection('clientes').add(cliente);
+        cliente.id = docRef.id;
+        DATA.clientes.push(cliente);
         
-        setTimeout(() => {
-            const sel = document.getElementById('ncr-cliente');
-            if(sel) {
-                for(let i=0; i<sel.options.length; i++) {
-                    if(sel.options[i].text.includes(elNombre)) { sel.selectedIndex = i; break; }
-                }
-            }
-            const elConcepto = document.getElementById('ncr-concepto');
-            const elMonto = document.getElementById('ncr-monto');
-            if(elConcepto) elConcepto.value = 'Refinanciación de Deuda Anterior';
-            if(elMonto) elMonto.value = deudaTotal.toFixed(2);
-            toast('Deuda unificada. Genere el nuevo préstamo.');
-        }, 100);
-    } catch (error) {
-        console.error("Error al refinanciar:", error);
-        toast('Ocurrió un error al procesar la refinanciación.');
-    }
+        ['ncl-nombre','ncl-apellido','ncl-dni','ncl-direccion','ncl-provincia','ncl-localidad','ncl-barrio','ncl-tel','ncl-email'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('ncl-limite').value = '5000';
+        
+        closeModal('modal-nuevo-cliente');
+        toast('Cliente guardado');
+        renderClientesTable();
+        populateClienteSelectPOS();
+        
+        const b = document.getElementById('nt-cliente-input');
+        if (b && b.offsetParent !== null) { 
+            document.getElementById('nt-cliente-id').value = cliente.id;
+            b.value = getFullName(cliente);
+            if(document.getElementById('nt-client-suggestions')) document.getElementById('nt-client-suggestions').style.display='none';
+        }
+    } catch (e) { toast('Error guardando cliente'); }
+}
+
+export function populateClienteSelectPOS() {
+    const s = document.getElementById('pos-cliente');
+    if (!s) return;
+    s.innerHTML = '<option value="Mostrador">Cliente: Mostrador</option>' + DATA.clientes.map(c => `<option value="${c.id}">Cliente: ${getFullName(c)}</option>`).join('');
+}
+
+export function nuevoCreditoDesdePerfil() {
+    if(!currentClientId) return;
+    closeModal('modal-cliente');
+    if(window.openNuevoCreditoModal) window.openNuevoCreditoModal(currentClientId);
+}
+
+export function refinanciarDeudaPerfil() {
+    toast("Módulo de Refinanciación en construcción.");
 }

@@ -14,20 +14,41 @@ import {
   fijarPresupuesto, desbloquearPresupuesto, updatePiezaPrice, sendWhatsAppNotice, 
   saveDiagnostico, addPiezaToTicket, removePiezaFromTicket, enviarAFacturacion, 
   addTicketNota, changeTicketStage, createTicket, saveGarantiaDias,
-  compartirLinkPresupuesto, responderPresupuesto, initPublicPresupuesto // <-- NUEVAS
+  compartirLinkPresupuesto, responderPresupuesto, initPublicPresupuesto
 } from './modules/tickets.js';
-import { renderClientesTable, switchClientTab, openClientModal, saveClientLimit, createCliente, populateClienteSelectPOS, nuevoCreditoDesdePerfil, refinanciarDeudaPerfil } from './modules/clientes.js';
-import { renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, togglePromocion, createPromocion } from './modules/productos.js';
-import { renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial } from './modules/pos.js';
+
+import { 
+  renderClientesTable, switchClientTab, openClientModal, saveClientLimit, 
+  createCliente, populateClienteSelectPOS, nuevoCreditoDesdePerfil, 
+  refinanciarDeudaPerfil, openTicketWithDevice 
+} from './modules/clientes.js';
+
+import { 
+  renderProductosTabs, setProductoFiltro, renderProductosTable, createProducto, 
+  editProducto, saveEditProducto, eliminarProducto, renderPromocionesTable, 
+  togglePromocion, createPromocion 
+} from './modules/productos.js';
+
+import { 
+  renderPayMethods, setPayMethod, populatePOSPromos, renderPOSProducts, 
+  addToCart, changeQty, removeFromCart, renderCart, checkout, renderVentasHistorial 
+} from './modules/pos.js';
+
 import { renderCRMKanban, createOportunidad } from './modules/crm.js';
 import { renderConfig, saveConfigNegocio, createUsuario, toggleUsuario, createRol } from './modules/config.js';
 import { renderDashboard, renderReportes } from './modules/dashboard.js';
 
 // 3. IMPORTACIONES DE CAJA Y CRÉDITOS
-import { renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual } from './modules/caja.js';
+import { 
+  renderCajaPendientes, abrirModalCobro, setCobroMetodo, calcularCambio, 
+  procesarCobroFinal, renderCajaView, addMovimiento, abrirModalCierre, 
+  cerrarCorte, renderCreditosTable, openCreditModal, registerPayment, 
+  openNuevoCreditoModal, populateClienteSelectCredito, createCreditoManual, 
+  generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual 
+} from './modules/caja.js';
 
-// 4. IMPORTACIONES DE FACTURACIÓN (Si ya está el módulo)
-import { renderFacturasTable, openFacturaModal, anularFactura, imprimirFactura } from './modules/facturacion.js';
+// 4. IMPORTACIONES DE FACTURACIÓN (Para el futuro módulo fiscal)
+// import { renderFacturasTable, openFacturaModal, anularFactura, imprimirFactura } from './modules/facturacion.js';
 
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
@@ -52,23 +73,25 @@ window.saveGarantiaDias = saveGarantiaDias;
 window.compartirLinkPresupuesto = compartirLinkPresupuesto; 
 window.responderPresupuesto = responderPresupuesto; 
 
-// Clientes
+// Clientes y CRM
 window.renderClientesTable = renderClientesTable; window.switchClientTab = switchClientTab;
 window.openClientModal = openClientModal; window.saveClientLimit = saveClientLimit;
 window.createCliente = createCliente; window.populateClienteSelectPOS = populateClienteSelectPOS;
+window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
+window.openTicketWithDevice = openTicketWithDevice; // <-- NUEVO ATAJO DE EQUIPOS
 
 // Productos y Promociones
 window.setProductoFiltro = setProductoFiltro; window.createProducto = createProducto;
 window.editProducto = editProducto; window.saveEditProducto = saveEditProducto;
 window.eliminarProducto = eliminarProducto; window.togglePromocion = togglePromocion;
 window.createPromocion = createPromocion; window.renderProductosTable = renderProductosTable;
-window.renderPOSProducts = renderPOSProducts; window.populatePOSPromos = populatePOSPromos;
-window.renderCart = renderCart;
 
 // POS / Ventas
-window.setPayMethod = setPayMethod; window.addToCart = addToCart;
-window.changeQty = changeQty; window.removeFromCart = removeFromCart;
-window.checkout = checkout; window.renderVentasHistorial = renderVentasHistorial;
+window.renderPOSProducts = renderPOSProducts; window.populatePOSPromos = populatePOSPromos;
+window.renderCart = renderCart; window.setPayMethod = setPayMethod; 
+window.addToCart = addToCart; window.changeQty = changeQty; 
+window.removeFromCart = removeFromCart; window.checkout = checkout; 
+window.renderVentasHistorial = renderVentasHistorial;
 
 // Caja y Créditos 
 window.abrirModalCobro = abrirModalCobro; window.setCobroMetodo = setCobroMetodo;
@@ -80,12 +103,7 @@ window.registerPayment = registerPayment; window.openNuevoCreditoModal = openNue
 window.populateClienteSelectCredito = populateClienteSelectCredito; 
 window.createCreditoManual = createCreditoManual; 
 window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago = seleccionarPlanDePago;
-window.nuevoCreditoDesdePerfil = nuevoCreditoDesdePerfil; window.refinanciarDeudaPerfil = refinanciarDeudaPerfil;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
-
-// Facturación
-window.renderFacturasTable = renderFacturasTable; window.openFacturaModal = openFacturaModal;
-window.anularFactura = anularFactura; window.imprimirFactura = imprimirFactura;
 
 // Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {
@@ -124,7 +142,7 @@ window.renderAll = function() {
     renderCreditosTable();
     renderCRMKanban();
     renderReportes();
-    if(typeof renderFacturasTable === 'function') renderFacturasTable();
+    // if(typeof renderFacturasTable === 'function') renderFacturasTable(); // Futuro
     renderConfig();
 }
 
@@ -141,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // NUEVO: Intercepción del Link de Presupuesto Público
+    // Intercepción del Link de Presupuesto Público
     const urlParams = new URLSearchParams(window.location.search);
     const presupuestoId = urlParams.get('p');
     
