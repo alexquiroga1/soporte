@@ -42,14 +42,17 @@ import {
   generarPlanesDePago, seleccionarPlanDePago, renderCuotasCreditoActual 
 } from './modules/caja.js';
 
-import { renderFacturasTable, openFacturaDetalle, emitirComprobanteInterno, showNuevaFactura, hideNuevaFactura, emitirFacturaManual } from './modules/facturacion.js';
+// AQUÍ ESTÁ EL FIX: Importamos anularFacturaActual
+import { 
+  renderFacturasTable, openFacturaDetalle, emitirComprobanteInterno, 
+  showNuevaFactura, hideNuevaFactura, emitirFacturaManual, anularFacturaActual 
+} from './modules/facturacion.js';
 
 // EXPOSICIÓN GLOBAL
 window.openModal = openModal; window.closeModal = closeModal; window.goView = goView;
 window.doLogin = () => doLogin(window.auth); window.doLogout = () => doLogout(window.auth, closeDropdowns);
 window.closeDropdowns = closeDropdowns;
 
-// Nuevo Ticket a Pantalla Completa
 window.showNuevoTicketView = () => {
     limpiarFormularioTicket();
     goView('nuevo-ticket');
@@ -95,12 +98,14 @@ window.createCreditoManual = createCreditoManual;
 window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago = seleccionarPlanDePago;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
 
+// AQUÍ ESTÁ EL FIX: Conectamos la función al HTML
 window.renderFacturasTable = renderFacturasTable;
 window.openFacturaDetalle = openFacturaDetalle;
 window.emitirComprobanteInterno = emitirComprobanteInterno;
 window.showNuevaFactura = showNuevaFactura;
 window.hideNuevaFactura = hideNuevaFactura;
 window.emitirFacturaManual = emitirFacturaManual;
+window.anularFacturaActual = anularFacturaActual;
 
 window.switchCreditoTab = function(tabId, el) {
   const group = el.parentElement;
