@@ -124,3 +124,78 @@ export function renderReportes(){
       <tr><td><b>${m.cliente}</b><br><span style="font-size:11px; color:var(--muted);">Carpeta: ${m.id}</span></td><td class="mono">${m.tel}</td><td class="mono" style="color:var(--red); font-weight:bold;">${m.mora} Días</td><td class="mono" style="font-weight:bold;">${fmt(m.saldo)}</td></tr>
   `).join('') || '<tr><td colspan="4" style="text-align:center; color:var(--muted);">No hay clientes en estado de mora.</td></tr>';
 }
+// ==============================================================
+// MOTOR DE NOTIFICACIONES INTELIGENTES
+// ==============================================================
+export function renderNotificaciones() {
+    // Usamos window.DATA como respaldo por si la importación no está arriba
+    const bd = typeof DATA !== 'undefined' ? DATA : (window.DATA || { tickets: [], productos: [], creditos: [], caja: {} });
+    const notifs = [];
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split('T')[0];
+
+    // 1. Retiros Pendientes (Tickets listos hace +3 días)
+    const listos = (bd.tickets || []).filter(t => t.stage === 'listo' && t.fechaListo);
+    listos.forEach(t => {
+        const diff = Math.ceil(Math.abs(hoy - new Date(t.fechaListo)) / (1000*60*60*24));
+        if (diff >= 3) {
+            notifs.push({ icon: '📦', title: 'Retiro Pendiente', text: `Ticket #${t.id} de ${t.cliente} lleva ${diff} días listo.`, action: `openTicketModal('${t.id}')`, btn: 'Ver Ticket', time: `${diff}d` });
+        }
+    });
+
+    // 2. Alertas de Stock Crítico
+    const stockBajo = (bd.productos || []).filter(p => p.stock !== '' && p.stock !== null && parseInt(p.stock) <= 5);
+    stockBajo.forEach(p => {
+        notifs.push({ icon: '⚠️', title: 'Stock Crítico', text: `Quedan solo ${p.stock} unid. de ${p.nombre}.`, action: `goView('productos')`, btn: 'Ver Catálogo', time: 'Sis' });
+    });
+
+    // 3. Créditos en Mora (Cuotas Vencidas)
+    const creditos = (bd.creditos || []).filter(c => c.saldo > 0);
+    creditos.forEach(c => {
+         if (c.cuotas) {
+             const overdue = c.cuotas.some(q => q.estado === 'Pendiente' && q.vence < hoyStr);
+             if (overdue) {
+                 notifs.push({ icon: '🔴', title: 'Crédito Vencido', text: `Cliente ${c.cliente} tiene pagos atrasados.`, action: `openClientModal('${c.clienteId}')`, btn: 'Ver Cliente', time: 'Mora' });
+             }
+         }
+    });
+
+    // 4. Caja Abierta tarde (Después de las 19:00hs)
+    const hora = hoy.getHours();
+    if (hora >= 19 && bd.caja && bd.caja.estado === 'abierta') {
+        notifs.push({ icon: '💰', title: 'Cierre de Caja', text: `Es tarde y el corte de caja sigue abierto.`, action: `goView('caja')`, btn: 'Ir a Caja', time: 'Sis' });
+    }
+
+    // Dibujar en el HTML
+    const ddBody = document.getElementById('notif-list-body');
+    const dot = document.getElementById('notif-dot-alert');
+    
+    if (!ddBody) return;
+
+    if (notifs.length === 0) {
+        if (dot) dot.style.display = 'none';
+        ddBody.innerHTML = `<div style="padding:30px 20px; text-align:center;"><div style="font-size:24px; margin-bottom:10px;">☕</div><p style="color:var(--muted); font-size:13px; font-weight:500;">Todo al día. No hay notificaciones pendientes.</p></div>`;
+        return;
+    }
+
+    if (dot) dot.style.display = 'block'; 
+    
+    ddBody.innerHTML = notifs.map(n => `
+        <div style="padding:16px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:flex-start; transition:0.2s;">
+            <div style="font-size:20px; margin-top:2px;">${n.icon}</div>
+            <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <h4 style="font-size:13px; font-weight:700; color:var(--ink); margin:0;">${n.title}</h4>
+                    <span style="font-size:10px; color:var(--copper); font-weight:700;">${n.time}</span>
+                </div>
+                <p style="font-size:12px; color:var(--muted); line-height:1.4; margin-bottom:10px; margin-top:0;">${n.text}</p>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px; padding:6px 12px; background:var(--bg);" onclick="${n.action}">${n.btn}</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+export function limpiarNotificaciones() {
+    const dot = document.getElementById('notif-dot-alert');
+    if (dot) dot.style.display = 'none';
+}
