@@ -48,8 +48,7 @@ import {
 } from './modules/caja.js';
 
 // 4. IMPORTACIONES DE FACTURACIÓN (Para el futuro módulo fiscal)
-// import { renderFacturasTable, openFacturaModal, anularFactura, imprimirFactura } from './modules/facturacion.js';
-
+import { renderFacturasTable, openFacturaDetalle, anularFacturaActual, emitirComprobanteInterno } from './modules/facturacion.js';
 // =========================================================
 // EXPOSICIÓN GLOBAL (Para que el HTML pueda ejecutar funciones)
 // =========================================================
@@ -104,6 +103,35 @@ window.populateClienteSelectCredito = populateClienteSelectCredito;
 window.createCreditoManual = createCreditoManual; 
 window.generarPlanesDePago = generarPlanesDePago; window.seleccionarPlanDePago = seleccionarPlanDePago;
 window.renderCuotasCreditoActual = renderCuotasCreditoActual;
+
+// Facturacion
+window.renderFacturasTable = renderFacturasTable;
+window.openFacturaDetalle = openFacturaDetalle;
+window.anularFacturaActual = anularFacturaActual;
+window.emitirComprobanteInterno = emitirComprobanteInterno;
+window.renderAll = function() {
+    console.log("Pintando la aplicación completa desde los módulos...");
+    renderDashboard();
+    renderTicketsTable(); 
+    renderTicketsKanban();
+    renderClientesTable(); 
+    populateClienteSelectPOS();
+    renderProductosTabs(); 
+    renderProductosTable(); 
+    renderPromocionesTable();
+    renderPayMethods();
+    populatePOSPromos();
+    renderPOSProducts();
+    renderCart();
+    renderVentasHistorial();
+    renderCajaView();
+    renderCreditosTable();
+    renderCRMKanban();
+    renderReportes();
+    renderNotificaciones(); 
+    renderFacturasTable(); // <--- NUEVA LÍNEA AÑADIDA
+    renderConfig();
+}
 
 // Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {
