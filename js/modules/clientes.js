@@ -100,9 +100,12 @@ export function openClientModal(id) {
           }).join('')
         : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">No hay tickets registrados.</td></tr>';
 
-    // 6. Historial de Ventas
+    // 6. Historial de Ventas (CON LA CORRECCIÓN DEL LENGTH)
     document.getElementById('mc-ventas-list').innerHTML = ventas.length > 0 
-        ? ventas.sort((a,b)=>a.folio<b.folio?1:-1).map(v => `<tr><td class="mono">#${v.folio}</td><td class="mono">${v.fecha} ${v.hora||''}</td><td>${v.items.length} articulos</td><td class="mono" style="color:var(--teal); font-weight:bold;">${fmt(v.total)}</td></tr>`).join('')
+        ? ventas.sort((a,b)=>a.folio<b.folio?1:-1).map(v => {
+            const numItems = (v.items || v.articulosCart || v.articulos || []).length;
+            return `<tr><td class="mono">#${v.folio}</td><td class="mono">${v.fecha} ${v.hora||''}</td><td>${numItems} articulos</td><td class="mono" style="color:var(--teal); font-weight:bold;">${fmt(v.total)}</td></tr>`;
+          }).join('')
         : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--muted);">Sin historial de compras.</td></tr>';
 
     // 7. Carpetas de Crédito
