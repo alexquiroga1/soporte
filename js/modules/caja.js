@@ -218,6 +218,21 @@ export async function procesarCobroFinal(){
       const pendRef = window.db.collection('caja_pendientes').doc(currentCobroId);
       batch.delete(pendRef);
 
+      // ===============================================
+      // NUEVO: AGREGAMOS EL LOG AL HISTORIAL DEL TICKET
+      // ===============================================
+      if (item.origen === 'Ticket') {
+          const tRef = window.db.collection('tickets').doc(item.ref);
+          const fechaStr = new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+          const user = currentUserProfile ? currentUserProfile.nombre : 'Caja';
+          const logEntry = { accion: 'Cobro registrado', detalle: `Medio: ${selectedCobroMetodo} - Importe: $${item.total}`, fecha: fechaStr, autor: user };
+          batch.update(tRef, { 
+              estadoPago: 'Pagado',
+              historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry) 
+          });
+      }
+      // ===============================================
+
       // EJECUTAR TODO
       await batch.commit();
 
