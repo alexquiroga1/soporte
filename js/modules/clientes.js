@@ -1,7 +1,7 @@
 // js/modules/clientes.js
 import { DATA } from '../core/store.js';
 import { getFullName, toast, fmt, fDate } from '../core/utils.js';
-import { openModal, closeModal } from './ui.js';
+import { openModal, closeModal, goView } from './ui.js';
 
 let currentClientId = null;
 
@@ -14,15 +14,18 @@ export function renderClientesTable() {
     
     document.getElementById('clientes-meta').textContent = DATA.clientes.length + ' REGISTRADOS';
 
+    // Ajuste de tabla: Se agrega columna Saldo a Favor
     tbody.innerHTML = match.map(c => {
         const tks = DATA.tickets.filter(t => t.clienteId === c.id || t.cliente === getFullName(c)).length;
         const disp = c.limiteCredito !== undefined ? c.limiteCredito : 5000;
+        const saldoFav = c.saldoAFavor || 0;
+        
         return `<tr>
           <td><b>${getFullName(c)}</b><br><span style="font-size:11px;color:var(--muted);">${c.dni||'Sin DNI'}</span></td>
           <td class="mono">${c.tel || '—'}</td>
           <td class="mono">${tks}</td>
-          <td class="mono">—</td>
-          <td class="mono" style="color:var(--teal);">${fmt(disp)}</td>
+          <td class="mono" style="color:${saldoFav > 0 ? 'var(--teal)' : 'var(--ink)'}; font-weight:${saldoFav > 0 ? 'bold' : 'normal'}">${fmt(saldoFav)}</td>
+          <td class="mono" style="color:var(--copper);">${fmt(disp)}</td>
           <td><button class="btn btn-ghost btn-sm" onclick="openClientModal('${c.id}')">Ver Perfil CRM</button></td>
         </tr>`;
     }).join('') || '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--muted);">No hay clientes registrados.</td></tr>';
@@ -54,7 +57,10 @@ export function openClientModal(id) {
     if (fechas.length > 0) ultima = fechas[0];
 
     document.getElementById('mc-kpi-tickets').textContent = tickets.length;
-    document.getElementById('mc-kpi-ltv').textContent = fmt(ltv);
+    // Adaptamos el LTV original para mostrar el Saldo a Favor también
+    document.getElementById('mc-kpi-ltv').innerHTML = `${fmt(c.saldoAFavor || 0)} <span style="font-size:10px; display:block; color:var(--muted); font-weight:normal;">Saldo a Favor</span>`;
+    document.getElementById('mc-kpi-ltv').style.color = (c.saldoAFavor || 0) > 0 ? 'var(--teal)' : 'var(--ink)';
+    
     document.getElementById('mc-kpi-deuda').textContent = fmt(deuda);
     document.getElementById('mc-kpi-ultima').textContent = fDate(ultima);
 
@@ -114,27 +120,29 @@ export function openClientModal(id) {
 
 export function openTicketWithDevice(cliId, eq, marca, mod, serie) {
     closeModal('modal-cliente');
-    openModal('modal-nuevo-ticket');
+    
+    // Nueva navegación a la Vista de Pantalla Completa
+    goView('nuevo-ticket');
     
     const c = DATA.clientes.find(x => x.id === cliId);
     if(c) {
-        document.getElementById('nt-cliente-id').value = cliId;
-        document.getElementById('nt-cliente-input').value = getFullName(c);
-        
-        const selEq = document.getElementById('nt-tipo-equipo');
-        if(selEq) {
-            let found = Array.from(selEq.options).some(opt => opt.value === eq);
-            selEq.value = found ? eq : 'Otro';
-        }
-        
-        if(document.getElementById('nt-marca')) document.getElementById('nt-marca').value = marca || '';
-        if(document.getElementById('nt-modelo')) document.getElementById('nt-modelo').value = mod || '';
-        if(document.getElementById('nt-serie')) document.getElementById('nt-serie').value = serie !== 'S/N no reg.' ? serie : '';
-        
         setTimeout(() => { 
+            if(document.getElementById('nt-cliente-id')) document.getElementById('nt-cliente-id').value = cliId;
+            if(document.getElementById('nt-cliente-input')) document.getElementById('nt-cliente-input').value = getFullName(c);
+            
+            const selEq = document.getElementById('nt-tipo-equipo');
+            if(selEq) {
+                let found = Array.from(selEq.options).some(opt => opt.value === eq);
+                selEq.value = found ? eq : 'Otro';
+            }
+            
+            if(document.getElementById('nt-marca')) document.getElementById('nt-marca').value = marca || '';
+            if(document.getElementById('nt-modelo')) document.getElementById('nt-modelo').value = mod || '';
+            if(document.getElementById('nt-serie')) document.getElementById('nt-serie').value = serie !== 'S/N no reg.' ? serie : '';
+            
             const fallaInput = document.getElementById('nt-falla');
             if(fallaInput) fallaInput.focus(); 
-        }, 300);
+        }, 150);
     }
 }
 
@@ -181,6 +189,7 @@ export async function createCliente() {
         tel: document.getElementById('ncl-tel').value.trim(),
         email: document.getElementById('ncl-email').value.trim(),
         limiteCredito,
+        saldoAFavor: 0, // Inicia en cero
         fechaRegistro: new Date().toISOString()
     };
 

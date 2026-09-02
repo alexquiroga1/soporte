@@ -27,7 +27,9 @@ export function renderFacturasTable() {
     tbody.innerHTML = match.map(f => {
         let estBadge = f.estado === 'Emitida' 
             ? `<span class="badge" style="background:var(--teal-dim); color:var(--teal);">🟢 EMITIDA</span>` 
-            : `<span class="badge" style="background:var(--red-dim); color:var(--red);">🔴 ANULADA</span>`;
+            : (f.estado === 'Cancelada' ? `<span class="badge" style="background:var(--muted); color:#fff;">⚪ CANCELADA</span>` 
+            : `<span class="badge" style="background:var(--red-dim); color:var(--red);">🔴 ANULADA</span>`);
+            
         if (f.tipo === 'Nota de Crédito') estBadge = `<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🟣 NC APLICADA</span>`;
 
         let colorRef = f.refModulo === 'Ticket' ? 'var(--copper)' : 'var(--ink)';
@@ -56,25 +58,41 @@ export function openFacturaDetalle(id) {
     document.getElementById('fd-fecha').textContent = `Fecha de emisión: ${fDate(f.fecha)} · ${f.hora} hs`;
     
     const badgeEl = document.getElementById('fd-badge-estado');
-    const btnAnular = document.getElementById('btn-fd-anular');
+    const btnAnular = document.getElementById('btn-fd-anular'); // Reutilizado para botones dinámicos
+    
+    let actionsHtml = '';
+
     if (f.estado === 'Emitida' && f.tipo === 'Factura') {
         badgeEl.innerHTML = `<span class="badge" style="background:var(--teal-dim); color:var(--teal);">🟢 EMITIDA</span>`;
-        btnAnular.style.display = 'inline-flex';
+        
+        if (f.estadoPago === 'Pendiente') {
+            actionsHtml = `<button class="btn btn-ghost" style="color:var(--muted); border-color:var(--line);" onclick="cancelarFacturaActual()">⚪ Cancelar (Sin Pago)</button>`;
+        } else {
+            actionsHtml = `<button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);" onclick="anularFacturaActual()">🔴 Anular y Devolver a Saldo</button>`;
+        }
+        actionsHtml += `<button class="btn btn-ghost" style="color:var(--amber); border-color:var(--amber); margin-left:8px;" onclick="rectificarFacturaActual()">📝 Rectificar</button>`;
+        
     } else if (f.tipo === 'Nota de Crédito') {
         badgeEl.innerHTML = `<span class="badge" style="background:#e3f2fd; color:#0d47a1;">🟣 NC APLICADA</span>`;
-        btnAnular.style.display = 'none';
+    } else if (f.estado === 'Cancelada') {
+        badgeEl.innerHTML = `<span class="badge" style="background:var(--muted); color:#fff;">⚪ CANCELADA</span>`;
     } else {
         badgeEl.innerHTML = `<span class="badge" style="background:var(--red-dim); color:var(--red);">🔴 ANULADA</span>`;
-        btnAnular.style.display = 'none';
     }
+
+    // Inyectar botones dinámicos en la vista (remplazar el viejo botón de anular)
+    const actionContainer = document.getElementById('btn-fd-anular').parentElement;
+    // Mantenemos solo Imprimir y Volver, y agregamos las nuevas acciones
+    actionContainer.innerHTML = actionsHtml + `
+      <button class="btn btn-primary" style="margin-left:8px;" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      <button class="btn btn-ghost" onclick="goView('facturacion')">← Volver</button>
+    `;
 
     document.getElementById('fd-origen').textContent = f.refModulo || 'Manual';
     document.getElementById('fd-ref').textContent = f.refId || 'N/A';
     document.getElementById('fd-caja').textContent = f.refPago || 'Sin pago asociado';
-    
     document.getElementById('fd-cliente').textContent = f.cliente || 'Consumidor Final';
     document.getElementById('fd-doc').textContent = f.doc || 'N/A';
-    
     document.getElementById('fd-usuario').textContent = f.usuario || 'Sistema';
     
     const pSt = document.getElementById('fd-pago-status');
@@ -105,12 +123,13 @@ export function openFacturaDetalle(id) {
     goView('facturacion-detalle');
 }
 
+// 1. ANULAR Y DEVOLVER A SALDO (Facturas Pagadas)
 export async function anularFacturaActual() {
     if (!currentFacturaId) return;
     const original = DATA.facturas.find(x => x.id === currentFacturaId);
     if (!original || original.estado !== 'Emitida') return;
 
-    if (!confirm(`¿Estás seguro de anular el comprobante ${original.id}?\nSe generará una Nota de Crédito por ${fmt(original.total)} y el saldo volverá a favor del cliente.`)) return;
+    if (!confirm(`¿Estás seguro de ANULAR el comprobante ${original.id}?\nSe generará una Nota de Crédito por ${fmt(original.total)} y ese dinero quedará a favor en la cuenta del cliente.`)) return;
 
     try {
         const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
@@ -119,36 +138,97 @@ export async function anularFacturaActual() {
         const hTimeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
         const logDate = fDate(fDateStr) + ' ' + hTimeStr;
 
-        await window.db.collection('facturas').doc(original.id).update({
+        const batch = window.db.batch();
+
+        // Actualizar factura original
+        const facRef = window.db.collection('facturas').doc(original.id);
+        batch.update(facRef, {
             estado: 'Anulada',
-            historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Comprobante Anulado', detalle: `Se generó Nota de Crédito. Usuario: ${user}` })
+            historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Comprobante Anulado', detalle: `NC y Devolución a Saldo de Cliente. Usuario: ${user}` })
         });
         original.estado = 'Anulada';
 
+        // Generar Nota de Crédito
         let nuevoNum = 1;
         const contadoresRef = window.db.collection('negocio').doc('contadores');
-        await window.db.runTransaction(async (transaction) => {
-            const doc = await transaction.get(contadoresRef);
-            if (doc.exists && doc.data().nc) nuevoNum = doc.data().nc + 1;
-            transaction.set(contadoresRef, { nc: nuevoNum }, { merge: true });
-        });
+        const countDoc = await contadoresRef.get();
+        if (countDoc.exists && countDoc.data().nc) nuevoNum = countDoc.data().nc + 1;
+        batch.set(contadoresRef, { nc: nuevoNum }, { merge: true });
+        
         const ncId = 'NC-' + nuevoNum.toString().padStart(4, '0');
-
         const ncData = {
             id: ncId, fecha: fDateStr, hora: hTimeStr,
             cliente: original.cliente, doc: original.doc, clienteId: original.clienteId,
             tipo: 'Nota de Crédito', refModulo: 'Factura', refId: original.id, refPago: original.refPago,
             estado: 'Emitida', total: original.total, items: original.items, usuario: user, estadoPago: 'Aplicada',
-            historial: [{ fecha: logDate, accion: 'Emisión NC', detalle: `Anula comprobante ${original.id}. Usuario: ${user}` }]
+            historial: [{ fecha: logDate, accion: 'Emisión NC', detalle: `Anula comprobante ${original.id}. Acreditado a Saldo. Usuario: ${user}` }]
         };
-        await window.db.collection('facturas').doc(ncId).set(ncData);
+        const ncRef = window.db.collection('facturas').doc(ncId);
+        batch.set(ncRef, ncData);
+        
+        // Sumar al Saldo a Favor del Cliente
+        if (original.clienteId) {
+            const cliRef = window.db.collection('clientes').doc(original.clienteId);
+            batch.update(cliRef, {
+                saldoAFavor: window.firebase.firestore.FieldValue.increment(original.total)
+            });
+        }
+
+        await batch.commit();
+
         if(!DATA.facturas) DATA.facturas = [];
         DATA.facturas.push(ncData);
 
-        toast(`✅ Nota de Crédito ${ncId} generada`);
+        toast(`✅ Anulación exitosa y devolución agregada al cliente`);
         openFacturaDetalle(original.id); 
         
-    } catch (e) { toast("❌ Error al procesar anulación"); }
+    } catch (e) { console.error(e); toast("❌ Error al procesar anulación"); }
+}
+
+// 2. CANCELAR (Facturas Pendientes, no mueve plata)
+window.cancelarFacturaActual = async function() {
+    if (!currentFacturaId) return;
+    const original = DATA.facturas.find(x => x.id === currentFacturaId);
+    if (!original || original.estado !== 'Emitida' || original.estadoPago === 'Pagado Total') return;
+
+    if (!confirm(`¿Cancelar comprobante ${original.id}?\nAl estar pendiente de pago, no se moverá dinero en caja.`)) return;
+
+    try {
+        const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
+        const logDate = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+        await window.db.collection('facturas').doc(original.id).update({
+            estado: 'Cancelada',
+            historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Cancelado', detalle: `Operación cancelada sin movimientos. Usuario: ${user}` })
+        });
+        original.estado = 'Cancelada';
+        toast(`✅ Factura cancelada`);
+        openFacturaDetalle(original.id);
+    } catch(e) { toast("❌ Error al cancelar"); }
+}
+
+// 3. RECTIFICAR (Agregar notas/correcciones formales)
+window.rectificarFacturaActual = async function() {
+    if (!currentFacturaId) return;
+    const original = DATA.facturas.find(x => x.id === currentFacturaId);
+    
+    const obs = prompt(`Ingresa la observación para rectificar el comprobante ${original.id} (Ej. Corrección de DNI o Dirección):`);
+    if(!obs || obs.trim() === '') return;
+
+    try {
+        const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
+        const logDate = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+        await window.db.collection('facturas').doc(original.id).update({
+            historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Rectificación', detalle: `Nota: ${obs.trim()} - Usuario: ${user}` })
+        });
+        
+        if(!original.historial) original.historial = [];
+        original.historial.push({ fecha: logDate, accion: 'Rectificación', detalle: `Nota: ${obs.trim()} - Usuario: ${user}` });
+        
+        toast(`✅ Rectificación agregada`);
+        openFacturaDetalle(original.id);
+    } catch(e) { toast("❌ Error al rectificar"); }
 }
 
 export async function emitirComprobanteInterno(origen, refId, refPago, clienteId, clienteNombre, items, total, estadoPago) {
@@ -190,7 +270,6 @@ export async function emitirComprobanteInterno(origen, refId, refPago, clienteId
     } catch (e) { return null; }
 }
 
-// === NUEVAS FUNCIONES PARA LA PANTALLA COMPLETA (SIN MODAL) ===
 export function showNuevaFactura() {
     const sel = document.getElementById('nf-cliente');
     if (sel) {
@@ -265,7 +344,7 @@ export async function emitirFacturaManual() {
         DATA.facturas.push(facData);
 
         toast(`✅ ${tipo} emitido con éxito`);
-        hideNuevaFactura(); // Cierra la pantalla y vuelve a la lista
+        hideNuevaFactura();
         renderFacturasTable();
 
     } catch (e) { toast('❌ Error al emitir el comprobante'); }

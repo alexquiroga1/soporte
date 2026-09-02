@@ -113,6 +113,7 @@ window.emitirComprobanteInterno = emitirComprobanteInterno;
 window.showNuevaFactura = showNuevaFactura;
 window.hideNuevaFactura = hideNuevaFactura;
 window.emitirFacturaManual = emitirFacturaManual;
+window.goView = goView;
 
 // Pestañas de créditos
 window.switchCreditoTab = function(tabId, el) {

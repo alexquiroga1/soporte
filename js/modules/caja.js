@@ -5,8 +5,8 @@ import { openModal, closeModal } from './ui.js';
 import { currentUserProfile } from '../core/auth.js';
 
 let selectedCobroMetodo = 'Efectivo';
-let currentCobroId = null; // Cambiado a ID de Firebase
-let currentCreditId = null; // Cambiado a ID de Firebase
+let currentCobroId = null; 
+let currentCreditId = null; 
 
 export function renderCajaPendientes(){
   const container = document.getElementById('caja-pendientes-body');
@@ -138,10 +138,25 @@ export function renderCobroDynamicFields(){
         <p style="margin-top:6px;">Estado: <span class="badge ${esEligible ? 'done' : 'urg'}">${esEligible ? 'Aprobado' : 'Rechazado por Falta de Cupo'}</span></p>
       </div>
     `;
+  } else if(selectedCobroMetodo === 'Saldo a Favor'){
+    let clienteObj = item.clienteId ? DATA.clientes.find(c => c.id === item.clienteId) : DATA.clientes.find(c => getFullName(c) === item.cliente || c.nombre === item.cliente);
+    const saldoFav = clienteObj ? (clienteObj.saldoAFavor || 0) : 0;
+    const esEligible = saldoFav >= item.total;
+    
+    if(!esEligible) btnConfirm.disabled = true;
+    
+    container.innerHTML = `
+      <div style="font-size:13px; line-height:1.4;">
+        <p><b>Evaluación de Saldo a Favor:</b></p>
+        <ul style="list-style:none; padding:0; margin:8px 0;">
+          <li style="color:${esEligible?'var(--teal)':'var(--red)'}">${esEligible?'✅':'❌'} Saldo Disponible: <b>${fmt(saldoFav)}</b> (A cobrar: ${fmt(item.total)})</li>
+        </ul>
+        <p style="margin-top:6px;">Estado: <span class="badge ${esEligible ? 'done' : 'urg'}">${esEligible ? 'Aprobado' : 'Rechazado por Saldo Insuficiente'}</span></p>
+      </div>
+    `;
   }
 }
 
-// PUNTO 5, 11 Y 24: Transacción Batch para descontar stock, registrar venta/factura y cobrar.
 export async function procesarCobroFinal(){
   if(!currentCobroId) return;
   const item = (DATA.caja_pendientes || []).find(p => p.id === currentCobroId);
@@ -189,11 +204,20 @@ export async function procesarCobroFinal(){
           original: item.total, saldo: item.total, abonos: [], cuotas: cuotasArray
         });
       }
+      
+      // 2B. Si es Saldo a Favor, debitarlo del cliente
+      if(selectedCobroMetodo === 'Saldo a Favor'){
+        let clienteObj = item.clienteId ? DATA.clientes.find(c => c.id === item.clienteId) : DATA.clientes.find(c => getFullName(c) === item.cliente || c.nombre === item.cliente);
+        if(clienteObj) {
+            const cliRef = window.db.collection('clientes').doc(clienteObj.id);
+            batch.update(cliRef, { saldoAFavor: window.firebase.firestore.FieldValue.increment(-item.total) });
+        }
+      }
 
-      // 3. Registrar Movimiento en Caja (Si no es préstamo)
-      if(selectedCobroMetodo !== 'Préstamo personal') {
+      // 3. Registrar Movimiento en Caja (Solo si es ingreso real)
+      if(selectedCobroMetodo !== 'Préstamo personal' && selectedCobroMetodo !== 'Saldo a Favor') {
         const mov = {
-          id: window.db.collection('negocio').doc().id, // ID local
+          id: window.db.collection('negocio').doc().id,
           hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
           concepto: `Cobro ${item.origen} #${item.ref} (${item.cliente})`, tipo: 'ingreso', monto: item.total, subcategoria: 'Capital'
         };
@@ -204,45 +228,65 @@ export async function procesarCobroFinal(){
         }, { merge: true });
       }
 
-      // 4. Módulo Facturación y Ventas (Punto 11)
+      // 4. Módulo Facturación y Ventas Automáticas
       const fRef = window.db.collection('ventas').doc();
       batch.set(fRef, {
-        id: fRef.id,
-        folio: item.origen === 'Ticket' ? 'FAC-' + item.ref : item.ref,
+        id: fRef.id, folio: item.origen === 'Ticket' ? 'V-TK-' + item.ref : item.ref,
         cliente: item.cliente, articulos: item.concepto,
         pago: selectedCobroMetodo, total: item.total,
-        hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})
+        hora: new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}),
+        fecha: new Date().toISOString().split('T')[0]
       });
+      
+      // GENERAR LA FACTURA AUTOMÁTICA EN EL MÓDULO DE FACTURAS
+      const user = currentUserProfile ? currentUserProfile.nombre : 'Caja';
+      const fDateStr = new Date().toISOString().split('T')[0];
+      const hTimeStr = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      
+      let nuevoNumFac = 1;
+      const contadoresRef = window.db.collection('negocio').doc('contadores');
+      const countDoc = await contadoresRef.get();
+      if (countDoc.exists && countDoc.data().facturas) nuevoNumFac = countDoc.data().facturas + 1;
+      batch.set(contadoresRef, { facturas: nuevoNumFac }, { merge: true });
+      
+      const facId = 'FAC-' + nuevoNumFac.toString().padStart(6, '0');
+
+      const facData = {
+          id: facId, fecha: fDateStr, hora: hTimeStr,
+          cliente: item.cliente, doc: 'C.F.', clienteId: item.clienteId || null,
+          tipo: 'Factura', refModulo: item.origen, refId: item.ref, refPago: selectedCobroMetodo,
+          estado: 'Emitida', total: item.total, items: [{desc: item.concepto, cant: 1, precio: item.total}], 
+          usuario: user, estadoPago: 'Pagado Total',
+          historial: [{ fecha: fDate(fDateStr) + ' ' + hTimeStr, accion: 'Emisión Automática', detalle: `Cobro en Caja mediante ${selectedCobroMetodo}. Usuario: ${user}` }]
+      };
+      const facDataRef = window.db.collection('facturas').doc(facId);
+      batch.set(facDataRef, facData);
 
       // 5. Eliminar el pendiente
       const pendRef = window.db.collection('caja_pendientes').doc(currentCobroId);
       batch.delete(pendRef);
 
-      // ===============================================
-      // NUEVO: AGREGAMOS EL LOG AL HISTORIAL DEL TICKET
-      // ===============================================
+      // 6. Si viene de TICKET, actualizar su historial y estado
       if (item.origen === 'Ticket') {
           const tRef = window.db.collection('tickets').doc(item.ref);
           const fechaStr = new Date().toLocaleDateString('es-AR') + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-          const user = currentUserProfile ? currentUserProfile.nombre : 'Caja';
-          const logEntry = { accion: 'Cobro registrado', detalle: `Medio: ${selectedCobroMetodo} - Importe: $${item.total}`, fecha: fechaStr, autor: user };
+          const logEntry = { accion: 'Cobro registrado y Facturado', detalle: `Medio: ${selectedCobroMetodo} - Importe: $${item.total} - Factura: ${facId}`, fecha: fechaStr, autor: user };
           batch.update(tRef, { 
               estadoPago: 'Pagado',
+              estadoFacturacion: facId,
               historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry) 
           });
       }
-      // ===============================================
 
-      // EJECUTAR TODO
       await batch.commit();
 
       currentCobroId = null;
       closeModal('modal-cobro-caja');
-      toast('Cobro procesado con éxito vía ' + selectedCobroMetodo);
+      toast(`Cobro y Facturación procesados con éxito (${selectedCobroMetodo})`);
 
   } catch (error) {
       console.error("Error en cobro batch", error);
-      toast('Hubo un error al procesar el cobro. No se debitó stock.');
+      toast('Hubo un error al procesar el cobro.');
   }
 }
 
@@ -265,7 +309,6 @@ export function renderCajaView(){
     <div class="caja-total"><span class="l">Efectivo esperado</span><span class="v">${fmt(total)}</span></div>`;
 }
 
-// NUEVO: Movimientos manuales Atómicos
 export async function addMovimiento(){
   const concepto = document.getElementById('mov-concepto').value.trim();
   const tipo = document.getElementById('mov-tipo').value;
@@ -312,7 +355,6 @@ export function abrirModalCierre(){
   openModal('modal-cierre');
 }
 
-// PUNTO 4: Cierre de caja auditable. No borra datos, crea un "Corte" histórico.
 export async function cerrarCorte(){
   const nuevoFondo = parseFloat(document.getElementById('cierre-nuevo-fondo').value) || 0;
   if(nuevoFondo < 0){ toast('El nuevo fondo no puede ser negativo'); return; }
@@ -323,50 +365,30 @@ export async function cerrarCorte(){
   const fondoInicial = Number(DATA.caja?.fondo) || 0;
   const efectivoEsperado = fondoInicial + ingresos - egresos;
   const fecha = new Date();
-
   const user = currentUserProfile ? currentUserProfile.nombre : 'Usuario';
 
   const corte = {
-    id: 'COR-' + fecha.getTime(),
-    apertura: DATA.caja?.sesion?.inicio || null,
-    cierre: fecha.toISOString(),
-    usuario: user,
-    fondoInicial,
-    ingresos,
-    egresos,
-    efectivoEsperado,
-    nuevoFondo,
-    movs: movsActuales
+    id: 'COR-' + fecha.getTime(), apertura: DATA.caja?.sesion?.inicio || null,
+    cierre: fecha.toISOString(), usuario: user, fondoInicial,
+    ingresos, egresos, efectivoEsperado, nuevoFondo, movs: movsActuales
   };
 
   try {
       const batch = window.db.batch();
-      
-      // 1. Guardamos el historial en la colección de cortes
       const corteRef = window.db.collection('caja_cortes').doc(corte.id);
       batch.set(corteRef, corte);
 
-      // 2. Reiniciamos la caja activa
       const cajaActivaRef = window.db.collection('negocio').doc('caja_activa');
       batch.set(cajaActivaRef, {
-          movs: [],
-          fondo: nuevoFondo,
+          movs: [], fondo: nuevoFondo,
           sesion: { inicio: fecha.toISOString(), fondoInicial: nuevoFondo, usuario: user }
       });
 
       await batch.commit();
-
       closeModal('modal-cierre');
       toast('Corte cerrado. Historial guardado. Nuevo fondo: ' + fmt(nuevoFondo));
-  } catch (error) {
-      console.error("Error al cerrar caja", error);
-      toast('No se pudo procesar el cierre de caja');
-  }
+  } catch (error) { toast('No se pudo procesar el cierre de caja'); }
 }
-
-// ==========================================
-// SECCIÓN: FINANZAS Y CRÉDITOS (PUNTO 6 y 7)
-// ==========================================
 
 export function normalizarCuota(cuota){
   if(!cuota) return cuota;
@@ -510,11 +532,9 @@ export function renderCuotasCreditoActual() {
   }).join('');
 
   c.saldo = saldoCapital;
-  // PUNTO 7: Separamos visualmente Capital restante del total
   document.getElementById('mcr-saldo').innerHTML = `${fmt(saldoCapital)} <span style="font-size:12px; color:var(--muted); font-weight:normal; display:block;">+ ${fmt(deudaTotalConMora - saldoCapital)} intereses</span>`;
 }
 
-// NUEVO: Cobro de crédito Atómico separando capital de intereses
 export async function registerPayment(){
   const c = DATA.creditos.find(x => x.id === currentCreditId);
   if(!c){ toast('No se encontró el crédito'); return; }
