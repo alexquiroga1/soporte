@@ -608,109 +608,1063 @@
               </div>
             </div>
 
-           <!-- ================= FACTURACIÓN ================= -->
-        <div class="view" id="view-facturacion">
-          
-          <!-- SUBVISTA: LISTADO DE COMPROBANTES -->
-          <div id="fac-lista" class="subview">
-            <div class="page-head">
-              <div>
-                <h1>Facturación</h1>
-                <p>CENTRO DE COMPROBANTES FISCALES Y NOTAS DE CRÉDITO</p>
-              </div>
-              <button class="btn btn-primary" onclick="showNuevaFactura()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Emitir Comprobante</button>
-            </div>
+      <!-- ================= FACTURACIÓN ================= -->
+<div class="view" id="view-facturacion">
 
-            <div class="toolbar">
-              <div class="field-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-              <input id="fac-search" placeholder="Buscar por cliente, DNI o Ticket (ej. TK-1042)..." oninput="renderFacturasTable()"></div>
-              <select class="sel" id="fac-filter-tipo" onchange="renderFacturasTable()">
-                <option value="">Todos los tipos</option>
-                <option value="Factura">Factura Interna</option>
-                <option value="Nota de Crédito">Nota de Crédito</option>
-              </select>
-              <select class="sel" id="fac-filter-estado" onchange="renderFacturasTable()">
-                <option value="">Todos los estados</option>
-                <option value="Emitida">🟢 Emitida</option>
-                <option value="Anulada">🔴 Anulada / NC</option>
-              </select>
-            </div>
+  <!-- CABECERA PRINCIPAL -->
+  <div class="page-head">
+    <div>
+      <h1>Facturación</h1>
+      <p>GESTIÓN DE FACTURAS, PRESUPUESTOS, NOTAS DE CRÉDITO Y CUENTA CORRIENTE</p>
+    </div>
 
-            <div class="panel">
-              <table>
-                <thead>
-                  <tr><th>Fecha</th><th>Comprobante</th><th>Cliente / DNI</th><th>Tipo</th><th>Ref. Origen</th><th>Estado</th><th>Total</th><th>Acciones</th></tr>
-                </thead>
-                <tbody id="facturacion-table-body"></tbody>
-              </table>
-            </div>
-            💾 Guardar borrador
+    <div class="head-actions">
+      <button
+        class="btn btn-ghost"
+        onclick="window.showFacturacionTab('presupuestos')">
 
-                </button>
+        📋 Presupuestos
+      </button>
+
+      <button
+        class="btn btn-primary"
+        onclick="showNuevaFactura()">
+
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <path d="M12 5v14M5 12h14" />
+
+        </svg>
+
+        Nuevo comprobante
+
+      </button>
+    </div>
+  </div>
 
 
-                <button
-                    class="btn btn-primary"
-                    onclick="guardarPresupuesto('Pendiente de aprobación')">
+  <!-- ================= RESUMEN / KPIs ================= -->
 
-                    📄 Guardar presupuesto
+  <div class="kpi-row">
 
-                </button>
+    <div class="kpi c-teal">
 
-            </div>
+      <div class="icon">
 
-        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <path d="M3 3v18h18" />
+          <path d="M7 15l4-4 3 3 5-7" />
+
+        </svg>
+
+      </div>
+
+      <div class="label">
+        Total facturado
+      </div>
+
+      <div
+        class="value"
+        id="fac-stat-facturado">
+
+        $0
+
+      </div>
+
+      <div class="delta up">
+        Facturas emitidas
+      </div>
 
     </div>
 
-</div>
+
+    <div class="kpi c-copper">
+
+      <div class="icon">
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+
+        </svg>
+
+      </div>
+
+      <div class="label">
+        Comprobantes
+      </div>
+
+      <div
+        class="value"
+        id="fac-stat-total">
+
+        0
+
+      </div>
+
+      <div class="delta">
+        Registrados en el sistema
+      </div>
+
+    </div>
+
+
+    <div class="kpi c-red">
+
+      <div class="icon">
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <path d="M3 6h18" />
+          <path d="M3 12h18" />
+          <path d="M3 18h12" />
+
+        </svg>
+
+      </div>
+
+      <div class="label">
+        Notas de crédito
+      </div>
+
+      <div
+        class="value"
+        id="fac-stat-nc">
+
+        $0
+
+      </div>
+
+      <div class="delta">
+        Devoluciones emitidas
+      </div>
+
+    </div>
+
+
+    <div class="kpi c-amber">
+
+      <div class="icon">
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+
+        </svg>
+
+      </div>
+
+      <div class="label">
+        Saldo a favor
+      </div>
+
+      <div
+        class="value"
+        id="fac-stat-saldo">
+
+        $0
+
+      </div>
+
+      <div class="delta up">
+        Disponible para clientes
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= NAVEGACIÓN INTERNA ================= -->
+
+  <div
+    class="tabs"
+    style="margin-bottom:16px;">
+
+    <div
+      class="tab active"
+      id="fac-tab-btn-resumen"
+      onclick="window.showFacturacionTab('resumen')">
+
+      📊 Resumen
+
+    </div>
+
+
+    <div
+      class="tab"
+      id="fac-tab-btn-presupuestos"
+      onclick="window.showFacturacionTab('presupuestos')">
+
+      📋 Presupuestos
+
+    </div>
+
+
+    <div
+      class="tab"
+      id="fac-tab-btn-comprobantes"
+      onclick="window.showFacturacionTab('comprobantes')">
+
+      🧾 Comprobantes
+
+    </div>
+
+
+    <div
+      class="tab"
+      id="fac-tab-btn-cuenta"
+      onclick="window.showFacturacionTab('cuenta')">
+
+      💳 Cuenta corriente
+
+    </div>
+
+
+    <div
+      class="tab"
+      id="fac-tab-btn-bitacora"
+      onclick="window.showFacturacionTab('bitacora')">
+
+      🕘 Bitácora
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= TAB RESUMEN ================= -->
+
+  <div
+    id="fac-tab-resumen">
+
+    <div class="grid-2">
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <h3>
+            Comprobantes recientes
+          </h3>
+
+          <span class="meta">
+            Últimos movimientos
+          </span>
+
+        </div>
+
+
+        <table>
+
+          <thead>
+
+            <tr>
+
+              <th>Fecha</th>
+              <th>Comprobante</th>
+              <th>Cliente</th>
+              <th>Origen</th>
+              <th>Estado</th>
+              <th>Total</th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody
+            id="facturacion-reciente-body">
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+
+      <div class="stack">
+
+        <div class="panel">
+
+          <div class="panel-head">
+
+            <h3>
+              Acciones rápidas
+            </h3>
+
           </div>
 
-          <!-- SUBVISTA: EMITIR NUEVA FACTURA (SIN MODAL) -->
-          <div id="fac-nueva" class="subview" style="display:none;">
-            <div class="page-head" style="margin-bottom: 16px;">
-              <div>
-                <h1 style="font-size:20px;">Emitir Nuevo Comprobante</h1>
-                <p>Generación manual de documentos</p>
-              </div>
-              <div style="display:flex; gap:8px;">
-                <button class="btn btn-ghost" onclick="hideNuevaFactura()">Cancelar</button>
-                <button class="btn btn-primary" onclick="emitirFacturaManual()">Generar Comprobante</button>
-              </div>
-            </div>
-            
-            <div class="panel" style="max-width: 800px; padding: 24px;">
-              <div class="form-grid">
-                <div class="full">
-                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Cliente (Base de datos)</label>
-                  <select id="nf-cliente" class="sel" style="font-size:14px; padding:12px;"></select>
-                </div>
-                <div>
-                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Tipo de Comprobante</label>
-                  <select id="nf-tipo" class="sel" style="font-size:14px; padding:12px;">
-                    <option value="Factura">Factura de Venta / Servicio</option>
-                    <option value="Nota de Crédito">Nota de Crédito / Devolución</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Estado de Pago</label>
-                  <select id="nf-pago" class="sel" style="font-size:14px; padding:12px;">
-                    <option value="Pagado Total">🟢 Pagado Total</option>
-                    <option value="Pendiente">🟡 Pendiente de Cobro</option>
-                  </select>
-                </div>
-                <div class="full" style="margin-top:10px;">
-                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Concepto / Detalle de los ítems</label>
-                  <input id="nf-concepto" class="inp" placeholder="Ej. Reparación de equipo + Respaldo de datos" style="font-size:14px; padding:12px;">
-                </div>
-                <div class="full" style="margin-top:10px;">
-                  <label style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--muted);">Total facturado ($)</label>
-                  <input id="nf-total" type="number" min="0" step="0.01" class="inp" placeholder="0.00" style="font-size:24px; font-weight:bold; color:var(--teal); font-family:var(--font-mono); padding:16px;">
-                </div>
-              </div>
-            </div>
+
+          <div
+            class="panel-body"
+            style="
+              display:flex;
+              flex-direction:column;
+              gap:10px;
+            ">
+
+            <button
+              class="btn btn-primary"
+              style="width:100%;justify-content:center;"
+              onclick="showNuevaFactura()">
+
+              🧾 Emitir comprobante manual
+
+            </button>
+
+
+            <button
+              class="btn btn-ghost"
+              style="width:100%;justify-content:center;"
+              onclick="window.showFacturacionTab('presupuestos')">
+
+              📋 Crear presupuesto
+
+            </button>
+
+
+            <button
+              class="btn btn-ghost"
+              style="width:100%;justify-content:center;"
+              onclick="window.showFacturacionTab('cuenta')">
+
+              💳 Consultar cuenta corriente
+
+            </button>
+
           </div>
+
         </div>
+
+
+        <div class="panel">
+
+          <div class="panel-head">
+
+            <h3>
+              Flujo de operación
+            </h3>
+
+          </div>
+
+
+          <div
+            class="panel-body"
+            style="
+              font-size:13px;
+              color:var(--muted);
+              line-height:1.8;
+            ">
+
+            Ticket listo para entrega
+            <br>
+
+            ↓
+
+            <br>
+
+            Caja
+
+            <br>
+
+            ↓
+
+            <br>
+
+            Cobro
+
+            <br>
+
+            ↓
+
+            <br>
+
+            Factura
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= TAB PRESUPUESTOS ================= -->
+
+  <div
+    id="fac-tab-presupuestos"
+    style="display:none;">
+
+    <div class="page-head">
+
+      <div>
+
+        <h1
+          style="font-size:20px;">
+
+          Presupuestos
+
+        </h1>
+
+        <p>
+          MANUALES Y GENERADOS DESDE TICKETS
+        </p>
+
+      </div>
+
+
+      <div class="head-actions">
+
+        <button
+          class="btn btn-primary"
+          onclick="showNuevoPresupuesto()">
+
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2">
+
+            <path d="M12 5v14M5 12h14" />
+
+          </svg>
+
+          Nuevo presupuesto
+
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <h3>
+          Presupuestos registrados
+        </h3>
+
+        <span class="meta">
+          Manuales + Tickets
+        </span>
+
+      </div>
+
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>Fecha</th>
+            <th>Presupuesto</th>
+            <th>Cliente</th>
+            <th>Origen</th>
+            <th>Estado</th>
+            <th>Total</th>
+            <th>Acciones</th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody
+          id="presupuestos-table-body">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+
+    <!-- FORMULARIO DE NUEVO PRESUPUESTO -->
+
+    <div
+      id="fac-nuevo-presupuesto"
+      style="
+        display:none;
+        margin-top:16px;
+      ">
+
+      <div class="panel">
+
+        <div class="panel-head">
+
+          <h3>
+            Nuevo presupuesto manual
+          </h3>
+
+          <button
+            class="btn btn-ghost"
+            onclick="hideNuevoPresupuesto()">
+
+            Cancelar
+
+          </button>
+
+        </div>
+
+
+        <div
+          class="panel-body">
+
+          <div class="form-grid">
+
+            <div>
+
+              <label>
+                Cliente
+              </label>
+
+              <select
+                id="pres-cliente"
+                class="sel"
+                style="width:100%;">
+
+              </select>
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Validez
+              </label>
+
+              <input
+                id="pres-validez"
+                class="inp"
+                type="date"
+                style="width:100%;">
+
+            </div>
+
+
+            <div
+              class="full">
+
+              <label>
+                Concepto / detalle
+              </label>
+
+              <input
+                id="pres-concepto"
+                class="inp"
+                placeholder="Ej. Reparación de notebook + cambio de componente"
+                style="width:100%;">
+
+            </div>
+
+
+            <div>
+
+              <label>
+                Total
+              </label>
+
+              <input
+                id="pres-total"
+                type="number"
+                min="0"
+                step="0.01"
+                class="inp"
+                placeholder="0.00"
+                style="width:100%;">
+
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              display:flex;
+              justify-content:flex-end;
+              gap:10px;
+              margin-top:18px;
+            ">
+
+            <button
+              class="btn btn-ghost"
+              onclick="hideNuevoPresupuesto()">
+
+              Cancelar
+
+            </button>
+
+
+            <button
+              class="btn btn-primary"
+              onclick="guardarPresupuesto('Pendiente')">
+
+              💾 Guardar presupuesto
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= TAB COMPROBANTES ================= -->
+
+  <div
+    id="fac-tab-comprobantes"
+    style="display:none;">
+
+    <div class="toolbar">
+
+      <div class="field-search">
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2">
+
+          <circle cx="11" cy="11" r="7" />
+          <path d="M21 21l-4.3-4.3" />
+
+        </svg>
+
+
+        <input
+          id="fac-search"
+          placeholder="Buscar por cliente, DNI o Ticket..."
+          oninput="renderFacturasTable()">
+
+      </div>
+
+
+      <select
+        class="sel"
+        id="fac-filter-tipo"
+        onchange="renderFacturasTable()">
+
+        <option value="">
+          Todos los tipos
+        </option>
+
+        <option value="Factura">
+          Facturas
+        </option>
+
+        <option value="Nota de Crédito">
+          Notas de crédito
+        </option>
+
+      </select>
+
+
+      <select
+        class="sel"
+        id="fac-filter-estado"
+        onchange="renderFacturasTable()">
+
+        <option value="">
+          Todos los estados
+        </option>
+
+        <option value="Emitida">
+          Emitida
+        </option>
+
+        <option value="Anulada">
+          Anulada
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="panel">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>Fecha</th>
+            <th>Comprobante</th>
+            <th>Cliente / DNI</th>
+            <th>Tipo</th>
+            <th>Origen</th>
+            <th>Estado</th>
+            <th>Total</th>
+            <th>Acciones</th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody
+          id="facturacion-table-body">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= TAB CUENTA CORRIENTE ================= -->
+
+  <div
+    id="fac-tab-cuenta"
+    style="display:none;">
+
+    <div class="page-head">
+
+      <div>
+
+        <h1
+          style="font-size:20px;">
+
+          Cuenta corriente
+
+        </h1>
+
+        <p>
+          SALDOS A FAVOR Y MOVIMIENTOS DE CLIENTES
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="panel">
+
+      <div
+        class="panel-body">
+
+        <div
+          style="
+            max-width:500px;
+            margin-bottom:20px;
+          ">
+
+          <label>
+            Seleccionar cliente
+          </label>
+
+
+          <select
+            id="cc-cliente-select"
+            class="sel"
+            style="width:100%;"
+            onchange="window.renderCuentaCorriente()">
+
+            <option value="">
+              Seleccionar cliente
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div
+          id="cuenta-corriente-contenido">
+
+          <div
+            style="
+              padding:30px;
+              text-align:center;
+              color:var(--muted);
+            ">
+
+            Seleccioná un cliente para consultar su saldo y movimientos.
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= TAB BITÁCORA ================= -->
+
+  <div
+    id="fac-tab-bitacora"
+    style="display:none;">
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <h3>
+          Bitácora de Facturación
+        </h3>
+
+        <span class="meta">
+          Actividad reciente
+        </span>
+
+      </div>
+
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>Fecha</th>
+            <th>Acción</th>
+            <th>Referencia</th>
+            <th>Cliente</th>
+            <th>Usuario</th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody
+          id="facturacion-bitacora-body">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= NUEVO COMPROBANTE ================= -->
+
+  <div
+    id="fac-nueva"
+    style="
+      display:none;
+      margin-top:20px;
+    ">
+
+    <div class="page-head">
+
+      <div>
+
+        <h1
+          style="font-size:20px;">
+
+          Emitir nuevo comprobante
+
+        </h1>
+
+        <p>
+          GENERACIÓN MANUAL
+        </p>
+
+      </div>
+
+
+      <div
+        style="
+          display:flex;
+          gap:8px;
+        ">
+
+        <button
+          class="btn btn-ghost"
+          onclick="hideNuevaFactura()">
+
+          Cancelar
+
+        </button>
+
+
+        <button
+          class="btn btn-primary"
+          onclick="emitirFacturaManual()">
+
+          Generar comprobante
+
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div
+      class="panel"
+      style="
+        max-width:900px;
+      ">
+
+      <div
+        class="panel-body">
+
+        <div class="form-grid">
+
+          <div
+            class="full">
+
+            <label>
+              Cliente
+            </label>
+
+            <select
+              id="nf-cliente"
+              class="sel"
+              style="width:100%;">
+
+            </select>
+
+          </div>
+
+
+          <div>
+
+            <label>
+              Tipo de comprobante
+            </label>
+
+            <select
+              id="nf-tipo"
+              class="sel"
+              style="width:100%;">
+
+              <option value="Factura">
+                Factura de Venta / Servicio
+              </option>
+
+              <option value="Nota de Crédito">
+                Nota de Crédito / Devolución
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div>
+
+            <label>
+              Estado de pago
+            </label>
+
+            <select
+              id="nf-pago"
+              class="sel"
+              style="width:100%;">
+
+              <option value="Pagado Total">
+                Pagado total
+              </option>
+
+              <option value="Pendiente">
+                Pendiente de cobro
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div
+            class="full">
+
+            <label>
+              Concepto
+            </label>
+
+            <input
+              id="nf-concepto"
+              class="inp"
+              placeholder="Ej. Reparación de equipo + servicio técnico"
+              style="width:100%;">
+
+          </div>
+
+
+          <div
+            class="full">
+
+            <label>
+              Total facturado
+            </label>
+
+            <input
+              id="nf-total"
+              type="number"
+              min="0"
+              step="0.01"
+              class="inp"
+              placeholder="0.00"
+              style="
+                width:100%;
+                font-size:24px;
+                font-weight:bold;
+                color:var(--teal);
+                font-family:var(--font-mono);
+              ">
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
 
         <!-- ================= FACTURACIÓN (VISTA DETALLE - ESTILO MOCKUP) ================= -->
         <div class="view" id="view-facturacion-detalle">
