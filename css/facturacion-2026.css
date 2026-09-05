@@ -1,0 +1,1013 @@
+/* =========================================================
+   FACTURACIÓN 2026
+   Diseño inspirado en el mockup de Presupuestos/Facturación
+   Se aplica solamente dentro de #view-facturacion
+   ========================================================= */
+
+
+/* =========================
+   VARIABLES LOCALES
+========================= */
+
+#view-facturacion {
+  --fac-blue: #2563eb;
+  --fac-blue-dark: #1d4ed8;
+  --fac-blue-soft: #eff6ff;
+
+  --fac-green: #16a34a;
+  --fac-green-soft: #f0fdf4;
+
+  --fac-red: #dc2626;
+  --fac-red-soft: #fef2f2;
+
+  --fac-orange: #ea580c;
+  --fac-orange-soft: #fff7ed;
+
+  --fac-purple: #7c3aed;
+  --fac-purple-soft: #f5f3ff;
+
+  --fac-yellow: #ca8a04;
+  --fac-yellow-soft: #fefce8;
+
+  --fac-gray-50: #f9fafb;
+  --fac-gray-100: #f3f4f6;
+  --fac-gray-200: #e5e7eb;
+  --fac-gray-300: #d1d5db;
+  --fac-gray-400: #9ca3af;
+  --fac-gray-500: #6b7280;
+  --fac-gray-600: #4b5563;
+  --fac-gray-700: #374151;
+  --fac-gray-800: #1f2937;
+  --fac-gray-900: #111827;
+
+  --fac-radius: 12px;
+  --fac-radius-sm: 8px;
+
+  --fac-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+
+  --fac-shadow-hover:
+    0 10px 30px rgba(37, 99, 235, 0.10);
+}
+
+
+/* =========================
+   CONTENEDOR GENERAL
+========================= */
+
+#view-facturacion {
+  color: var(--fac-gray-700);
+}
+
+#view-facturacion * {
+  box-sizing: border-box;
+}
+
+
+/* =========================
+   CABECERA
+========================= */
+
+#view-facturacion .page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  gap: 20px;
+
+  padding: 4px 0 20px;
+}
+
+#view-facturacion .page-head h1 {
+  margin: 0;
+
+  font-size: 28px;
+  line-height: 1.2;
+
+  font-weight: 700;
+
+  color: var(--fac-gray-900);
+
+  letter-spacing: -0.5px;
+}
+
+#view-facturacion .page-head p {
+  margin: 6px 0 0;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.1px;
+
+  color: var(--fac-gray-400);
+}
+
+#view-facturacion .head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  flex-wrap: wrap;
+}
+
+
+/* =========================
+   BOTONES
+========================= */
+
+#view-facturacion .btn {
+  min-height: 38px;
+
+  padding: 0 14px;
+
+  border-radius: 8px;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+
+  cursor: pointer;
+}
+
+#view-facturacion .btn:hover {
+  transform: translateY(-1px);
+}
+
+#view-facturacion .btn:active {
+  transform: translateY(0);
+}
+
+#view-facturacion .btn-primary {
+  background: var(--fac-blue);
+  border-color: var(--fac-blue);
+
+  color: white;
+
+  box-shadow:
+    0 2px 4px rgba(37, 99, 235, 0.12),
+    0 6px 16px rgba(37, 99, 235, 0.14);
+}
+
+#view-facturacion .btn-primary:hover {
+  background: var(--fac-blue-dark);
+  border-color: var(--fac-blue-dark);
+
+  box-shadow:
+    0 6px 20px rgba(37, 99, 235, 0.22);
+}
+
+#view-facturacion .btn-ghost {
+  background: white;
+
+  border: 1px solid var(--fac-gray-200);
+
+  color: var(--fac-gray-600);
+}
+
+#view-facturacion .btn-ghost:hover {
+  background: var(--fac-gray-50);
+
+  border-color: var(--fac-gray-300);
+
+  color: var(--fac-gray-900);
+}
+
+
+/* =========================
+   KPI / ESTADÍSTICAS
+========================= */
+
+#view-facturacion .kpi-row {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 16px;
+
+  margin-bottom: 22px;
+}
+
+#view-facturacion .kpi {
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 18px;
+
+  background: white;
+
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: var(--fac-radius);
+
+  box-shadow: var(--fac-shadow);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+#view-facturacion .kpi:hover {
+  transform: translateY(-3px);
+
+  box-shadow: var(--fac-shadow-hover);
+}
+
+#view-facturacion .kpi::after {
+  content: "";
+
+  position: absolute;
+
+  right: -30px;
+  bottom: -30px;
+
+  width: 100px;
+  height: 100px;
+
+  border-radius: 50%;
+
+  opacity: 0.35;
+}
+
+#view-facturacion .kpi .icon {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  margin-bottom: 14px;
+}
+
+#view-facturacion .kpi .icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+#view-facturacion .kpi .label {
+  font-size: 12px;
+
+  font-weight: 600;
+
+  color: var(--fac-gray-500);
+
+  margin-bottom: 5px;
+}
+
+#view-facturacion .kpi .value {
+  font-size: 25px;
+
+  font-weight: 750;
+
+  letter-spacing: -0.6px;
+
+  color: var(--fac-gray-900);
+
+  font-variant-numeric: tabular-nums;
+}
+
+#view-facturacion .kpi .delta {
+  margin-top: 7px;
+
+  font-size: 11px;
+
+  color: var(--fac-gray-400);
+}
+
+
+/* COLORES KPI */
+
+#view-facturacion .kpi.c-teal .icon {
+  color: #0891b2;
+  background: #ecfeff;
+}
+
+#view-facturacion .kpi.c-teal::after {
+  background: #cffafe;
+}
+
+#view-facturacion .kpi.c-copper .icon {
+  color: #c2410c;
+  background: #fff7ed;
+}
+
+#view-facturacion .kpi.c-copper::after {
+  background: #fed7aa;
+}
+
+#view-facturacion .kpi.c-red .icon {
+  color: var(--fac-red);
+  background: var(--fac-red-soft);
+}
+
+#view-facturacion .kpi.c-red::after {
+  background: #fecaca;
+}
+
+#view-facturacion .kpi.c-amber .icon {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+#view-facturacion .kpi.c-amber::after {
+  background: #fde68a;
+}
+
+
+/* =========================
+   TABS
+========================= */
+
+#view-facturacion .tabs {
+  display: flex;
+
+  gap: 3px;
+
+  padding: 4px;
+
+  overflow-x: auto;
+
+  background: var(--fac-gray-100);
+
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: 10px;
+}
+
+#view-facturacion .tab {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 38px;
+
+  padding: 0 15px;
+
+  border-radius: 7px;
+
+  white-space: nowrap;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  color: var(--fac-gray-500);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+#view-facturacion .tab:hover {
+  color: var(--fac-gray-800);
+}
+
+#view-facturacion .tab.active {
+  color: var(--fac-blue);
+
+  background: white;
+
+  box-shadow:
+    0 1px 4px rgba(15, 23, 42, 0.10);
+}
+
+
+/* =========================
+   TOOLBAR
+========================= */
+
+#view-facturacion .toolbar {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  flex-wrap: wrap;
+
+  margin-bottom: 16px;
+
+  padding: 14px;
+
+  background: white;
+
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: var(--fac-radius);
+
+  box-shadow: var(--fac-shadow);
+}
+
+
+/* =========================
+   BUSCADOR
+========================= */
+
+#view-facturacion .field-search {
+  flex: 1;
+
+  min-width: 240px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  min-height: 40px;
+
+  padding: 0 12px;
+
+  background: white;
+
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: 8px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+#view-facturacion .field-search:focus-within {
+  border-color: var(--fac-blue);
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+#view-facturacion .field-search svg {
+  width: 17px;
+  height: 17px;
+
+  color: var(--fac-gray-400);
+
+  flex: 0 0 auto;
+}
+
+#view-facturacion .field-search input {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: var(--fac-gray-700);
+
+  font-size: 13px;
+}
+
+
+/* =========================
+   SELECTS / INPUTS
+========================= */
+
+#view-facturacion .sel,
+#view-facturacion .inp,
+#view-facturacion input,
+#view-facturacion select,
+#view-facturacion textarea {
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: 8px;
+
+  background: white;
+
+  color: var(--fac-gray-700);
+
+  min-height: 40px;
+
+  padding: 0 11px;
+
+  font-size: 13px;
+
+  outline: none;
+
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+#view-facturacion textarea {
+  padding: 10px 11px;
+
+  min-height: 80px;
+
+  resize: vertical;
+}
+
+#view-facturacion .sel:focus,
+#view-facturacion .inp:focus,
+#view-facturacion input:focus,
+#view-facturacion select:focus,
+#view-facturacion textarea:focus {
+  border-color: var(--fac-blue);
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+
+/* =========================
+   LABELS
+========================= */
+
+#view-facturacion label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  color: var(--fac-gray-600);
+
+  letter-spacing: 0.1px;
+}
+
+
+/* =========================
+   PANELES / TARJETAS
+========================= */
+
+#view-facturacion .panel {
+  overflow: hidden;
+
+  background: white;
+
+  border: 1px solid var(--fac-gray-200);
+
+  border-radius: var(--fac-radius);
+
+  box-shadow: var(--fac-shadow);
+
+  transition:
+    box-shadow 0.2s ease;
+}
+
+#view-facturacion .panel:hover {
+  box-shadow:
+    0 5px 18px rgba(15, 23, 42, 0.06);
+}
+
+#view-facturacion .panel-head {
+  min-height: 52px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding: 0 18px;
+
+  border-bottom: 1px solid var(--fac-gray-100);
+
+  background: white;
+}
+
+#view-facturacion .panel-head h3 {
+  margin: 0;
+
+  font-size: 14px;
+
+  font-weight: 700;
+
+  color: var(--fac-gray-800);
+}
+
+#view-facturacion .panel-body {
+  padding: 18px;
+}
+
+#view-facturacion .meta {
+  font-size: 11px;
+
+  color: var(--fac-gray-400);
+}
+
+
+/* =========================
+   TABLAS
+========================= */
+
+#view-facturacion .panel table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+#view-facturacion .panel thead {
+  background: var(--fac-gray-50);
+}
+
+#view-facturacion .panel th {
+  height: 42px;
+
+  padding: 0 16px;
+
+  text-align: left;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.45px;
+
+  text-transform: uppercase;
+
+  color: var(--fac-gray-500);
+
+  border-bottom: 1px solid var(--fac-gray-200);
+}
+
+#view-facturacion .panel td {
+  min-height: 54px;
+
+  padding: 13px 16px;
+
+  font-size: 12px;
+
+  color: var(--fac-gray-600);
+
+  border-bottom: 1px solid var(--fac-gray-100);
+
+  vertical-align: middle;
+}
+
+#view-facturacion .panel tbody tr {
+  transition:
+    background 0.16s ease;
+}
+
+#view-facturacion .panel tbody tr:hover {
+  background: #fafcff;
+}
+
+#view-facturacion .panel tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* =========================
+   BADGES
+========================= */
+
+#view-facturacion .badge,
+#view-facturacion [class*="badge"] {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 23px;
+
+  padding: 3px 8px;
+
+  border-radius: 6px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+
+/* BADGES GENERALES */
+
+#view-facturacion .badge-success,
+#view-facturacion .status-paid,
+#view-facturacion .status-emitida {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+#view-facturacion .badge-warning,
+#view-facturacion .status-pending {
+  color: #a16207;
+  background: #fef9c3;
+}
+
+#view-facturacion .badge-danger,
+#view-facturacion .status-cancelled {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+#view-facturacion .badge-info {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+#view-facturacion .badge-purple {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+
+/* =========================
+   FORMULARIOS
+========================= */
+
+#view-facturacion .form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+#view-facturacion .form-grid .full {
+  grid-column: 1 / -1;
+}
+
+
+/* =========================
+   GRID RESUMEN
+========================= */
+
+#view-facturacion .grid-2 {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(280px, 1fr);
+
+  gap: 16px;
+}
+
+#view-facturacion .stack {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 16px;
+}
+
+
+/* =========================
+   ACCIONES RÁPIDAS
+========================= */
+
+#view-facturacion .stack .panel-body .btn {
+  min-height: 42px;
+
+  font-size: 12px;
+}
+
+
+/* =========================
+   CUENTA CORRIENTE
+========================= */
+
+#view-facturacion #cuenta-corriente-contenido {
+  border-top: 1px solid var(--fac-gray-100);
+
+  margin-top: 8px;
+
+  padding-top: 18px;
+}
+
+#view-facturacion .cuenta-saldo,
+#view-facturacion .saldo-card {
+  padding: 20px;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #eff6ff,
+      #ffffff
+    );
+
+  border: 1px solid #dbeafe;
+}
+
+#view-facturacion .cuenta-saldo .amount,
+#view-facturacion .saldo-card .amount {
+  margin-top: 6px;
+
+  font-size: 30px;
+
+  font-weight: 750;
+
+  color: var(--fac-blue);
+
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* =========================
+   NUEVA FACTURA
+========================= */
+
+#view-facturacion #fac-nueva {
+  animation: facSlideUp 0.25s ease;
+}
+
+@keyframes facSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================
+   TOTALES DESTACADOS
+========================= */
+
+#view-facturacion .total,
+#view-facturacion .total-value {
+  font-size: 24px;
+
+  font-weight: 750;
+
+  color: var(--fac-gray-900);
+
+  font-variant-numeric: tabular-nums;
+}
+
+#view-facturacion .money {
+  font-variant-numeric: tabular-nums;
+
+  font-weight: 650;
+}
+
+
+/* =========================
+   BOTONES EN TABLAS
+========================= */
+
+#view-facturacion table button {
+  border-radius: 6px;
+
+  min-height: 30px;
+
+  padding: 5px 9px;
+
+  font-size: 11px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+#view-facturacion table button:hover {
+  transform: translateY(-1px);
+}
+
+
+/* =========================
+   ESTADOS VACÍOS
+========================= */
+
+#view-facturacion .empty-state {
+  padding: 45px 20px;
+
+  text-align: center;
+
+  color: var(--fac-gray-400);
+}
+
+#view-facturacion .empty-state h3 {
+  margin: 0 0 7px;
+
+  color: var(--fac-gray-600);
+}
+
+
+/* =========================
+   SCROLL TABLAS
+========================= */
+
+#view-facturacion .panel {
+  max-width: 100%;
+}
+
+#view-facturacion .panel:has(table) {
+  overflow-x: auto;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+
+  #view-facturacion .kpi-row {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  #view-facturacion .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+@media (max-width: 850px) {
+
+  #view-facturacion .page-head {
+    flex-direction: column;
+  }
+
+  #view-facturacion .head-actions {
+    width: 100%;
+  }
+
+  #view-facturacion .head-actions .btn {
+    flex: 1;
+  }
+
+  #view-facturacion .toolbar {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  #view-facturacion .toolbar .field-search {
+    width: 100%;
+  }
+
+  #view-facturacion .toolbar select {
+    width: 100%;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  #view-facturacion {
+    padding-bottom: 20px;
+  }
+
+  #view-facturacion .page-head h1 {
+    font-size: 23px;
+  }
+
+  #view-facturacion .kpi-row {
+    grid-template-columns: 1fr;
+  }
+
+  #view-facturacion .kpi {
+    padding: 16px;
+  }
+
+  #view-facturacion .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #view-facturacion .form-grid .full {
+    grid-column: auto;
+  }
+
+  #view-facturacion .tabs {
+    border-radius: 8px;
+  }
+
+  #view-facturacion .tab {
+    min-width: max-content;
+  }
+
+  #view-facturacion .panel-head {
+    padding: 0 14px;
+  }
+
+  #view-facturacion .panel-body {
+    padding: 14px;
+  }
+
+}
