@@ -133,66 +133,438 @@ export function openFacturaDetalle(id) {
 
 // 1. ANULAR Y DEVOLVER A SALDO (Facturas Pagadas)
 export async function anularFacturaActual() {
+
     if (!currentFacturaId) return;
-    const original = DATA.facturas.find(x => x.id === currentFacturaId);
+
+    const original = DATA.facturas.find(
+        x => x.id === currentFacturaId
+    );
+
     if (!original || original.estado !== 'Emitida') return;
 
-    if (!confirm(`¿Estás seguro de ANULAR el comprobante ${original.id}?\nSe generará una Nota de Crédito por ${fmt(original.total)} y ese dinero quedará a favor en la cuenta del cliente.`)) return;
+
+    if (!confirm(
+        `¿Estás seguro de ANULAR el comprobante ${original.id}?\n\n` +
+        `Se generará una Nota de Crédito por ${fmt(original.total)}.\n\n` +
+        `El dinero quedará disponible en la Cuenta Corriente del cliente.`
+    )) return;
+
 
     try {
-        const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
+
+        const user = currentUserProfile
+            ? currentUserProfile.nombre
+            : 'Sistema';
+
+
         const now = new Date();
-        const fDateStr = now.toISOString().split('T')[0];
-        const hTimeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-        const logDate = fDate(fDateStr) + ' ' + hTimeStr;
+
+        const fDateStr = now
+            .toISOString()
+            .split('T')[0];
+
+
+        const hTimeStr = now
+            .toLocaleTimeString(
+                'es-MX',
+                {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }
+            );
+
+
+        const logDate =
+            fDate(fDateStr) +
+            ' ' +
+            hTimeStr;
+
+
+        /* =====================================================
+           IMPORTANTE
+
+           La Nota de Crédito necesita un cliente.
+
+           No podemos crear saldo a favor para
+           Consumidor Final sin clienteId.
+           ===================================================== */
+
+        if (!original.clienteId) {
+
+            toast(
+                '❌ Esta factura no tiene un cliente asociado. ' +
+                'No se puede generar saldo a favor.'
+            );
+
+            return;
+        }
+
 
         const batch = window.db.batch();
 
-        // Actualizar factura original
-        const facRef = window.db.collection('facturas').doc(original.id);
-        batch.update(facRef, {
-            estado: 'Anulada',
-            historial: window.firebase.firestore.FieldValue.arrayUnion({ fecha: logDate, accion: 'Comprobante Anulado', detalle: `NC y Devolución a Saldo de Cliente. Usuario: ${user}` })
-        });
-        original.estado = 'Anulada';
 
-        // Generar Nota de Crédito
+        /* =====================================================
+           1. ANULAR FACTURA ORIGINAL
+           ===================================================== */
+
+        const facRef =
+            window.db
+                .collection('facturas')
+                .doc(original.id);
+
+
+        batch.update(
+            facRef,
+            {
+
+                estado: 'Anulada',
+
+                historial:
+                    window.firebase
+                        .firestore
+                        .FieldValue
+                        .arrayUnion(
+                            {
+
+                                fecha: logDate,
+
+                                accion:
+                                    'Comprobante Anulado',
+
+                                detalle:
+                                    `Nota de Crédito generada y ` +
+                                    `saldo acreditado en Cuenta Corriente. ` +
+                                    `Usuario: ${user}`
+
+                            }
+                        )
+
+            }
+        );
+
+
+        /* =====================================================
+           2. GENERAR NÚMERO DE NOTA DE CRÉDITO
+           ===================================================== */
+
         let nuevoNum = 1;
-        const contadoresRef = window.db.collection('negocio').doc('contadores');
-        const countDoc = await contadoresRef.get();
-        if (countDoc.exists && countDoc.data().nc) nuevoNum = countDoc.data().nc + 1;
-        batch.set(contadoresRef, { nc: nuevoNum }, { merge: true });
-        
-        const ncId = 'NC-' + nuevoNum.toString().padStart(4, '0');
-        const ncData = {
-            id: ncId, fecha: fDateStr, hora: hTimeStr,
-            cliente: original.cliente, doc: original.doc, clienteId: original.clienteId,
-            tipo: 'Nota de Crédito', refModulo: 'Factura', refId: original.id, refPago: original.refPago,
-            estado: 'Emitida', total: original.total, items: original.items, usuario: user, estadoPago: 'Aplicada',
-            historial: [{ fecha: logDate, accion: 'Emisión NC', detalle: `Anula comprobante ${original.id}. Acreditado a Saldo. Usuario: ${user}` }]
-        };
-        const ncRef = window.db.collection('facturas').doc(ncId);
-        batch.set(ncRef, ncData);
-        
-        // Sumar al Saldo a Favor del Cliente
-        if (original.clienteId) {
-            const cliRef = window.db.collection('clientes').doc(original.clienteId);
-            batch.update(cliRef, {
-                saldoAFavor: window.firebase.firestore.FieldValue.increment(original.total)
-            });
+
+
+        const contadoresRef =
+            window.db
+                .collection('negocio')
+                .doc('contadores');
+
+
+        const countDoc =
+            await contadoresRef.get();
+
+
+        if (
+            countDoc.exists &&
+            countDoc.data().nc
+        ) {
+
+            nuevoNum =
+                countDoc.data().nc + 1;
+
         }
+
+
+        batch.set(
+            contadoresRef,
+            {
+                nc: nuevoNum
+            },
+            {
+                merge: true
+            }
+        );
+
+
+        const ncId =
+            'NC-' +
+            nuevoNum
+                .toString()
+                .padStart(4, '0');
+
+
+        /* =====================================================
+           3. CREAR NOTA DE CRÉDITO
+           ===================================================== */
+
+        const ncData = {
+
+            id: ncId,
+
+            fecha: fDateStr,
+
+            hora: hTimeStr,
+
+
+            cliente:
+                original.cliente,
+
+
+            doc:
+                original.doc,
+
+
+            clienteId:
+                original.clienteId,
+
+
+            tipo:
+                'Nota de Crédito',
+
+
+            refModulo:
+                'Factura',
+
+
+            refId:
+                original.id,
+
+
+            refPago:
+                original.refPago,
+
+
+            estado:
+                'Emitida',
+
+
+            total:
+                original.total,
+
+
+            items:
+                original.items,
+
+
+            usuario:
+                user,
+
+
+            estadoPago:
+                'Aplicada',
+
+
+            /* La NC acredita dinero */
+
+            destino:
+                'Cuenta Corriente',
+
+
+            historial: [
+
+                {
+
+                    fecha:
+                        logDate,
+
+
+                    accion:
+                        'Emisión NC',
+
+
+                    detalle:
+                        `Anula comprobante ${original.id}. ` +
+                        `Importe acreditado en Cuenta Corriente. ` +
+                        `Usuario: ${user}`
+
+                }
+
+            ]
+
+        };
+
+
+        const ncRef =
+            window.db
+                .collection('facturas')
+                .doc(ncId);
+
+
+        batch.set(
+            ncRef,
+            ncData
+        );
+
+
+        /* =====================================================
+           4. ACTUALIZAR SALDO DEL CLIENTE
+           ===================================================== */
+
+        const cliRef =
+            window.db
+                .collection('clientes')
+                .doc(
+                    original.clienteId
+                );
+
+
+        batch.update(
+            cliRef,
+            {
+
+                saldoAFavor:
+
+                    window.firebase
+                        .firestore
+                        .FieldValue
+                        .increment(
+                            original.total
+                        )
+
+            }
+        );
+
+
+        /* =====================================================
+           5. CREAR MOVIMIENTO DE CUENTA CORRIENTE
+           ===================================================== */
+
+        const movimientoRef =
+            window.db
+                .collection('cuenta_corriente')
+                .doc();
+
+
+        const movimientoData = {
+
+            /* Cliente */
+
+            clienteId:
+                original.clienteId,
+
+
+            cliente:
+                original.cliente,
+
+
+            /* Movimiento */
+
+            tipo:
+                'NOTA_CREDITO',
+
+
+            naturaleza:
+                'CREDITO',
+
+
+            importe:
+                original.total,
+
+
+            /* Referencias */
+
+            referenciaTipo:
+                'FACTURA',
+
+
+            referenciaId:
+                original.id,
+
+
+            notaCreditoId:
+                ncId,
+
+
+            /* Información */
+
+            descripcion:
+                `Nota de Crédito ${ncId} generada por ` +
+                `anulación de ${original.id}.`,
+
+
+            /* Auditoría */
+
+            fecha:
+                fDateStr,
+
+
+            hora:
+                hTimeStr,
+
+
+            fechaTimestamp:
+                window.firebase
+                    .firestore
+                    .FieldValue
+                    .serverTimestamp(),
+
+
+            usuario:
+                user,
+
+
+            /* Estado */
+
+            estado:
+                'ACTIVO'
+
+        };
+
+
+        batch.set(
+            movimientoRef,
+            movimientoData
+        );
+
+
+        /* =====================================================
+           6. CONFIRMAR TODA LA OPERACIÓN
+           ===================================================== */
 
         await batch.commit();
 
-        if(!DATA.facturas) DATA.facturas = [];
-        DATA.facturas.push(ncData);
 
-        toast(`✅ Anulación exitosa y devolución agregada al cliente`);
-        openFacturaDetalle(original.id); 
-        
-    } catch (e) { console.error(e); toast("❌ Error al procesar anulación"); }
+        /* Actualización visual inmediata */
+
+        original.estado =
+            'Anulada';
+
+
+        if (!DATA.facturas) {
+
+            DATA.facturas = [];
+
+        }
+
+
+        DATA.facturas.push(
+            ncData
+        );
+
+
+        toast(
+            `✅ Factura anulada. ` +
+            `Se acreditó ${fmt(original.total)} ` +
+            `en la Cuenta Corriente del cliente.`
+        );
+
+
+        openFacturaDetalle(
+            original.id
+        );
+
+
+    } catch (e) {
+
+        console.error(
+            'Error al procesar anulación:',
+            e
+        );
+
+
+        toast(
+            '❌ Error al procesar la anulación'
+        );
+
+    }
+
 }
-
 // 2. CANCELAR (Facturas Pendientes, no mueve plata)
 window.cancelarFacturaActual = async function() {
     if (!currentFacturaId) return;
