@@ -214,6 +214,12 @@ export let DATA = {
      - Ajuste
      ========================================================= */
 
+
+  /* PRESUPUESTOS */
+  presupuestos: [],
+
+
+  
   cuenta_corriente: [],
 
 
@@ -254,6 +260,8 @@ export function initStore(db, renderCallback) {
     'clientes',
 
     'tickets',
+
+    'presupuestos',
 
     'creditos',
 
@@ -455,4 +463,4 @@ export function initStore(db, renderCallback) {
    Todo se guarda directamente en Firebase.
    ========================================================= */
 
-export function saveToLocal() {}
+export function saveToLocal() { }
