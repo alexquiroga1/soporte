@@ -287,94 +287,99 @@
 
       <div class="content">
 
-        <!-- ================= DASHBOARD ================= -->
-        <div class="stack">
-          <!-- PANEL DE RETIROS PENDIENTES -->
-          <div class="panel" id="panel-retiros" style="display:none; border: 1px solid var(--copper);">
-            <div class="panel-head" style="background:var(--copper-dim); border-bottom:1px solid rgba(255,106,61,0.2);">
-              <h3 style="color:#A5520F;">⏰ Retiros Pendientes</h3>
-            </div>
-            <div class="panel-body" id="dash-retiros-body"
-              style="padding:12px; display:flex; flex-direction:column; gap:8px;">
-            </div>
-          </div>
+   <!-- ================= DASHBOARD PREMIUM ================= -->
+<div class="view active" id="view-dashboard">
+  
+  <!-- HERO BIENVENIDA -->
+  <section class="hero reveal">
+    <div class="hero-main">
+      <div class="hero-meta">
+          <span class="status-badge emitida">Sistema en línea</span>
+          <span class="status-badge nota" id="dash-date">HOY</span>
+      </div>
+      <h2 class="hero-title" id="dash-title-negocio">Panel General</h2>
+      <p class="hero-sub">Resumen operativo y financiero de tu negocio.</p>
+      <div class="hero-actions">
+          <button class="btn btn-primary shine" onclick="window.showNuevoTicketView()">+ Nuevo Ticket</button>
+          <button class="btn btn-success" onclick="goView('ventas')">🛒 Nueva Venta (POS)</button>
+      </div>
+    </div>
+    
+    <aside class="hero-side" style="justify-content: center; align-items: center; text-align: center; border-left: 1px dashed var(--line);">
+        <div class="mini-label">Efectivo actual en Caja</div>
+        <div id="dash-caja-hero" style="font-size: 36px; font-weight: 800; color: var(--teal); font-family: var(--mono); margin: 10px 0;">$0.00</div>
+        <button class="btn btn-ghost btn-sm" onclick="goView('caja')">Ir al módulo de Caja</button>
+    </aside>
+  </section>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Caja del día</h3>
-            </div>
-            <div class="view active" id="view-dashboard">
-              <div class="page-head">
-                <div>
-                  <h1 id="dash-title-negocio">Panel general</h1>
-                  <p id="dash-date">HOY</p>
-                </div>
-                <button class="btn btn-primary" onclick="window.showNuevoTicketView()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>Nuevo ticket</button>
-              </div>
+  <!-- PANEL DE RETIROS PENDIENTES (Si hay equipos olvidados) -->
+  <div class="card reveal" id="panel-retiros" style="display:none; border-color: var(--amber); margin-bottom: 24px;">
+    <div class="card-head" style="background: var(--warn-bg);">
+      <div class="head-left"><div class="icon" style="background: #fff; border:none;">⏰</div><h2 style="color:#9a6500;">Retiros Pendientes</h2></div>
+    </div>
+    <div class="card-body" id="dash-retiros-body" style="display:grid; gap:12px;"></div>
+  </div>
 
-              <div class="kpi-row" id="dash-kpis"></div>
+  <!-- 4 KPIS SUPERIORES -->
+  <div class="grid-3" id="dash-kpis" style="margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+    <!-- Se llena con JS -->
+  </div>
 
-              <div class="grid-2" style="margin-bottom:16px;">
-                <div class="panel">
-                  <div class="panel-head">
-                    <h3>Ventas — últimos 7 días</h3><span class="meta" id="dash-week-total"></span>
-                  </div>
-                  <div class="panel-body" id="dash-bar-chart"></div>
-                </div>
-                <div class="panel">
-                  <div class="panel-head">
-                    <h3>Tickets por estado</h3>
-                  </div>
-                  <div class="panel-body">
-                    <div class="donut-wrap" id="dash-donut">
-                      <div class="donut-ring">
-                        <div class="donut-center"><b>0</b><span>Total</span></div>
-                      </div>
-                      <div class="donut-legend"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+  <!-- CARDS CON NOMBRES (Reemplaza los paneles apilados del costado) -->
+  <div style="margin-bottom: 30px;">
+    <div class="mini-label" style="margin-bottom: 12px; font-size: 11px;">Accesos Rápidos a Módulos</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+       
+       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--copper);" onclick="goView('tickets')">
+          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">📋</div>
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Tickets Soporte</h4>
+       </div>
+       
+       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--blue);" onclick="goView('clientes')">
+          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">👥</div>
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Directorio Clientes</h4>
+       </div>
 
-              <div class="grid-2">
-                <div class="panel">
-                  <div class="panel-head">
-                    <h3>Tickets recientes</h3><span class="meta">Clic para ver detalle</span>
-                  </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Prior.</th>
-                        <th>Ticket</th>
-                        <th>Cliente</th>
-                        <th>Equipo / falla</th>
-                        <th>Estado</th>
-                        <th>Técnico</th>
-                      </tr>
-                    </thead>
-                    <tbody id="dash-tickets-body"></tbody>
-                  </table>
-                </div>
-                <div class="stack">
-                  <div class="panel">
-                    <div class="panel-head">
-                      <h3>Caja del día</h3>
-                    </div>
-                    <div class="caja-box" id="dash-caja"></div>
-                  </div>
-                  <div class="panel">
-                    <div class="panel-head">
-                      <h3>Actividad</h3>
-                    </div>
-                    <div class="actlist" id="dash-activity">
-                      <div style="padding: 10px 18px; color: var(--muted); font-size: 13px;">Sin actividad reciente.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--amber);" onclick="goView('productos')">
+          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">📦</div>
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Inventario / Stock</h4>
+       </div>
 
+       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--teal);" onclick="goView('facturacion')">
+          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🧾</div>
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Facturación</h4>
+       </div>
+
+    </div>
+  </div>
+
+  <!-- TABLA Y GRÁFICO (Sin panel derecho apilado) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+    
+    <section class="card">
+      <div class="card-head">
+        <div class="head-left"><div class="icon">⏱️</div><div><h2>Tickets Recientes</h2><p>Últimos 5 equipos ingresados</p></div></div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div class="table-scroll">
+            <table class="floating-table" style="margin:0; border-spacing: 0;">
+              <tbody id="dash-tickets-body"></tbody>
+            </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="head-left"><div class="icon">📈</div><div><h2>Ventas (Últimos 7 Días)</h2><p id="dash-week-total">Evolución de ingresos</p></div></div>
+      </div>
+      <div class="card-body" id="dash-bar-chart" style="min-height: 220px; display:flex; align-items:flex-end;">
+         <!-- El gráfico SVG se inyecta aquí -->
+      </div>
+    </section>
+    
+  </div>
+</div>
           
             <!-- ================= VENTAS (POS) ================= -->
             <div class="view" id="view-ventas">
