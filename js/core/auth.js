@@ -22,14 +22,32 @@ export function initAuth(authInstance, dbInstance, onAppReady) {
         }
 
         const uName = currentUserProfile.nombre;
-        const uRole = currentUserProfile.rol;
-        
-        document.getElementById('sidebar-avatar').textContent = initials(uName);
-        document.getElementById('sidebar-user-name').textContent = uName;
-        document.getElementById('sidebar-user-role').textContent = uRole;
-        
-        const btnUser = document.getElementById('btn-user');
-        if(btnUser) btnUser.textContent = initials(uName);
+const uRole = currentUserProfile.rol;
+
+// Elementos que pueden existir dependiendo de la vista actual
+const sidebarAvatar = document.getElementById('sidebar-avatar');
+const sidebarUserName = document.getElementById('sidebar-user-name');
+const sidebarUserRole = document.getElementById('sidebar-user-role');
+
+// Solo actualizar si los elementos existen
+if (sidebarAvatar) {
+    sidebarAvatar.textContent = initials(uName);
+}
+
+if (sidebarUserName) {
+    sidebarUserName.textContent = uName;
+}
+
+if (sidebarUserRole) {
+    sidebarUserRole.textContent = uRole;
+}
+
+// Usuario del botón superior
+const btnUser = document.getElementById('btn-user');
+
+if (btnUser) {
+    btnUser.textContent = initials(uName);
+}
         
         toast(`Bienvenido, ${uName.split(' ')[0]}`);
         
