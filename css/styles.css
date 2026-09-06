@@ -788,3 +788,83 @@ tbody tr:nth-child(n+5) { animation-delay: 0.25s; }
 .menu-toggle, .btn-menu {
     display: none !important;
 }
+
+/* =========================================================
+   DASHBOARD 2026 · SIN BARRA LATERAL
+   ========================================================= */
+body{display:block;}
+.main{width:100%;min-height:100vh;}
+.topbar{padding-left:32px;padding-right:32px;}
+.content{width:100%;max-width:1680px;margin:0 auto;padding:30px 36px 44px;}
+
+/* El dashboard se convierte en el centro de navegación */
+#view-dashboard .topbar{
+  position:static;
+  height:auto;
+  min-height:76px;
+  padding:0 0 26px;
+  margin-bottom:28px !important;
+  background:transparent;
+  border-bottom:1px solid var(--line) !important;
+}
+#view-dashboard .brand{border:0;margin:0;padding:0;color:var(--ink);}
+#view-dashboard .brand .eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--copper);margin-bottom:6px;
+}
+.launchpad-container{max-width:1500px;margin:0 auto;}
+.welcome-text{font-size:30px;letter-spacing:-.035em;margin-bottom:7px;}
+.welcome-sub{color:var(--muted);font-size:14px;margin-bottom:26px;}
+.quick-access-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(235px,1fr));
+  gap:16px;
+}
+.qa-card{
+  min-height:190px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:22px;
+  cursor:pointer;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+  position:relative;
+  overflow:hidden;
+}
+.qa-card::after{
+  content:"";
+  position:absolute;left:0;right:0;top:0;height:4px;
+  background:var(--card-accent,var(--copper));
+  opacity:.9;
+}
+.qa-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 16px 34px rgba(18,21,28,.10);
+  border-color:color-mix(in srgb,var(--card-accent,var(--copper)) 38%, var(--line));
+}
+.qa-icon{
+  width:48px;height:48px;border-radius:13px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);font-size:20px;margin-bottom:20px;
+}
+.qa-title{font-size:15px;margin-bottom:8px;}
+.qa-desc{font-size:12.5px;line-height:1.55;color:var(--muted);}
+.border-tickets{--card-accent:var(--copper);}
+.border-pos{--card-accent:var(--red);}
+.border-caja{--card-accent:var(--violet);}
+.border-clientes{--card-accent:var(--blue);}
+.border-stock{--card-accent:var(--amber);}
+.border-facturas{--card-accent:var(--teal);}
+.border-crm{--card-accent:var(--violet);}
+.border-reportes{--card-accent:var(--blue);}
+.border-config{--card-accent:var(--graphite);}
+
+@media(max-width:760px){
+  .content{padding:18px 14px 32px;}
+  .topbar{padding:0 14px;}
+  #view-dashboard .topbar{padding-bottom:18px;margin-bottom:20px !important;}
+  .quick-access-grid{grid-template-columns:1fr;}
+  .qa-card{min-height:150px;}
+  .welcome-text{font-size:25px;}
+}
