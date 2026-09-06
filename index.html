@@ -9,7 +9,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="./css/facturacion-2026.css">
   <style>
@@ -288,81 +288,65 @@
 
       <div class="content">
 
- <!-- ================= DASHBOARD PREMIUM ================= -->
+ <!-- ================= DASHBOARD MINIMALISTA ================= -->
 <div class="view active" id="view-dashboard">
   
-  <!-- HERO BIENVENIDA -->
-  <section class="hero reveal">
-    <div class="hero-main">
-      <div class="hero-meta">
-          <span class="status-badge emitida">Sistema en línea</span>
-          <span class="status-badge nota" id="dash-date">HOY</span>
-      </div>
-      <h2 class="hero-title" id="dash-title-negocio">Panel General</h2>
-      <p class="hero-sub">Resumen operativo y financiero de tu negocio.</p>
-      <div class="hero-actions">
-          <button class="btn btn-primary shine" onclick="window.showNuevoTicketView()">
-              <i class="fa-solid fa-plus"></i> Nuevo Ticket
-          </button>
-          <button class="btn btn-success" onclick="goView('ventas')">
-              <i class="fa-solid fa-cart-shopping"></i> Nueva Venta (POS)
-          </button>
-      </div>
+  <header class="topbar" style="margin-bottom: 40px; border-bottom: none;">
+    <div class="brand">
+        <div><div class="eyebrow">Operación diaria</div><h1 style="font-size:24px; font-weight:800; letter-spacing:-0.03em;" id="dash-title-negocio">SERVIX</h1></div>
     </div>
-    
-    <aside class="hero-side" style="justify-content: center; align-items: center; text-align: center; border-left: 1px dashed var(--line);">
-        <div class="mini-label">Efectivo actual en Caja</div>
-        <div id="dash-caja-hero" style="font-size: 36px; font-weight: 800; color: var(--teal); font-family: var(--mono); margin: 10px 0;">$0.00</div>
-        <button class="btn btn-ghost btn-sm" onclick="goView('caja')">
-            <i class="fa-solid fa-cash-register"></i> Ir al módulo de Caja
-        </button>
-    </aside>
-  </section>
-
-  <!-- 4 KPIS SUPERIORES -->
-  <div class="grid-3" id="dash-kpis" style="margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
-    <!-- Se llena con JS -->
-  </div>
-
-  <!-- ACCESOS RÁPIDOS CON FONT AWESOME -->
-  <div>
-    <div class="mini-label" style="margin-bottom: 12px; font-size: 11px;">Accesos Rápidos a Módulos</div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-       
-       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--copper);" onclick="goView('tickets')">
-          <div style="font-size: 36px; color: var(--copper); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-              <i class="fa-solid fa-clipboard-list"></i>
-          </div>
-          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Tickets Soporte</h4>
-          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Gestión de equipos</p>
-       </div>
-       
-       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--blue);" onclick="goView('clientes')">
-          <div style="font-size: 36px; color: var(--blue); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-              <i class="fa-solid fa-users"></i>
-          </div>
-          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Directorio Clientes</h4>
-          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">CRM y deudas</p>
-       </div>
-
-       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--amber);" onclick="goView('productos')">
-          <div style="font-size: 36px; color: var(--amber); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-              <i class="fa-solid fa-boxes-stacked"></i>
-          </div>
-          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Catálogo / Stock</h4>
-          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Productos y repuestos</p>
-       </div>
-
-       <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--teal);" onclick="goView('facturacion')">
-          <div style="font-size: 36px; color: var(--teal); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-              <i class="fa-solid fa-file-invoice-dollar"></i>
-          </div>
-          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Facturación</h4>
-          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Comprobantes y NC</p>
-       </div>
-
+    <div>
+        <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.8); padding:8px 16px; border-radius:999px; border:1px solid var(--line); font-size:12px; font-weight:700;">
+           <span style="width:8px; height:8px; background:var(--teal); border-radius:50%; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);"></span>
+           Sistema en línea
+        </div>
     </div>
-  </div>
+  </header>
+
+  <main class="launchpad-container">
+      <h2 class="welcome-text">Bienvenido al Sistema</h2>
+      <p class="welcome-sub">Selecciona un módulo para comenzar a trabajar</p>
+
+      <div class="quick-access-grid">
+         
+         <div class="qa-card border-tickets" onclick="goView('tickets')">
+            <div class="qa-icon" style="color: var(--copper);"><i class="fa-solid fa-clipboard-list"></i></div>
+            <h4 class="qa-title">Tickets de Soporte</h4>
+            <p class="qa-desc">Ingreso, diagnóstico y reparación de equipos</p>
+         </div>
+
+         <div class="qa-card border-pos" onclick="goView('ventas')">
+            <div class="qa-icon" style="color: var(--red);"><i class="fa-solid fa-cart-shopping"></i></div>
+            <h4 class="qa-title">Punto de Venta (POS)</h4>
+            <p class="qa-desc">Venta rápida de accesorios y servicios</p>
+         </div>
+
+         <div class="qa-card border-caja" onclick="goView('caja')">
+            <div class="qa-icon" style="color: var(--purple);"><i class="fa-solid fa-cash-register"></i></div>
+            <h4 class="qa-title">Gestión de Caja</h4>
+            <p class="qa-desc">Cobros pendientes, ingresos y egresos diarios</p>
+         </div>
+         
+         <div class="qa-card border-clientes" onclick="goView('clientes')">
+            <div class="qa-icon" style="color: var(--blue);"><i class="fa-solid fa-users"></i></div>
+            <h4 class="qa-title">Directorio de Clientes</h4>
+            <p class="qa-desc">Billetera virtual, créditos y perfiles CRM</p>
+         </div>
+
+         <div class="qa-card border-stock" onclick="goView('productos')">
+            <div class="qa-icon" style="color: var(--amber);"><i class="fa-solid fa-boxes-stacked"></i></div>
+            <h4 class="qa-title">Catálogo y Stock</h4>
+            <p class="qa-desc">Gestión de inventario de repuestos y promociones</p>
+         </div>
+
+         <div class="qa-card border-facturas" onclick="goView('facturacion')">
+            <div class="qa-icon" style="color: var(--teal);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+            <h4 class="qa-title">Facturación</h4>
+            <p class="qa-desc">Historial de comprobantes y Notas de Crédito</p>
+         </div>
+
+      </div>
+  </main>
 </div>
           
             <!-- ================= VENTAS (POS) ================= -->

@@ -147,3 +147,11 @@ export function limpiarNotificaciones() {
     const dot = document.getElementById('notif-dot-alert');
     if (dot) dot.style.display = 'none';
 }
+
+export function renderDashboard() {
+  // En el diseño Launchpad minimalista, solo actualizamos el nombre del negocio si existe
+  const titleEl = document.getElementById('dash-title-negocio');
+  if (titleEl && window.DATA && window.DATA.negocio) {
+      titleEl.textContent = window.DATA.negocio.nombre || 'SERVIX';
+  }
+}
