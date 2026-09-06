@@ -12,6 +12,7 @@ export function goView(name){
   document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active', i.getAttribute('data-view')===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
   closeDropdowns();
+  window.scrollTo({top:0, behavior:'smooth'});
   
   const sidebar = document.querySelector('.sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
@@ -50,7 +51,7 @@ export function initUI() {
       const dd = document.getElementById('dd-notif'); 
       const wasOpen = dd.classList.contains('open'); 
       closeDropdowns(); 
-      if(!wasOpen) dd.classList.add('open'); 
+      if(!wasOpen) { dd.classList.add('open'); if(typeof window.renderNotificaciones==='function') window.renderNotificaciones(); } 
   });
   
   document.getElementById('btn-user').addEventListener('click', e=>{ 
@@ -58,7 +59,7 @@ export function initUI() {
       const dd = document.getElementById('dd-user'); 
       const wasOpen = dd.classList.contains('open'); 
       closeDropdowns(); 
-      if(!wasOpen) dd.classList.add('open'); 
+      if(!wasOpen) { dd.classList.add('open'); if(typeof window.renderNotificaciones==='function') window.renderNotificaciones(); } 
   });
   document.addEventListener('click', closeDropdowns);
 

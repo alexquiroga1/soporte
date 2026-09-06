@@ -51,7 +51,7 @@ import {
 // EXPOSICIÓN GLOBAL
 window.openModal = openModal; window.closeModal = closeModal; window.goView = goView;
 window.doLogin = () => doLogin(window.auth); window.doLogout = () => doLogout(window.auth, closeDropdowns);
-window.closeDropdowns = closeDropdowns;
+window.closeDropdowns = closeDropdowns; window.renderNotificaciones = renderNotificaciones;
 
 window.showNuevoTicketView = () => {
     limpiarFormularioTicket();

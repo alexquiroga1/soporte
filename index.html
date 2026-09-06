@@ -204,11 +204,6 @@
     <div class="main">
       <div class="topbar">
 
-        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4.3-4.3" />
-          </svg><input type="text" placeholder="Buscar ticket, cliente, producto…"><kbd>⌘K</kbd></div>
-
         <div class="topbar-actions">
           <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
 
@@ -233,7 +228,7 @@
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
                 </svg>Mi perfil</div>
-              <div class="user-dd-item" onclick="goView('config')"><svg viewBox="0 0 24 24" fill="none"
+              <div class="user-dd-item" onclick="goView('config-menu')"><svg viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.7 1.7 0 00.3 1.9" />
@@ -271,49 +266,49 @@
 
       <div class="quick-access-grid">
          
-         <div class="qa-card border-tickets" onclick="goView('tickets')">
+         <div class="qa-card border-tickets" onclick="goView('tickets-menu')">
             <div class="qa-icon" style="color: var(--copper);"><i class="fa-solid fa-clipboard-list"></i></div>
             <h4 class="qa-title">Tickets de Soporte</h4>
             <p class="qa-desc">Ingreso, diagnóstico y reparación de equipos</p>
          </div>
 
-         <div class="qa-card border-pos" onclick="goView('ventas')">
+         <div class="qa-card border-pos" onclick="goView('ventas-menu')">
             <div class="qa-icon" style="color: var(--red);"><i class="fa-solid fa-cart-shopping"></i></div>
             <h4 class="qa-title">Punto de Venta (POS)</h4>
             <p class="qa-desc">Venta rápida de accesorios y servicios</p>
          </div>
 
-         <div class="qa-card border-caja" onclick="goView('caja')">
+         <div class="qa-card border-caja" onclick="goView('caja-menu')">
             <div class="qa-icon" style="color: var(--purple);"><i class="fa-solid fa-cash-register"></i></div>
             <h4 class="qa-title">Gestión de Caja</h4>
             <p class="qa-desc">Cobros pendientes, ingresos y egresos diarios</p>
          </div>
          
-         <div class="qa-card border-clientes" onclick="goView('clientes')">
+         <div class="qa-card border-clientes" onclick="goView('clientes-menu')">
             <div class="qa-icon" style="color: var(--blue);"><i class="fa-solid fa-users"></i></div>
             <h4 class="qa-title">Directorio de Clientes</h4>
             <p class="qa-desc">Billetera virtual, créditos y perfiles CRM</p>
          </div>
 
-         <div class="qa-card border-stock" onclick="goView('productos')">
+         <div class="qa-card border-stock" onclick="goView('productos-menu')">
             <div class="qa-icon" style="color: var(--amber);"><i class="fa-solid fa-boxes-stacked"></i></div>
             <h4 class="qa-title">Catálogo y Stock</h4>
             <p class="qa-desc">Gestión de inventario de repuestos y promociones</p>
          </div>
 
-         <div class="qa-card border-facturas" onclick="goView('facturacion')">
+         <div class="qa-card border-facturas" onclick="goView('facturacion-menu')">
             <div class="qa-icon" style="color: var(--teal);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
             <h4 class="qa-title">Facturación</h4>
             <p class="qa-desc">Facturas, presupuestos, notas de crédito y cuenta corriente</p>
          </div>
 
-         <div class="qa-card border-crm" onclick="goView('crm')">
+         <div class="qa-card border-crm" onclick="goView('crm-menu')">
             <div class="qa-icon" style="color: var(--violet);"><i class="fa-solid fa-chart-line"></i></div>
             <h4 class="qa-title">CRM y Oportunidades</h4>
             <p class="qa-desc">Seguimiento comercial y pipeline de oportunidades</p>
          </div>
 
-         <div class="qa-card border-reportes" onclick="goView('reportes')">
+         <div class="qa-card border-reportes" onclick="goView('reportes-menu')">
             <div class="qa-icon" style="color: var(--blue);"><i class="fa-solid fa-chart-pie"></i></div>
             <h4 class="qa-title">Reportes</h4>
             <p class="qa-desc">Cobranzas, créditos, morosidad y resultados del negocio</p>
@@ -328,6 +323,17 @@
       </div>
   </main>
 </div>
+
+<!-- ================= MENÚS DE MÓDULOS ================= -->
+<div class="view" id="view-tickets-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><div><span>Soporte técnico</span><h1>Tickets de Soporte</h1><p>Elegí qué querés hacer.</p></div></div><div class="module-action-grid"><button onclick="showNuevoTicketView()"><i class="fa-solid fa-plus"></i><b>Nuevo Ticket</b><small>Registrar un nuevo ingreso</small></button><button onclick="goView('tickets')"><i class="fa-solid fa-magnifying-glass"></i><b>Consultar Tickets</b><small>Buscar, editar y gestionar tickets</small></button></div></div></div>
+<div class="view" id="view-ventas-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Comercial</span><h1>Punto de Venta</h1><p>Operaciones rápidas de venta.</p></div><div class="module-action-grid"><button onclick="goView('ventas')"><i class="fa-solid fa-cart-plus"></i><b>Nueva Venta</b><small>Abrir punto de venta</small></button><button onclick="goView('ventas')"><i class="fa-solid fa-receipt"></i><b>Consultar Ventas</b><small>Historial de operaciones</small></button></div></div></div>
+<div class="view" id="view-caja-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Finanzas</span><h1>Gestión de Caja</h1><p>Controlá cobros y movimientos.</p></div><div class="module-action-grid"><button onclick="goView('caja')"><i class="fa-solid fa-cash-register"></i><b>Operar Caja</b><small>Cobros, ingresos y egresos</small></button><button onclick="goView('creditos')"><i class="fa-solid fa-hand-holding-dollar"></i><b>Créditos</b><small>Cuenta corriente y cuotas</small></button></div></div></div>
+<div class="view" id="view-clientes-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Clientes</span><h1>Directorio de Clientes</h1><p>Administrá tu cartera de clientes.</p></div><div class="module-action-grid"><button onclick="openClientModal()"><i class="fa-solid fa-user-plus"></i><b>Nuevo Cliente</b><small>Crear un perfil nuevo</small></button><button onclick="goView('clientes')"><i class="fa-solid fa-users"></i><b>Consultar Clientes</b><small>Buscar y administrar perfiles</small></button></div></div></div>
+<div class="view" id="view-productos-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Inventario</span><h1>Catálogo y Stock</h1><p>Productos, repuestos y promociones.</p></div><div class="module-action-grid"><button onclick="goView('productos')"><i class="fa-solid fa-box-open"></i><b>Gestionar Stock</b><small>Altas, edición y existencias</small></button><button onclick="goView('productos')"><i class="fa-solid fa-tags"></i><b>Promociones</b><small>Ofertas y campañas</small></button></div></div></div>
+<div class="view" id="view-facturacion-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Administración</span><h1>Facturación</h1><p>Comprobantes y gestión administrativa.</p></div><div class="module-action-grid"><button onclick="goView('facturacion')"><i class="fa-solid fa-file-circle-plus"></i><b>Nueva Factura</b><small>Emitir comprobante</small></button><button onclick="goView('facturacion')"><i class="fa-solid fa-file-lines"></i><b>Consultar Facturas</b><small>Historial y comprobantes</small></button></div></div></div>
+<div class="view" id="view-crm-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Comercial</span><h1>CRM y Oportunidades</h1><p>Gestioná tu pipeline comercial.</p></div><div class="module-action-grid"><button onclick="openModal('modal-oportunidad')"><i class="fa-solid fa-plus"></i><b>Nueva Oportunidad</b><small>Registrar seguimiento comercial</small></button><button onclick="goView('crm')"><i class="fa-solid fa-columns"></i><b>Consultar Pipeline</b><small>Ver oportunidades activas</small></button></div></div></div>
+<div class="view" id="view-reportes-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Analítica</span><h1>Reportes</h1><p>Información para tomar decisiones.</p></div><div class="module-action-grid"><button onclick="goView('reportes')"><i class="fa-solid fa-chart-column"></i><b>Ver Reportes</b><small>Indicadores y resultados</small></button><button onclick="goView('reportes')"><i class="fa-solid fa-money-bill-trend-up"></i><b>Finanzas</b><small>Cobranzas y morosidad</small></button></div></div></div>
+<div class="view" id="view-config-menu"><div class="module-menu"><button class="back-home" onclick="goView('dashboard')"><i class="fa-solid fa-arrow-left"></i> Volver al Dashboard</button><div class="module-menu-head"><span>Sistema</span><h1>Configuración</h1><p>Personalizá tu negocio y usuarios.</p></div><div class="module-action-grid"><button onclick="goView('config')"><i class="fa-solid fa-building"></i><b>Negocio</b><small>Datos y parámetros generales</small></button><button onclick="goView('config')"><i class="fa-solid fa-users-gear"></i><b>Usuarios y Roles</b><small>Accesos y permisos</small></button></div></div></div>
           
             <!-- ================= VENTAS (POS) ================= -->
             <div class="view" id="view-ventas">
