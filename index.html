@@ -9,6 +9,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="./css/facturacion-2026.css">
   <style>
@@ -287,7 +288,7 @@
 
       <div class="content">
 
-   <!-- ================= DASHBOARD PREMIUM ================= -->
+ <!-- ================= DASHBOARD PREMIUM ================= -->
 <div class="view active" id="view-dashboard">
   
   <!-- HERO BIENVENIDA -->
@@ -300,84 +301,67 @@
       <h2 class="hero-title" id="dash-title-negocio">Panel General</h2>
       <p class="hero-sub">Resumen operativo y financiero de tu negocio.</p>
       <div class="hero-actions">
-          <button class="btn btn-primary shine" onclick="window.showNuevoTicketView()">+ Nuevo Ticket</button>
-          <button class="btn btn-success" onclick="goView('ventas')">🛒 Nueva Venta (POS)</button>
+          <button class="btn btn-primary shine" onclick="window.showNuevoTicketView()">
+              <i class="fa-solid fa-plus"></i> Nuevo Ticket
+          </button>
+          <button class="btn btn-success" onclick="goView('ventas')">
+              <i class="fa-solid fa-cart-shopping"></i> Nueva Venta (POS)
+          </button>
       </div>
     </div>
     
     <aside class="hero-side" style="justify-content: center; align-items: center; text-align: center; border-left: 1px dashed var(--line);">
         <div class="mini-label">Efectivo actual en Caja</div>
         <div id="dash-caja-hero" style="font-size: 36px; font-weight: 800; color: var(--teal); font-family: var(--mono); margin: 10px 0;">$0.00</div>
-        <button class="btn btn-ghost btn-sm" onclick="goView('caja')">Ir al módulo de Caja</button>
+        <button class="btn btn-ghost btn-sm" onclick="goView('caja')">
+            <i class="fa-solid fa-cash-register"></i> Ir al módulo de Caja
+        </button>
     </aside>
   </section>
-
-  <!-- PANEL DE RETIROS PENDIENTES (Si hay equipos olvidados) -->
-  <div class="card reveal" id="panel-retiros" style="display:none; border-color: var(--amber); margin-bottom: 24px;">
-    <div class="card-head" style="background: var(--warn-bg);">
-      <div class="head-left"><div class="icon" style="background: #fff; border:none;">⏰</div><h2 style="color:#9a6500;">Retiros Pendientes</h2></div>
-    </div>
-    <div class="card-body" id="dash-retiros-body" style="display:grid; gap:12px;"></div>
-  </div>
 
   <!-- 4 KPIS SUPERIORES -->
   <div class="grid-3" id="dash-kpis" style="margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
     <!-- Se llena con JS -->
   </div>
 
-  <!-- CARDS CON NOMBRES (Reemplaza los paneles apilados del costado) -->
-  <div style="margin-bottom: 30px;">
+  <!-- ACCESOS RÁPIDOS CON FONT AWESOME -->
+  <div>
     <div class="mini-label" style="margin-bottom: 12px; font-size: 11px;">Accesos Rápidos a Módulos</div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
        
        <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--copper);" onclick="goView('tickets')">
-          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">📋</div>
-          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Tickets Soporte</h4>
+          <div style="font-size: 36px; color: var(--copper); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+              <i class="fa-solid fa-clipboard-list"></i>
+          </div>
+          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Tickets Soporte</h4>
+          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Gestión de equipos</p>
        </div>
        
        <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--blue);" onclick="goView('clientes')">
-          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">👥</div>
-          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Directorio Clientes</h4>
+          <div style="font-size: 36px; color: var(--blue); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+              <i class="fa-solid fa-users"></i>
+          </div>
+          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Directorio Clientes</h4>
+          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">CRM y deudas</p>
        </div>
 
        <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--amber);" onclick="goView('productos')">
-          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">📦</div>
-          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Inventario / Stock</h4>
+          <div style="font-size: 36px; color: var(--amber); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+              <i class="fa-solid fa-boxes-stacked"></i>
+          </div>
+          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Catálogo / Stock</h4>
+          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Productos y repuestos</p>
        </div>
 
        <div class="card" style="cursor:pointer; text-align:center; padding: 24px 16px; border-bottom: 3px solid var(--teal);" onclick="goView('facturacion')">
-          <div style="font-size: 32px; margin-bottom: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🧾</div>
-          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--ink);">Facturación</h4>
+          <div style="font-size: 36px; color: var(--teal); margin-bottom: 16px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+              <i class="fa-solid fa-file-invoice-dollar"></i>
+          </div>
+          <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--ink);">Facturación</h4>
+          <p style="font-size: 12px; color: var(--muted); margin-top: 6px;">Comprobantes y NC</p>
        </div>
 
     </div>
-  </div>
-
-  <!-- TABLA Y GRÁFICO (Sin panel derecho apilado) -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
-    
-    <section class="card">
-      <div class="card-head">
-        <div class="head-left"><div class="icon">⏱️</div><div><h2>Tickets Recientes</h2><p>Últimos 5 equipos ingresados</p></div></div>
-      </div>
-      <div class="card-body" style="padding:0;">
-        <div class="table-scroll">
-            <table class="floating-table" style="margin:0; border-spacing: 0;">
-              <tbody id="dash-tickets-body"></tbody>
-            </table>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <div class="head-left"><div class="icon">📈</div><div><h2>Ventas (Últimos 7 Días)</h2><p id="dash-week-total">Evolución de ingresos</p></div></div>
-      </div>
-      <div class="card-body" id="dash-bar-chart" style="min-height: 220px; display:flex; align-items:flex-end;">
-         <!-- El gráfico SVG se inyecta aquí -->
-      </div>
-    </section>
-    
   </div>
 </div>
           
