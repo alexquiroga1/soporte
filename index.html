@@ -9,10 +9,56 @@
   <link
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="./css/facturacion-2026.css">
   <style>
+    /* =========================================
+       NUEVO: MODO OSCURO (DARK MODE) 2026
+       ========================================= */
+    body.dark-mode {
+      --bg: #0F1115;
+      --panel: #1A1D24;
+      --graphite: #FFFFFF;
+      --graphite-2: #F3F4F7;
+      --line: #2A2E39;
+      --ink: #F3F4F7;
+      --muted: #8891A3;
+      --surface: #1A1D24;
+      --internal: #1A1D24;
+      --copper-dim: rgba(255, 106, 61, 0.15);
+      --teal-dim: rgba(20, 184, 166, 0.15);
+    }
+    body.dark-mode .login-box,
+    body.dark-mode .panel,
+    body.dark-mode .card,
+    body.dark-mode .qa-card,
+    body.dark-mode .modal,
+    body.dark-mode .dropdown,
+    body.dark-mode .topbar,
+    body.dark-mode .floating-table th,
+    body.dark-mode .row-card {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+    body.dark-mode input, 
+    body.dark-mode select, 
+    body.dark-mode textarea {
+      background: #2A2E39 !important;
+      color: #fff !important;
+      border-color: #3A3F4C !important;
+    }
+    body.dark-mode .btn-ghost {
+      background: var(--panel);
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    body.dark-mode .btn-ghost:hover {
+      background: #2A2E39;
+    }
+
+    /* ESTILOS ORIGINALES */
     #login-screen {
       position: fixed;
       inset: 0;
@@ -114,10 +160,37 @@
       width: 100%;
       height: 100vh;
     }
+
+    /* Animación del Splash Screen */
+    @keyframes pulse-splash {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 106, 61, 0.4); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(255, 106, 61, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 106, 61, 0); }
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- =========================================
+       NUEVO: SPLASH SCREEN 2026
+       ========================================= -->
+  <div id="splash-screen" style="position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999999; transition: opacity 0.4s ease, visibility 0.4s;">
+    <div class="login-brand-mark" style="width: 64px; height: 64px; font-size: 28px; animation: pulse-splash 2s infinite;">S</div>
+    <div style="margin-top: 24px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); font-size: 12px; letter-spacing: 0.15em;">INICIANDO SERVIX...</div>
+  </div>
+  <script>
+    // Oculta el splash screen de forma visual al cargar
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        if(splash) {
+          splash.style.opacity = '0';
+          setTimeout(() => splash.style.visibility = 'hidden', 400);
+        }
+      }, 600);
+    });
+  </script>
 
   <!-- PANTALLA DE LOGIN -->
   <div id="login-screen">
@@ -205,6 +278,25 @@
       <div class="topbar">
 
         <div class="topbar-actions">
+          
+          <!-- =========================================
+               NUEVO: BOTÓN BUSCADOR GLOBAL (CTRL+K)
+               ========================================= -->
+          <div onclick="openModal('modal-command-palette'); setTimeout(()=>document.getElementById('global-search-input').focus(), 100);" 
+               style="display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.5); border:1px solid var(--line); padding:6px 12px 6px 16px; border-radius:99px; cursor:pointer; color:var(--muted); font-size:13px; transition: 0.2s;"
+               onmouseover="this.style.background='var(--panel)'; this.style.borderColor='var(--copper)'"
+               onmouseout="this.style.background='transparent'; this.style.borderColor='var(--line)'">
+            <i class="fa-solid fa-magnifying-glass"></i> <span style="display:none; @media(min-width: 600px){display:inline;}">Búsqueda rápida...</span> 
+            <kbd style="background:var(--panel); border:1px solid var(--line); padding:2px 8px; border-radius:12px; font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--ink);">Ctrl+K</kbd>
+          </div>
+
+          <!-- =========================================
+               NUEVO: BOTÓN MODO OSCURO
+               ========================================= -->
+          <div class="icon-btn" title="Alternar tema visual" onclick="document.body.classList.toggle('dark-mode')">
+            <i class="fa-solid fa-moon"></i>
+          </div>
+
           <div class="status-strip"><span class="pulse"></span>Conectado a la Nube</div>
 
           <div style="position:relative;">
@@ -3095,6 +3187,58 @@
           </div>
         </div>
       </div>
+
+      <!-- =========================================
+           NUEVO: MODAL COMMAND PALETTE (CTRL+K)
+           ========================================= -->
+      <div class="modal-overlay" id="modal-command-palette">
+        <div class="modal" style="max-width: 600px; background: transparent; box-shadow: none; margin-top: -10vh;">
+          <div style="background: var(--panel); border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--line);">
+            
+            <div style="display: flex; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--line);">
+              <i class="fa-solid fa-magnifying-glass" style="color: var(--copper); font-size: 20px;"></i>
+              <input type="text" id="global-search-input" placeholder="Buscar clientes, tickets, facturas o ir a..." 
+                     style="width: 100%; border: none; outline: none; background: transparent; padding: 0 16px; font-size: 18px; color: var(--ink); font-weight: 500;">
+              <kbd style="font-family:'IBM Plex Mono', monospace; font-size: 10px; font-weight:700; color: var(--muted); background: var(--bg); padding: 4px 8px; border-radius: 6px; border:1px solid var(--line);">ESC</kbd>
+            </div>
+
+            <div id="global-search-results" style="max-height: 350px; overflow-y: auto; padding: 12px;">
+              
+              <div style="padding: 10px 12px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Acciones Rápidas</div>
+              
+              <div class="nav-item" style="padding: 12px; border-radius: 10px; margin-bottom: 4px; border: 1px solid var(--line);" onclick="goView('nuevo-ticket'); closeModal('modal-command-palette')">
+                <div style="width:32px; height:32px; background:var(--copper-dim); color:var(--copper); border-radius:8px; display:grid; place-items:center; margin-right:12px;"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                <div><b style="color:var(--ink); display:block; font-size:14px;">Ingresar Equipo (Ticket)</b><span style="font-size:12px; color:var(--muted);">Módulo de Servicio Técnico</span></div>
+                <i class="fa-solid fa-arrow-right" style="margin-left:auto; color:var(--muted);"></i>
+              </div>
+
+              <div class="nav-item" style="padding: 12px; border-radius: 10px; margin-bottom: 4px; border: 1px solid var(--line);" onclick="goView('ventas'); closeModal('modal-command-palette')">
+                <div style="width:32px; height:32px; background:var(--teal-dim); color:var(--teal); border-radius:8px; display:grid; place-items:center; margin-right:12px;"><i class="fa-solid fa-cart-shopping"></i></div>
+                <div><b style="color:var(--ink); display:block; font-size:14px;">Punto de Venta</b><span style="font-size:12px; color:var(--muted);">Abrir caja y cobrar</span></div>
+                <i class="fa-solid fa-arrow-right" style="margin-left:auto; color:var(--muted);"></i>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Script rápido para que funcione el atajo de teclado Ctrl+K -->
+      <script>
+        document.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault(); 
+            document.getElementById('modal-command-palette').classList.add('active');
+            setTimeout(() => document.getElementById('global-search-input').focus(), 100);
+          }
+          if (e.key === 'Escape') {
+            const palette = document.getElementById('modal-command-palette');
+            if(palette && palette.classList.contains('active')) {
+                palette.classList.remove('active');
+            }
+          }
+        });
+      </script>
 
 
       <div id="toast-wrap"></div>
