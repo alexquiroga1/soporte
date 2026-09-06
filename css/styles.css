@@ -768,3 +768,23 @@ tbody tr:nth-child(n+5) { animation-delay: 0.25s; }
     .quick-access-grid { grid-template-columns: 1fr; max-width: 400px; }
     .welcome-text { font-size: 26px; }
 }
+/* =========================================================
+   ELIMINAR MENÚ LATERAL Y FORZAR PANTALLA COMPLETA
+========================================================= */
+/* Oculta cualquier elemento que sea el menú lateral */
+.sidebar, #sidebar, aside.menu, nav.sidebar {
+    display: none !important;
+}
+
+/* Fuerza al contenedor principal a usar el 100% del espacio */
+.main-content, .content, #content, .app-container {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Oculta el botón de hamburguesa (si existía para móviles) */
+.menu-toggle, .btn-menu {
+    display: none !important;
+}
