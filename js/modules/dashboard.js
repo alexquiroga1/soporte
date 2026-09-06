@@ -3,53 +3,15 @@ import { DATA } from '../core/store.js';
 import { fmt, fmtK, fDate, getFullName } from '../core/utils.js';
 import { calcularDiasMora } from './caja.js';
 
-export function renderDashboard(){
-  const abiertos = (DATA.tickets||[]).filter(t=>t.stage!=='entregado' && t.stage!=='cancelado' && t.stage!=='noreparable').length;
-  
-  const hoyStr = new Date().toLocaleDateString('es-AR');
-  const ventasHoy = (DATA.ventas||[]).filter(v => (v.hora||'').includes(hoyStr) || new Date().toISOString().split('T')[0] === v.fecha).reduce((s,v)=>s+v.total,0);
-  
-  const creditoTotal = (DATA.creditos||[]).reduce((s,c)=>s+c.saldo,0);
-  const slaRiesgo = (DATA.tickets||[]).filter(t=>t.prioridad==='P1' && t.stage!=='entregado').length;
-  
+// En el diseño Launchpad minimalista, solo actualizamos el nombre del negocio
+export function renderDashboard() {
   const titleEl = document.getElementById('dash-title-negocio');
-  if(titleEl) titleEl.textContent = DATA.negocio?.nombre || 'Panel General';
-
-  // 1. DIBUJAR LAS 4 TARJETAS SUPERIORES (KPIs) CON FONT AWESOME
-  const dashKpis = document.getElementById('dash-kpis');
-  if(dashKpis) {
-      dashKpis.innerHTML = `
-        <div class="card"><div class="card-body" style="display:flex; align-items:center; gap:16px; padding:20px;">
-             <div class="icon" style="background:var(--copper-dim); color:var(--copper); width:50px; height:50px; font-size:20px; border:none;"><i class="fa-solid fa-ticket"></i></div>
-             <div><div class="mini-label" style="margin-bottom:4px;">Tickets Abiertos</div><strong style="font-size:26px; font-family:var(--mono); color:var(--ink);">${abiertos}</strong></div>
-        </div></div>
-        <div class="card"><div class="card-body" style="display:flex; align-items:center; gap:16px; padding:20px;">
-             <div class="icon" style="background:var(--teal-dim); color:var(--teal); width:50px; height:50px; font-size:20px; border:none;"><i class="fa-solid fa-cash-register"></i></div>
-             <div><div class="mini-label" style="margin-bottom:4px;">Ventas del Día</div><strong style="font-size:26px; font-family:var(--mono); color:var(--ink);">${fmt(ventasHoy)}</strong></div>
-        </div></div>
-        <div class="card"><div class="card-body" style="display:flex; align-items:center; gap:16px; padding:20px;">
-             <div class="icon" style="background:var(--amber-dim); color:var(--amber); width:50px; height:50px; font-size:20px; border:none;"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-             <div><div class="mini-label" style="margin-bottom:4px;">Por Cobrar</div><strong style="font-size:26px; font-family:var(--mono); color:var(--ink);">${fmt(creditoTotal)}</strong></div>
-        </div></div>
-        <div class="card"><div class="card-body" style="display:flex; align-items:center; gap:16px; padding:20px;">
-             <div class="icon" style="background:var(--danger-bg); color:var(--red); width:50px; height:50px; font-size:20px; border:none;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-             <div><div class="mini-label" style="margin-bottom:4px;">SLA Crítico</div><strong style="font-size:26px; font-family:var(--mono); color:var(--ink);">${slaRiesgo}</strong></div>
-        </div></div>
-      `;
-  }
-
-  // 2. ACTUALIZAR TOTAL EN CAJA (HERO)
-  const cajaHero = document.getElementById('dash-caja-hero');
-  if(cajaHero) {
-     const movs = DATA.caja?.movs || [];
-     const ingresos = movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
-     const egresos = movs.filter(m=>m.tipo==='egreso').reduce((s,m)=>s+m.monto,0);
-     cajaHero.textContent = fmt((DATA.caja?.fondo || 0) + ingresos - egresos);
+  if (titleEl && window.DATA && window.DATA.negocio) {
+      titleEl.textContent = window.DATA.negocio.nombre || 'SERVIX';
   }
 }
 
-// MANTENER INTACTAS LAS FUNCIONES DE REPORTES Y NOTIFICACIONES
-export function renderReportes(){
+export function renderReportes() {
   const kpis = document.getElementById('reportes-kpis');
   if(!kpis) return;
 
@@ -146,12 +108,4 @@ export function renderNotificaciones() {
 export function limpiarNotificaciones() {
     const dot = document.getElementById('notif-dot-alert');
     if (dot) dot.style.display = 'none';
-}
-
-export function renderDashboard() {
-  // En el diseño Launchpad minimalista, solo actualizamos el nombre del negocio si existe
-  const titleEl = document.getElementById('dash-title-negocio');
-  if (titleEl && window.DATA && window.DATA.negocio) {
-      titleEl.textContent = window.DATA.negocio.nombre || 'SERVIX';
-  }
 }
