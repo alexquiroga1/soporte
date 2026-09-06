@@ -6910,3 +6910,40 @@ function() {
     ventana.document.close();
 
 };
+// =========================================================
+// MOSTRAR NUEVO PRESUPUESTO
+// =========================================================
+function showNuevoPresupuesto() {
+    const formulario = document.getElementById('fac-nuevo-presupuesto');
+
+    if (!formulario) {
+        console.error('No se encontró #fac-nuevo-presupuesto');
+        return;
+    }
+
+    formulario.style.display = 'block';
+
+    formulario.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
+}
+
+
+// =========================================================
+// OCULTAR NUEVO PRESUPUESTO
+// =========================================================
+function hideNuevoPresupuesto() {
+    const formulario = document.getElementById('fac-nuevo-presupuesto');
+
+    if (!formulario) return;
+
+    formulario.style.display = 'none';
+}
+
+
+// =========================================================
+// EXPONER FUNCIONES AL HTML
+// =========================================================
+window.showNuevoPresupuesto = showNuevoPresupuesto;
+window.hideNuevoPresupuesto = hideNuevoPresupuesto;
