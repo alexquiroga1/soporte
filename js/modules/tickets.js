@@ -205,7 +205,7 @@ export function renderTicketNotas(t) {
    AGREGAR NOTA MANUAL
 ========================================================= */
 
-export async function addTicketNota() {
+export async function addTicketManual() {
 
   const input =
     document.getElementById(
