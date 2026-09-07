@@ -5183,7 +5183,7 @@ export async function addTicketBitacora(){
    RENDERIZAR BITÁCORA
 ========================================================= */
 
-export function renderTicketNotas(ticket){
+export function renderTicketBitacora(ticket){
 
   const container =
     document.getElementById(
