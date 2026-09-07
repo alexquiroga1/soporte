@@ -1,0 +1,668 @@
+/* =========================================================
+   SERVIX · DESIGN SYSTEM GLOBAL 2026
+   Paleta unificada basada en gemini-code-1788657876945(1).html
+   Cargar DESPUÉS de styles.css y facturacion-2026.css
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   1. DESIGN TOKENS
+   --------------------------------------------------------- */
+:root{
+  /* Superficies */
+  --bg:#eef1f5;
+  --surface:#ffffff;
+  --surface-2:#f7f9fc;
+  --panel:#ffffff;
+  --internal:#f7f9fc;
+
+  /* Texto */
+  --ink:#111827;
+  --ink-2:#273244;
+  --muted:#718096;
+
+  /* Estructura */
+  --line:#dfe5ed;
+  --graphite:#111827;
+  --graphite-2:#1f2937;
+
+  /* Paleta principal */
+  --copper:#ff6a3d;
+  --teal:#10b981;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --blue:#3b82f6;
+  --purple:#8b5cf6;
+  --violet:#8b5cf6;
+  --orange:#e17a2d;
+
+  /* Fondos semánticos */
+  --success-bg:#e9fbf4;
+  --warn-bg:#fff7df;
+  --danger-bg:#fff0f0;
+  --blue-bg:#eef5ff;
+  --purple-bg:#f4efff;
+
+  /* Compatibilidad con clases existentes */
+  --copper-dim:rgba(255,106,61,.10);
+  --teal-dim:rgba(16,185,129,.10);
+  --amber-dim:rgba(245,158,11,.10);
+  --red-dim:rgba(239,68,68,.10);
+  --blue-dim:rgba(59,130,246,.10);
+  --violet-dim:rgba(139,92,246,.10);
+  --orange-dim:rgba(225,122,45,.10);
+
+  /* Geometría */
+  --radius-sm:10px;
+  --radius:14px;
+  --radius-lg:18px;
+  --radius-xl:22px;
+
+  /* Espaciado */
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-7:32px;
+
+  /* Sombras */
+  --shadow:0 10px 28px rgba(17,24,39,.07);
+  --shadow-strong:0 18px 45px rgba(17,24,39,.12);
+  --shadow-soft:0 4px 14px rgba(17,24,39,.05);
+
+  /* Tipografía */
+  --font:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+
+/* ---------------------------------------------------------
+   2. BASE GLOBAL
+   --------------------------------------------------------- */
+*{box-sizing:border-box;}
+
+html{
+  scroll-behavior:smooth;
+}
+
+body{
+  background:linear-gradient(180deg,#f7f9fc 0%,var(--bg) 100%);
+  color:var(--ink);
+  font-family:var(--font);
+  -webkit-font-smoothing:antialiased;
+}
+
+button,
+input,
+select,
+textarea{
+  font:inherit;
+}
+
+::selection{
+  background:var(--copper);
+  color:#fff;
+}
+
+.mono{
+  font-family:var(--mono)!important;
+}
+
+/* ---------------------------------------------------------
+   3. COMPONENTES DE SUPERFICIE
+   --------------------------------------------------------- */
+.panel,
+.card,
+.qa-card,
+.row-card,
+.cart-panel,
+.module-menu,
+.hero-main,
+.hero-side,
+.dropdown,
+.modal{
+  background:rgba(255,255,255,.96);
+  border-color:var(--line);
+  box-shadow:var(--shadow-soft);
+}
+
+.panel,
+.card,
+.qa-card,
+.row-card,
+.cart-panel,
+.module-menu{
+  border-radius:var(--radius);
+}
+
+.panel:hover,
+.card:hover,
+.qa-card:hover,
+.row-card:hover{
+  border-color:#cfd7e2;
+}
+
+.panel-head,
+.card-head{
+  background:linear-gradient(180deg,#ffffff 0%,#fafbfd 100%);
+  border-color:var(--line);
+}
+
+.panel-head h3,
+.card-head h2,
+.card-head h3{
+  color:var(--ink);
+}
+
+/* ---------------------------------------------------------
+   4. BOTONES UNIFICADOS
+   --------------------------------------------------------- */
+.btn,
+.login-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:40px;
+  border-radius:var(--radius-sm);
+  font-weight:700;
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease;
+}
+
+.btn:hover:not(:disabled),
+.login-btn:hover:not(:disabled){
+  transform:translateY(-1px);
+}
+
+.btn:active,
+.login-btn:active{
+  transform:translateY(0);
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,var(--graphite),var(--graphite-2));
+  color:#fff;
+  border:1px solid transparent;
+  box-shadow:0 8px 18px rgba(17,24,39,.16);
+}
+
+.btn-primary:hover{
+  background:linear-gradient(135deg,#1a2330,#313d4f);
+  box-shadow:0 12px 24px rgba(17,24,39,.20);
+}
+
+.btn-ghost{
+  background:var(--surface);
+  color:var(--ink);
+  border:1px solid var(--line);
+}
+
+.btn-ghost:hover{
+  background:var(--surface-2);
+  border-color:#c8d1dd;
+}
+
+.btn-danger{
+  background:#fff7f7;
+  color:#bb1d1d;
+  border:1px solid #f4b8b8;
+}
+
+.btn-danger:hover{
+  background:var(--danger-bg);
+}
+
+.btn-success{
+  background:#effdf8;
+  color:#087d5c;
+  border:1px solid #bcebd9;
+}
+
+.btn-success:hover{
+  background:var(--success-bg);
+}
+
+.btn-sm{
+  min-height:32px;
+}
+
+.btn-primary.shine{
+  position:relative;
+  overflow:hidden;
+}
+
+.btn-primary.shine::after{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:linear-gradient(
+    105deg,
+    transparent 45%,
+    rgba(255,255,255,.38) 50%,
+    transparent 55%
+  );
+  transform:translateX(-130%);
+  animation:servix-shine 3.8s infinite;
+}
+
+@keyframes servix-shine{
+  0%,58%{transform:translateX(-130%);}
+  72%,100%{transform:translateX(130%);}
+}
+
+/* ---------------------------------------------------------
+   5. INPUTS Y CONTROLES
+   --------------------------------------------------------- */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+.login-input,
+.inp,
+.sel{
+  background:var(--surface);
+  color:var(--ink);
+  border-color:var(--line);
+  border-radius:var(--radius-sm);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus,
+.login-input:focus,
+.inp:focus,
+.sel:focus{
+  outline:none;
+  border-color:var(--copper)!important;
+  box-shadow:0 0 0 3px rgba(255,106,61,.10)!important;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:#9aa5b4;
+}
+
+textarea:disabled,
+input:disabled,
+select:disabled{
+  background:#f0f3f7;
+  color:var(--ink-2);
+}
+
+/* ---------------------------------------------------------
+   6. BADGES Y ESTADOS
+   --------------------------------------------------------- */
+.badge,
+.status-badge{
+  border-radius:999px;
+}
+
+.status-badge{
+  border:1px solid transparent;
+}
+
+.st-emitida,
+.badge.success,
+.badge.teal{
+  background:var(--success-bg);
+  color:#087d5c;
+  border-color:#bcebd9;
+}
+
+.st-pendiente,
+.badge.warning,
+.badge.amber{
+  background:var(--warn-bg);
+  color:#9a6500;
+  border-color:#f5db9b;
+}
+
+.st-critico,
+.badge.danger,
+.badge.red{
+  background:var(--danger-bg);
+  color:#bf2424;
+  border-color:#f3c3c3;
+}
+
+.st-nota,
+.badge.info,
+.badge.purple{
+  background:var(--purple-bg);
+  color:#6d42d1;
+  border-color:#d9cffb;
+}
+
+/* ---------------------------------------------------------
+   7. TABLAS
+   --------------------------------------------------------- */
+table{
+  color:var(--ink);
+}
+
+th{
+  background:#fafbfc;
+  color:var(--muted);
+  border-color:var(--line);
+}
+
+td{
+  border-color:#edf0f4;
+}
+
+tr.tbl-row:hover,
+tbody tr:hover{
+  background:rgba(247,249,252,.85);
+}
+
+/* ---------------------------------------------------------
+   8. MODALES Y DROPDOWNS
+   --------------------------------------------------------- */
+.modal,
+.dropdown{
+  border-color:var(--line);
+  box-shadow:var(--shadow-strong);
+}
+
+.modal-head,
+.modal-header{
+  background:linear-gradient(180deg,#fff,#fafbfd);
+  border-color:var(--line);
+}
+
+.modal-overlay{
+  backdrop-filter:blur(4px);
+}
+
+/* ---------------------------------------------------------
+   9. SIDEBAR Y NAVEGACIÓN
+   --------------------------------------------------------- */
+.sidebar{
+  background:linear-gradient(180deg,#111827 0%,#1b2431 100%);
+}
+
+.brand-mark,
+.login-brand-mark{
+  background:linear-gradient(135deg,var(--copper),#d64e25);
+}
+
+.nav-item.active{
+  background:rgba(255,106,61,.13);
+}
+
+.nav-item.active::before{
+  background:var(--copper);
+}
+
+.nav-item.active svg{
+  color:var(--copper);
+}
+
+/* ---------------------------------------------------------
+   10. TOPBAR
+   --------------------------------------------------------- */
+.topbar{
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(12px);
+  border-color:var(--line);
+}
+
+.search{
+  background:var(--surface-2);
+  border-color:var(--line);
+}
+
+.icon-btn{
+  background:var(--surface);
+  border-color:var(--line);
+}
+
+.icon-btn:hover{
+  background:var(--surface-2);
+  border-color:#c8d1dd;
+}
+
+.status-strip{
+  background:var(--success-bg);
+  color:#087d5c;
+}
+
+/* ---------------------------------------------------------
+   11. LOGIN UNIFICADO
+   Estas reglas reemplazan visualmente el login antiguo.
+   --------------------------------------------------------- */
+#login-screen{
+  background:
+    radial-gradient(circle at 15% 20%,rgba(255,106,61,.10),transparent 30%),
+    radial-gradient(circle at 85% 80%,rgba(16,185,129,.08),transparent 28%),
+    linear-gradient(180deg,#f7f9fc 0%,#eaf0f5 100%);
+  padding:24px;
+}
+
+.login-box{
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,.94)!important;
+  border:1px solid var(--line)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:var(--shadow-strong)!important;
+  padding:36px!important;
+}
+
+.login-box::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:4px;
+  background:linear-gradient(
+    90deg,
+    var(--copper),
+    #ff8a63 45%,
+    var(--teal)
+  );
+}
+
+.login-brand{
+  margin-bottom:28px!important;
+}
+
+.login-brand-mark{
+  border-radius:14px!important;
+  box-shadow:
+    0 0 0 5px rgba(255,106,61,.12),
+    0 12px 24px rgba(17,24,39,.12)!important;
+}
+
+.login-brand-text b{
+  color:var(--ink)!important;
+}
+
+.login-brand-text span{
+  color:var(--muted)!important;
+}
+
+.login-input{
+  min-height:46px;
+  margin-bottom:12px!important;
+  background:var(--surface-2)!important;
+}
+
+.login-btn{
+  width:100%;
+  min-height:46px;
+  margin-top:4px;
+  background:linear-gradient(135deg,var(--graphite),var(--graphite-2))!important;
+  border:1px solid transparent!important;
+  border-radius:var(--radius-sm)!important;
+  box-shadow:0 10px 22px rgba(17,24,39,.16);
+}
+
+.login-btn:hover{
+  box-shadow:0 14px 28px rgba(17,24,39,.22);
+}
+
+/* ---------------------------------------------------------
+   12. DETALLE DE TICKETS
+   Compatibilidad con las dos nomenclaturas del proyecto.
+   --------------------------------------------------------- */
+.hero-main,
+.hero-side,
+.ticket-hero-main,
+.ticket-hero-side,
+.ticket-card{
+  border-radius:var(--radius-lg);
+}
+
+.stepper,
+.stepper-premium,
+.ticket-stepper{
+  background:rgba(255,255,255,.96);
+  border-color:var(--line);
+  box-shadow:var(--shadow);
+}
+
+.step.active,
+.step.active .num,
+.ticket-step.active,
+.ticket-step.active .num{
+  color:var(--copper);
+}
+
+.step.active .num,
+.ticket-step.active .num{
+  background:var(--copper);
+  color:#fff;
+}
+
+.step.done .num,
+.ticket-step.done .num{
+  background:var(--teal);
+  color:#fff;
+}
+
+.tabs-nav,
+.ticket-tabs-nav{
+  background:rgba(255,255,255,.96);
+  border-color:var(--line);
+  box-shadow:var(--shadow-soft);
+}
+
+.tab-btn.active,
+.ticket-tab-btn.active{
+  background:var(--surface-2);
+  color:var(--copper);
+  border-color:var(--line);
+}
+
+/* ---------------------------------------------------------
+   13. MODO OSCURO
+   --------------------------------------------------------- */
+body.dark-mode{
+  --bg:#0f1115;
+  --surface:#1a1d24;
+  --surface-2:#222733;
+  --panel:#1a1d24;
+  --internal:#222733;
+
+  --ink:#f3f4f7;
+  --ink-2:#dbe2ea;
+  --muted:#98a2b3;
+  --line:#2a2e39;
+
+  --graphite:#f3f4f7;
+  --graphite-2:#dbe2ea;
+
+  --success-bg:rgba(16,185,129,.10);
+  --warn-bg:rgba(245,158,11,.10);
+  --danger-bg:rgba(239,68,68,.10);
+  --blue-bg:rgba(59,130,246,.10);
+  --purple-bg:rgba(139,92,246,.10);
+
+  --copper-dim:rgba(255,106,61,.15);
+  --teal-dim:rgba(16,185,129,.15);
+  --amber-dim:rgba(245,158,11,.15);
+  --red-dim:rgba(239,68,68,.15);
+  --blue-dim:rgba(59,130,246,.15);
+  --violet-dim:rgba(139,92,246,.15);
+}
+
+body.dark-mode,
+body.dark-mode #login-screen{
+  background:
+    radial-gradient(circle at 15% 20%,rgba(255,106,61,.08),transparent 30%),
+    linear-gradient(180deg,#0f1115 0%,#151923 100%);
+}
+
+body.dark-mode .panel,
+body.dark-mode .card,
+body.dark-mode .qa-card,
+body.dark-mode .row-card,
+body.dark-mode .modal,
+body.dark-mode .dropdown,
+body.dark-mode .topbar,
+body.dark-mode .hero-main,
+body.dark-mode .hero-side,
+body.dark-mode .login-box{
+  background:rgba(26,29,36,.96)!important;
+  color:var(--ink);
+  border-color:var(--line)!important;
+}
+
+body.dark-mode input:not([type="checkbox"]):not([type="radio"]),
+body.dark-mode select,
+body.dark-mode textarea,
+body.dark-mode .login-input,
+body.dark-mode .inp,
+body.dark-mode .sel{
+  background:var(--surface-2)!important;
+  color:var(--ink)!important;
+  border-color:#343a48!important;
+}
+
+body.dark-mode .btn-primary,
+body.dark-mode .login-btn{
+  background:linear-gradient(135deg,#f3f4f7,#dbe2ea)!important;
+  color:#111827!important;
+}
+
+body.dark-mode .btn-ghost{
+  background:var(--surface)!important;
+  color:var(--ink)!important;
+  border-color:var(--line)!important;
+}
+
+body.dark-mode .search,
+body.dark-mode th,
+body.dark-mode .panel-head,
+body.dark-mode .card-head{
+  background:var(--surface-2)!important;
+}
+
+/* ---------------------------------------------------------
+   14. RESPONSIVE GLOBAL
+   --------------------------------------------------------- */
+@media (max-width:768px){
+  .content{
+    padding:16px;
+  }
+
+  .login-box{
+    padding:28px 22px!important;
+  }
+
+  .page-head{
+    align-items:flex-start;
+  }
+
+  .head-actions{
+    width:100%;
+    flex-wrap:wrap;
+  }
+
+  .btn{
+    min-height:38px;
+  }
+}
