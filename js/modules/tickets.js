@@ -110,43 +110,170 @@ export function populateTecnicos() {
     if(selNew) selNew.innerHTML = '<option value="Sin asignar">Sin asignar</option>' + options;
 }
 
-export function renderTicketsTable(){
-  populateTecnicos();
-  const q = (document.getElementById('tk-search').value || '').toLowerCase();
-  const fEstado = document.getElementById('tk-filter-estado').value;
-  const fPrio = document.getElementById('tk-filter-prio').value;
-  const fTecnico = document.getElementById('tk-filter-tecnico').value;
+export function renderTicketsTable() {
+    populateTecnicos();
 
-  const rows = DATA.tickets.filter(t=>{
-    const matchQ = !q || t.cliente.toLowerCase().includes(q) || t.equipo.toLowerCase().includes(q) || t.id.toLowerCase().includes(q);
-    const matchE = !fEstado || t.stage===fEstado;
-    const matchP = !fPrio || t.prioridad===fPrio;
-    const matchT = !fTecnico || t.tecnico===fTecnico;
-    return matchQ && matchE && matchP && matchT;
-  });
+    // Obtener elementos de forma segura
+    const searchInput = document.getElementById('tk-search');
+    const estadoFilter = document.getElementById('tk-filter-estado');
+    const prioFilter = document.getElementById('tk-filter-prio');
+    const tecnicoFilter = document.getElementById('tk-filter-tecnico');
+    const tableBody = document.getElementById('tickets-table-body');
 
-  document.getElementById('tickets-table-body').innerHTML = rows.map(t=>{
-    const st = stageInfo(t.stage);
-    const presupText = t.presupuestoFijado 
-        ? `<span style="color:var(--teal); font-family:'IBM Plex Mono',monospace; font-weight:700;">${fmt(t.presupuestoEstimado)}</span>` 
-        : `<span style="color:var(--amber); font-size:10.5px; font-weight:700;">PENDIENTE</span>`;
-        
-    return `<tr class="tbl-row" onclick="openTicketModal('${t.id}')">
-      <td><div class="prio ${t.prioridad.toLowerCase()}">${t.prioridad}</div></td>
-      <td class="mono">#${t.id}</td>
-      <td>${t.cliente}</td>
-      <td>${t.equipo}</td>
-      <td class="mono">${t.ingreso}</td>
-      <td>${presupText}</td>
-      <td><span class="badge ${st.badge}">${st.label}</span></td>
-      <td>${t.tecnico}</td>
-      <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="openTicketModal('${t.id}')" title="Consultar detalle" style="padding:4px 8px; margin-right:4px;">👁️</button></td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:26px;">No hay tickets con estos filtros.</td></tr>';
+    // Si la vista todavía no está cargada, no romper la aplicación
+    if (!tableBody) {
+        console.warn('renderTicketsTable: No se encontró #tickets-table-body');
+        return;
+    }
 
-  const abiertos = DATA.tickets.filter(t=>t.stage!=='entregado' && t.stage!=='cancelado' && t.stage!=='noreparable').length;
-  document.getElementById('tickets-meta').textContent = DATA.tickets.length + ' TOTALES · ' + abiertos + ' ABIERTOS';
-  document.getElementById('badge-tickets').textContent = abiertos;
+    // Valores seguros para filtros que puedan no existir temporalmente
+    const q = (searchInput?.value || '').toLowerCase();
+    const fEstado = estadoFilter?.value || '';
+    const fPrio = prioFilter?.value || '';
+    const fTecnico = tecnicoFilter?.value || '';
+
+    const rows = DATA.tickets.filter(t => {
+        const cliente = (t.cliente || '').toLowerCase();
+        const equipo = (t.equipo || '').toLowerCase();
+        const ticketId = (t.id || '').toLowerCase();
+
+        const matchQ =
+            !q ||
+            cliente.includes(q) ||
+            equipo.includes(q) ||
+            ticketId.includes(q);
+
+        const matchE = !fEstado || t.stage === fEstado;
+        const matchP = !fPrio || t.prioridad === fPrio;
+        const matchT = !fTecnico || t.tecnico === fTecnico;
+
+        return matchQ && matchE && matchP && matchT;
+    });
+
+    tableBody.innerHTML =
+        rows.map(t => {
+            const st = stageInfo(t.stage);
+
+            const prioridad = t.prioridad || 'P2';
+            const tecnico = t.tecnico || 'Sin asignar';
+            const ingreso = t.ingreso || '—';
+
+            const presupText = t.presupuestoFijado
+                ? `
+                    <span style="
+                        color:var(--teal);
+                        font-family:'IBM Plex Mono',monospace;
+                        font-weight:700;
+                    ">
+                        ${fmt(t.presupuestoEstimado || 0)}
+                    </span>
+                `
+                : `
+                    <span style="
+                        color:var(--amber);
+                        font-size:10.5px;
+                        font-weight:700;
+                    ">
+                        PENDIENTE
+                    </span>
+                `;
+
+            return `
+                <tr class="tbl-row" onclick="openTicketModal('${t.id}')">
+
+                    <td>
+                        <div class="prio ${prioridad.toLowerCase()}">
+                            ${prioridad}
+                        </div>
+                    </td>
+
+                    <td class="mono">
+                        #${t.id}
+                    </td>
+
+                    <td>
+                        ${t.cliente || 'Sin cliente'}
+                    </td>
+
+                    <td>
+                        ${t.equipo || 'Sin equipo'}
+                    </td>
+
+                    <td class="mono">
+                        ${ingreso}
+                    </td>
+
+                    <td>
+                        ${presupText}
+                    </td>
+
+                    <td>
+                        <span class="badge ${st.badge}">
+                            ${st.label}
+                        </span>
+                    </td>
+
+                    <td>
+                        ${tecnico}
+                    </td>
+
+                    <td onclick="event.stopPropagation()">
+                        <button
+                            class="btn btn-ghost btn-sm"
+                            onclick="openTicketModal('${t.id}')"
+                            title="Consultar detalle"
+                            style="padding:4px 8px; margin-right:4px;"
+                        >
+                            👁️
+                        </button>
+                    </td>
+
+                </tr>
+            `;
+        }).join('') ||
+
+        `
+            <tr>
+                <td
+                    colspan="9"
+                    style="
+                        text-align:center;
+                        color:var(--muted);
+                        padding:26px;
+                    "
+                >
+                    No hay tickets con estos filtros.
+                </td>
+            </tr>
+        `;
+
+
+    // =====================================================
+    // CONTADORES DE TICKETS
+    // =====================================================
+
+    const abiertos = DATA.tickets.filter(t =>
+        t.stage !== 'entregado' &&
+        t.stage !== 'cancelado' &&
+        t.stage !== 'noreparable'
+    ).length;
+
+
+    // tickets-meta puede no existir dependiendo de la vista
+    const ticketsMeta = document.getElementById('tickets-meta');
+
+    if (ticketsMeta) {
+        ticketsMeta.textContent =
+            `${DATA.tickets.length} TOTALES · ${abiertos} ABIERTOS`;
+    }
+
+
+    // badge-tickets puede no existir dependiendo de la vista
+    const badgeTickets = document.getElementById('badge-tickets');
+
+    if (badgeTickets) {
+        badgeTickets.textContent = abiertos;
+    }
 }
 
 export function printTicket(id){
