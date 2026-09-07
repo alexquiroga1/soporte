@@ -666,3 +666,19 @@ body.dark-mode .card-head{
     min-height:38px;
   }
 }
+.btn-primary {
+  background: linear-gradient(135deg, #151b25, #2a3342) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.2) !important;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #1a2330, #313d4f) !important;
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.25) !important;
+}
+
+/* Transición suave para todos los inputs */
+input, select, textarea, .inp, .sel {
+    transition: 0.2s transform, 0.2s box-shadow, 0.2s border-color;
+}
