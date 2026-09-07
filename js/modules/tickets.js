@@ -5121,7 +5121,7 @@ export async function enviarAFacturacion(){
    AGREGAR NOTA A BITÁCORA
 ========================================================= */
 
-export async function addTicketNota(){
+export async function addTicketBitacora(){
 
   if (!currentTicketId) return;
 
