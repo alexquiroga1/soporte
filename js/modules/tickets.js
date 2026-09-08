@@ -365,6 +365,7 @@ export function openTicketModal(id){
   const t = DATA.tickets.find(x=>x.id===id);
   if(!t) return;
   currentTicketId = id;
+  document.body.classList.add('ticket-detail-active');
 
   const setText = (elId, text) => { const el = document.getElementById(elId); if(el) el.textContent = text; };
   const setHTML = (elId, html) => { const el = document.getElementById(elId); if(el) el.innerHTML = html; };
