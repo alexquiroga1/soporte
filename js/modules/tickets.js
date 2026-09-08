@@ -6,150 +6,356 @@ import { currentUserProfile } from '../core/auth.js';
 
 let currentTicketId = null;
 let isCreatingTicket = false;
-let publicTicketId = null; 
+let publicTicketId = null;
 
-export const stageInfo = key => TICKET_STAGES.find(s=>s.key===key) || {label: key, color:'#8891A3', badge:'pend'};
+export const stageInfo = key =>
+  TICKET_STAGES.find(s => s.key === key) || {
+    label: key,
+    color: '#8891A3',
+    badge: 'pend'
+  };
+
 
 export async function logTicketEvent(ticketId, accion, detalle = '') {
-  const user = currentUserProfile ? currentUserProfile.nombre : 'Sistema';
-  const fechaStr = fDate(new Date().toISOString().split('T')[0]) + ' ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-  const logEntry = { fecha: fechaStr, autor: user, accion, detalle };
-  
-  try {
-      await window.db.collection('tickets').doc(ticketId).update({
-          historial: window.firebase.firestore.FieldValue.arrayUnion(logEntry)
-      });
-      
-      const t = DATA.tickets.find(x => x.id === ticketId);
-      if(t){
-          if(!t.historial) t.historial = [];
-          t.historial.push(logEntry);
-          if(currentTicketId === ticketId) renderTicketNotas(t);
+
+  const user =
+    currentUserProfile
+      ? currentUserProfile.nombre
+      : 'Sistema';
+
+  const fechaStr =
+    fDate(
+      new Date()
+        .toISOString()
+        .split('T')[0]
+    ) +
+    ' ' +
+    new Date().toLocaleTimeString(
+      'es-MX',
+      {
+        hour: '2-digit',
+        minute: '2-digit'
       }
+    );
+
+  const logEntry = {
+    fecha: fechaStr,
+    autor: user,
+    accion,
+    detalle
+  };
+
+  try {
+
+    await window.db
+      .collection('tickets')
+      .doc(ticketId)
+      .update({
+        historial:
+          window.firebase.firestore
+            .FieldValue
+            .arrayUnion(logEntry)
+      });
+
+    const t =
+      DATA.tickets.find(
+        x => x.id === ticketId
+      );
+
+    if (t) {
+
+      if (!t.historial) {
+        t.historial = [];
+      }
+
+      t.historial.push(
+        logEntry
+      );
+
+      if (
+        currentTicketId ===
+        ticketId
+      ) {
+
+        renderTicketNotas(t);
+
+      }
+
+    }
+
   } catch (e) {
-      console.error("Error registrando historial", e);
+
+    console.error(
+      'Error registrando historial',
+      e
+    );
+
   }
+
 }
 
-export function renderTicketNotas(t){
-  const hist = t.historial || [];
-  const count = document.getElementById('mt-notas-count');
 
-  if(count) {
-      count.textContent = `${hist.length} ${hist.length === 1 ? 'Nota' : 'Notas'}`;
+export function renderTicketNotas(t) {
+
+  const hist =
+    t.historial || [];
+
+  const count =
+    document.getElementById(
+      'mt-notas-count'
+    );
+
+  if (count) {
+
+    count.textContent =
+      `${hist.length} ${
+        hist.length === 1
+          ? 'Nota'
+          : 'Notas'
+      }`;
+
   }
 
-  const container = document.getElementById('mt-notas');
+  const container =
+    document.getElementById(
+      'mt-notas'
+    );
 
-  if(!container) return;
+  if (!container) {
+    return;
+  }
 
-  container.innerHTML = hist.slice().reverse().map(h=>`
-    <div style="background:var(--bg); padding:10px; border-radius:8px; border-left:3px solid var(--copper); margin-bottom:8px;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
-        <b style="color:var(--ink);">${h.accion}</b> 
-        <span style="color:var(--muted);">${h.fecha}</span>
-      </div>
+  container.innerHTML =
+    hist
+      .slice()
+      .reverse()
+      .map(h => `
 
-      <div style="font-size:12px; color:var(--ink);">
-        ${h.detalle ? `<div style="margin-bottom:4px; line-height:1.4;">${h.detalle}</div>` : ''}
-        <div style="font-size:10px; color:var(--muted); margin-top:6px; font-family:'IBM Plex Mono', monospace;">
-          Usuario: ${h.autor}
+        <div
+          style="
+            background:var(--bg);
+            padding:10px;
+            border-radius:8px;
+            border-left:3px solid var(--copper);
+            margin-bottom:8px;
+          "
+        >
+
+          <div
+            style="
+              display:flex;
+              justify-content:space-between;
+              margin-bottom:4px;
+              font-size:11px;
+            "
+          >
+
+            <b style="color:var(--ink);">
+              ${h.accion}
+            </b>
+
+            <span style="color:var(--muted);">
+              ${h.fecha}
+            </span>
+
+          </div>
+
+          <div
+            style="
+              font-size:12px;
+              color:var(--ink);
+            "
+          >
+
+            ${
+              h.detalle
+                ? `
+                  <div
+                    style="
+                      margin-bottom:4px;
+                      line-height:1.4;
+                    "
+                  >
+                    ${h.detalle}
+                  </div>
+                `
+                : ''
+            }
+
+            <div
+              style="
+                font-size:10px;
+                color:var(--muted);
+                margin-top:6px;
+                font-family:'IBM Plex Mono', monospace;
+              "
+            >
+              Usuario: ${h.autor}
+            </div>
+
+          </div>
+
         </div>
-      </div>
-    </div>
-  `).join('') || `
-    <div style="color:var(--muted);font-size:11px;text-align:center;padding:10px;">
-      Sin historial.
-    </div>
-  `;
+
+      `)
+      .join('') ||
+
+      `
+        <div
+          style="
+            color:var(--muted);
+            font-size:11px;
+            text-align:center;
+            padding:10px;
+          "
+        >
+          Sin historial.
+        </div>
+      `;
+
 }
 
-export async function addTicketNota(){
-  const input = document.getElementById('mt-nota-input');
 
-  if(!input) return;
+export async function addTicketNota() {
 
-  const texto = input.value.trim();
+  const input =
+    document.getElementById(
+      'mt-nota-input'
+    );
 
-  if(!texto) return;
-  
+  if (!input) {
+    return;
+  }
+
+  const texto =
+    input.value.trim();
+
+  if (!texto) {
+    return;
+  }
+
   await logTicketEvent(
-      currentTicketId,
-      'Nota manual',
-      texto
+    currentTicketId,
+    'Nota manual',
+    texto
   );
 
   input.value = '';
 
-  toast('Nota guardada');
+  toast(
+    'Nota guardada'
+  );
+
 }
 
-export function onClientSearchInput(){
 
-  const input = document.getElementById(
+export function onClientSearchInput() {
+
+  const input =
+    document.getElementById(
       'nt-cliente-input'
-  );
+    );
 
-  const box = document.getElementById(
+  const box =
+    document.getElementById(
       'nt-client-suggestions'
-  );
+    );
 
-  if(!input || !box) return;
+  if (
+    !input ||
+    !box
+  ) {
+    return;
+  }
 
-  const q = input.value
+  const q =
+    input.value
       .toLowerCase()
       .trim();
 
-  if(!q){
-      box.style.display = 'none';
-      return;
+  if (!q) {
+
+    box.style.display =
+      'none';
+
+    return;
+
   }
 
-  const match = DATA.clientes.filter(c => {
+  const match =
+    DATA.clientes.filter(
+      c => {
 
-    const full = getFullName(c);
+        const full =
+          getFullName(c);
 
-    const tel = c.tel || '';
+        const tel =
+          c.tel || '';
 
-    return (
-      full.toLowerCase().includes(q) ||
-      tel.includes(q)
+        return (
+          full
+            .toLowerCase()
+            .includes(q) ||
+
+          tel.includes(q)
+        );
+
+      }
     );
 
-  });
-  
-  if(match.length > 0){
+  if (
+    match.length > 0
+  ) {
 
-    box.style.display = 'block';
+    box.style.display =
+      'block';
 
-    box.innerHTML = match.map(c => `
-      <div
-        style="
-          padding:8px 12px;
-          cursor:pointer;
-          border-bottom:1px solid var(--line);
-          font-size:13px;
-        "
-        onclick="selectClientForTicket('${c.id}', '${getFullName(c)}')"
-      >
-        <b>${getFullName(c)}</b>
+    box.innerHTML =
+      match
+        .map(
+          c => `
 
-        <span
-          style="
-            color:var(--muted);
-            font-size:11px;
-          "
-        >
-          (${c.tel || 'Sin teléfono'})
-        </span>
-      </div>
-    `).join('');
+            <div
+              style="
+                padding:8px 12px;
+                cursor:pointer;
+                border-bottom:1px solid var(--line);
+                font-size:13px;
+              "
+              onclick="
+                selectClientForTicket(
+                  '${c.id}',
+                  '${getFullName(c)}'
+                )
+              "
+            >
+
+              <b>
+                ${getFullName(c)}
+              </b>
+
+              <span
+                style="
+                  color:var(--muted);
+                  font-size:11px;
+                "
+              >
+                (${c.tel || 'Sin teléfono'})
+              </span>
+
+            </div>
+
+          `
+        )
+        .join('');
 
   } else {
 
-    box.style.display = 'block';
+    box.style.display =
+      'block';
 
     box.innerHTML = `
+
       <div
         style="
           padding:10px 12px;
@@ -157,6 +363,7 @@ export function onClientSearchInput(){
           color:var(--muted);
         "
       >
+
         No encontrado.
 
         <span
@@ -167,378 +374,517 @@ export function onClientSearchInput(){
           "
           onclick="
             openModal('modal-nuevo-cliente');
-            document.getElementById('nt-client-suggestions').style.display='none';
+            document.getElementById(
+              'nt-client-suggestions'
+            ).style.display='none';
           "
         >
           ¿Crear nuevo cliente?
         </span>
+
       </div>
+
     `;
+
   }
+
 }
 
+
 export function selectClientForTicket(
-    id,
-    nombre
-){
+  id,
+  nombre
+) {
 
   const inputId =
-      document.getElementById('nt-cliente-id');
+    document.getElementById(
+      'nt-cliente-id'
+    );
 
   const inputNombre =
-      document.getElementById('nt-cliente-input');
+    document.getElementById(
+      'nt-cliente-input'
+    );
 
   const suggestions =
-      document.getElementById('nt-client-suggestions');
+    document.getElementById(
+      'nt-client-suggestions'
+    );
 
-  if(inputId) {
-      inputId.value = id;
+  if (inputId) {
+
+    inputId.value =
+      id;
+
   }
 
-  if(inputNombre) {
-      inputNombre.value = nombre;
+  if (inputNombre) {
+
+    inputNombre.value =
+      nombre;
+
   }
 
-  if(suggestions) {
-      suggestions.style.display = 'none';
+  if (suggestions) {
+
+    suggestions.style.display =
+      'none';
+
   }
 
   const today =
-      new Date().toISOString().split('T')[0];
+    new Date()
+      .toISOString()
+      .split('T')[0];
 
   const garantias =
-      DATA.tickets.filter(
-          t =>
-            t.clienteId === id &&
-            t.garantiaVencimiento &&
-            t.garantiaVencimiento >= today
-      );
-  
+    DATA.tickets.filter(
+      t =>
+        t.clienteId === id &&
+        t.garantiaVencimiento &&
+        t.garantiaVencimiento >= today
+    );
+
   const alertBox =
-      document.getElementById('nt-alerta-garantia');
+    document.getElementById(
+      'nt-alerta-garantia'
+    );
 
   const list =
-      document.getElementById('nt-lista-garantias');
-  
-  if(alertBox && list) {
+    document.getElementById(
+      'nt-lista-garantias'
+    );
 
-      if(garantias.length > 0) {
+  if (
+    alertBox &&
+    list
+  ) {
 
-          list.innerHTML =
-              garantias.map(
-                  g =>
-                  `<li>
-                    <b>#${g.id}</b>
-                    - ${g.equipo}
-                    (Vence: ${fDate(g.garantiaVencimiento)})
-                  </li>`
-              ).join('');
+    if (
+      garantias.length > 0
+    ) {
 
-          alertBox.style.display =
-              'block';
+      list.innerHTML =
+        garantias
+          .map(
+            g => `
 
-      } else {
+              <li>
 
-          alertBox.style.display =
-              'none';
+                <b>
+                  #${g.id}
+                </b>
 
-      }
+                -
+                ${g.equipo}
+
+                (Vence:
+                ${fDate(
+                  g.garantiaVencimiento
+                )})
+
+              </li>
+
+            `
+          )
+          .join('');
+
+      alertBox.style.display =
+        'block';
+
+    } else {
+
+      alertBox.style.display =
+        'none';
+
+    }
 
   }
+
 }
+
 
 export function populateTecnicos() {
 
-    const selFilter =
-        document.getElementById(
-            'tk-filter-tecnico'
-        );
+  const selFilter =
+    document.getElementById(
+      'tk-filter-tecnico'
+    );
 
-    const selNew =
-        document.getElementById(
-            'nt-tecnico'
-        );
+  const selNew =
+    document.getElementById(
+      'nt-tecnico'
+    );
 
-    const tecnicos =
-        DATA.usuarios.filter(
-            u => u.activo
-        );
+  const tecnicos =
+    DATA.usuarios.filter(
+      u => u.activo
+    );
 
-    const options =
-        tecnicos.map(
-            t =>
-            `<option value="${t.nombre}">
-                ${t.nombre}
-             </option>`
-        ).join('');
+  const options =
+    tecnicos
+      .map(
+        t => `
+          <option value="${t.nombre}">
+            ${t.nombre}
+          </option>
+        `
+      )
+      .join('');
 
-    if(selFilter) {
+  if (selFilter) {
 
-        selFilter.innerHTML =
-            '<option value="">Todos los técnicos</option>' +
-            '<option value="Sin asignar">Sin asignar</option>' +
-            options;
+    selFilter.innerHTML =
 
-    }
+      '<option value="">Todos los técnicos</option>' +
 
-    if(selNew) {
+      '<option value="Sin asignar">Sin asignar</option>' +
 
-        selNew.innerHTML =
-            '<option value="Sin asignar">Sin asignar</option>' +
-            options;
+      options;
 
-    }
+  }
+
+  if (selNew) {
+
+    selNew.innerHTML =
+
+      '<option value="Sin asignar">Sin asignar</option>' +
+
+      options;
+
+  }
+
 }
+
 
 export function renderTicketsTable() {
 
-    populateTecnicos();
+  populateTecnicos();
 
-    const searchInput =
-        document.getElementById(
-            'tk-search'
+  const searchInput =
+    document.getElementById(
+      'tk-search'
+    );
+
+  const estadoFilter =
+    document.getElementById(
+      'tk-filter-estado'
+    );
+
+  const prioFilter =
+    document.getElementById(
+      'tk-filter-prio'
+    );
+
+  const tecnicoFilter =
+    document.getElementById(
+      'tk-filter-tecnico'
+    );
+
+  const tableBody =
+    document.getElementById(
+      'tickets-table-body'
+    );
+
+  if (!tableBody) {
+
+    console.warn(
+      'renderTicketsTable: No se encontró #tickets-table-body'
+    );
+
+    return;
+
+  }
+
+  const q =
+    (
+      searchInput?.value ||
+      ''
+    )
+      .toLowerCase();
+
+  const fEstado =
+    estadoFilter?.value ||
+    '';
+
+  const fPrio =
+    prioFilter?.value ||
+    '';
+
+  const fTecnico =
+    tecnicoFilter?.value ||
+    '';
+
+  const rows =
+    DATA.tickets.filter(
+      t => {
+
+        const cliente =
+          (
+            t.cliente ||
+            ''
+          )
+            .toLowerCase();
+
+        const equipo =
+          (
+            t.equipo ||
+            ''
+          )
+            .toLowerCase();
+
+        const ticketId =
+          (
+            t.id ||
+            ''
+          )
+            .toLowerCase();
+
+        const matchQ =
+          !q ||
+          cliente.includes(q) ||
+          equipo.includes(q) ||
+          ticketId.includes(q);
+
+        const matchE =
+          !fEstado ||
+          t.stage ===
+            fEstado;
+
+        const matchP =
+          !fPrio ||
+          t.prioridad ===
+            fPrio;
+
+        const matchT =
+          !fTecnico ||
+          t.tecnico ===
+            fTecnico;
+
+        return (
+          matchQ &&
+          matchE &&
+          matchP &&
+          matchT
         );
 
-    const estadoFilter =
-        document.getElementById(
-            'tk-filter-estado'
-        );
+      }
+    );
 
-    const prioFilter =
-        document.getElementById(
-            'tk-filter-prio'
-        );
+  tableBody.innerHTML =
 
-    const tecnicoFilter =
-        document.getElementById(
-            'tk-filter-tecnico'
-        );
+    rows
+      .map(
+        t => {
 
-    const tableBody =
-        document.getElementById(
-            'tickets-table-body'
-        );
-
-    if (!tableBody) {
-
-        console.warn(
-            'renderTicketsTable: No se encontró #tickets-table-body'
-        );
-
-        return;
-    }
-
-    const q =
-        (searchInput?.value || '')
-        .toLowerCase();
-
-    const fEstado =
-        estadoFilter?.value || '';
-
-    const fPrio =
-        prioFilter?.value || '';
-
-    const fTecnico =
-        tecnicoFilter?.value || '';
-
-    const rows =
-        DATA.tickets.filter(t => {
-
-            const cliente =
-                (t.cliente || '')
-                .toLowerCase();
-
-            const equipo =
-                (t.equipo || '')
-                .toLowerCase();
-
-            const ticketId =
-                (t.id || '')
-                .toLowerCase();
-
-            const matchQ =
-                !q ||
-                cliente.includes(q) ||
-                equipo.includes(q) ||
-                ticketId.includes(q);
-
-            const matchE =
-                !fEstado ||
-                t.stage === fEstado;
-
-            const matchP =
-                !fPrio ||
-                t.prioridad === fPrio;
-
-            const matchT =
-                !fTecnico ||
-                t.tecnico === fTecnico;
-
-            return (
-                matchQ &&
-                matchE &&
-                matchP &&
-                matchT
+          const st =
+            stageInfo(
+              t.stage
             );
-        });
 
-    tableBody.innerHTML =
-        rows.map(t => {
+          const prioridad =
+            t.prioridad ||
+            'P2';
 
-            const st =
-                stageInfo(t.stage);
+          const tecnico =
+            t.tecnico ||
+            'Sin asignar';
 
-            const prioridad =
-                t.prioridad || 'P2';
+          const ingreso =
+            t.ingreso ||
+            '—';
 
-            const tecnico =
-                t.tecnico || 'Sin asignar';
+          const presupText =
 
-            const ingreso =
-                t.ingreso || '—';
+            t.presupuestoFijado
 
-            const presupText =
-                t.presupuestoFijado
-                ? `
-                    <span
-                      style="
-                        color:var(--teal);
-                        font-family:'IBM Plex Mono',monospace;
-                        font-weight:700;
-                      "
-                    >
-                      ${fmt(
-                          t.presupuestoEstimado || 0
-                      )}
-                    </span>
-                  `
-                : `
-                    <span
-                      style="
-                        color:var(--amber);
-                        font-size:10.5px;
-                        font-weight:700;
-                      "
-                    >
-                      PENDIENTE
-                    </span>
-                  `;
+              ? `
 
-            return `
-                <tr
-                  class="tbl-row"
-                  onclick="openTicketModal('${t.id}')"
+                <span
+                  style="
+                    color:var(--teal);
+                    font-family:'IBM Plex Mono',monospace;
+                    font-weight:700;
+                  "
                 >
 
-                    <td>
-                        <div
-                          class="prio ${prioridad.toLowerCase()}"
-                        >
-                            ${prioridad}
-                        </div>
-                    </td>
+                  ${fmt(
+                    t.presupuestoEstimado ||
+                    0
+                  )}
 
-                    <td class="mono">
-                        #${t.id}
-                    </td>
+                </span>
 
-                    <td>
-                        ${t.cliente || 'Sin cliente'}
-                    </td>
+              `
 
-                    <td>
-                        ${t.equipo || 'Sin equipo'}
-                    </td>
+              : `
 
-                    <td class="mono">
-                        ${ingreso}
-                    </td>
-
-                    <td>
-                        ${presupText}
-                    </td>
-
-                    <td>
-                        <span
-                          class="badge ${st.badge}"
-                        >
-                            ${st.label}
-                        </span>
-                    </td>
-
-                    <td>
-                        ${tecnico}
-                    </td>
-
-                    <td
-                      onclick="event.stopPropagation()"
-                    >
-                        <button
-                            class="btn btn-ghost btn-sm"
-                            onclick="openTicketModal('${t.id}')"
-                            title="Consultar detalle"
-                            style="
-                              padding:4px 8px;
-                              margin-right:4px;
-                            "
-                        >
-                            👁️
-                        </button>
-                    </td>
-
-                </tr>
-            `;
-
-        }).join('') ||
-
-        `
-            <tr>
-                <td
-                    colspan="9"
-                    style="
-                        text-align:center;
-                        color:var(--muted);
-                        padding:26px;
-                    "
+                <span
+                  style="
+                    color:var(--amber);
+                    font-size:10.5px;
+                    font-weight:700;
+                  "
                 >
-                    No hay tickets con estos filtros.
-                </td>
+                  PENDIENTE
+                </span>
+
+              `;
+
+          return `
+
+            <tr
+              class="tbl-row"
+              onclick="
+                openTicketModal(
+                  '${t.id}'
+                )
+              "
+            >
+
+              <td>
+
+                <div
+                  class="
+                    prio
+                    ${prioridad.toLowerCase()}
+                  "
+                >
+                  ${prioridad}
+                </div>
+
+              </td>
+
+              <td class="mono">
+                #${t.id}
+              </td>
+
+              <td>
+                ${t.cliente || 'Sin cliente'}
+              </td>
+
+              <td>
+                ${t.equipo || 'Sin equipo'}
+              </td>
+
+              <td class="mono">
+                ${ingreso}
+              </td>
+
+              <td>
+                ${presupText}
+              </td>
+
+              <td>
+
+                <span
+                  class="
+                    badge
+                    ${st.badge}
+                  "
+                >
+                  ${st.label}
+                </span>
+
+              </td>
+
+              <td>
+                ${tecnico}
+              </td>
+
+              <td
+                onclick="
+                  event.stopPropagation()
+                "
+              >
+
+                <button
+                  class="
+                    btn
+                    btn-ghost
+                    btn-sm
+                  "
+                  onclick="
+                    openTicketModal(
+                      '${t.id}'
+                    )
+                  "
+                  title="Consultar detalle"
+                  style="
+                    padding:4px 8px;
+                    margin-right:4px;
+                  "
+                >
+                  👁️
+                </button>
+
+              </td>
+
             </tr>
-        `;
 
-    const abiertos =
-        DATA.tickets.filter(
-            t =>
-                t.stage !== 'entregado' &&
-                t.stage !== 'cancelado' &&
-                t.stage !== 'noreparable'
-        ).length;
+          `;
 
-    const ticketsMeta =
-        document.getElementById(
-            'tickets-meta'
-        );
+        }
+      )
+      .join('')
 
-    if (ticketsMeta) {
+      ||
 
-        ticketsMeta.textContent =
-            `${DATA.tickets.length} TOTALES · ${abiertos} ABIERTOS`;
+      `
 
-    }
+        <tr>
 
-    const badgeTickets =
-        document.getElementById(
-            'badge-tickets'
-        );
+          <td
+            colspan="9"
+            style="
+              text-align:center;
+              color:var(--muted);
+              padding:26px;
+            "
+          >
+            No hay tickets con estos filtros.
+          </td>
 
-    if (badgeTickets) {
+        </tr>
 
-        badgeTickets.textContent =
-            abiertos;
+      `;
 
-    }
+
+  const abiertos =
+    DATA.tickets.filter(
+      t =>
+        t.stage !== 'entregado' &&
+        t.stage !== 'cancelado' &&
+        t.stage !== 'noreparable'
+    ).length;
+
+
+  const ticketsMeta =
+    document.getElementById(
+      'tickets-meta'
+    );
+
+  if (ticketsMeta) {
+
+    ticketsMeta.textContent =
+      `${DATA.tickets.length} TOTALES · ${abiertos} ABIERTOS`;
+
+  }
+
+
+  const badgeTickets =
+    document.getElementById(
+      'badge-tickets'
+    );
+
+  if (badgeTickets) {
+
+    badgeTickets.textContent =
+      abiertos;
+
+  }
+
 }
-
 export function printTicket(id){
 
   const t =
@@ -1057,6 +1403,7 @@ export function printTicket(id){
   win.document.close();
 }
 
+
 export function renderTicketsKanban(){
 
   const board =
@@ -1156,6 +1503,7 @@ export function renderTicketsKanban(){
           )
   );
 }
+
 
 export async function changeTicketStageAt(
     id,
@@ -1273,6 +1621,7 @@ export async function changeTicketStageAt(
     }
 }
 
+
 export function changeTicketStage(){
 
     const select =
@@ -1295,7 +1644,6 @@ export function changeTicketStage(){
         newStage
     );
 }
-
 export function openTicketModal(id){
 
   const t =
@@ -1836,10 +2184,6 @@ export function openTicketModal(id){
       'entregado'
   ];
 
-  /*
-     Etapas que realmente se muestran
-     visualmente en el Stepper.
-  */
   const visualStages = [
       'pendiente',
       'diagnostico',
@@ -1870,15 +2214,25 @@ export function openTicketModal(id){
                     stepKey
                 );
 
-            /*
-               Mantener clases base.
-            */
             el.className =
                 'step step-sm';
 
+            const num =
+                el.querySelector(
+                    '.num'
+                );
+
+            const originalNumber =
+                String(visualIndex + 1);
+
+            if(num){
+                num.textContent =
+                    originalNumber;
+            }
+
             /*
-               TICKET ENTREGADO
-               Todo completado.
+               ENTREGADO
+               Todo el flujo completado.
             */
             if(
                 t.stage ===
@@ -1889,18 +2243,20 @@ export function openTicketModal(id){
                     'completed'
                 );
 
+                if(num){
+                    num.textContent =
+                        '✓';
+                }
+
                 return;
             }
 
             /*
-               CANCELADO
-               / NO REPARABLE
+               CANCELADO / NO REPARABLE
             */
             if(
-                t.stage ===
-                    'cancelado' ||
-                t.stage ===
-                    'noreparable'
+                t.stage === 'cancelado' ||
+                t.stage === 'noreparable'
             ){
 
                 if(
@@ -1911,6 +2267,11 @@ export function openTicketModal(id){
                         'completed'
                     );
 
+                    if(num){
+                        num.textContent =
+                            '✓';
+                    }
+
                 }
 
                 return;
@@ -1918,8 +2279,8 @@ export function openTicketModal(id){
 
             /*
                GARANTÍA
-               Se representa visualmente
-               sobre Reparación.
+               Se refleja visualmente
+               dentro de Reparación.
             */
             if(
                 t.stage ===
@@ -1927,6 +2288,21 @@ export function openTicketModal(id){
             ){
 
                 if(
+                    visualIndex < 3 &&
+                    visualIndex !== -1
+                ){
+
+                    el.classList.add(
+                        'completed'
+                    );
+
+                    if(num){
+                        num.textContent =
+                            '✓';
+                    }
+
+                }
+                else if(
                     stepKey ===
                     'reparacion'
                 ){
@@ -1941,20 +2317,39 @@ export function openTicketModal(id){
             }
 
             /*
-               ESPERANDO REPUESTO
-               Visualmente continúa sobre
-               Reparación.
+               REPUESTO
+               Continúa dentro de Reparación.
             */
             if(
                 t.stage ===
-                    'repuesto' &&
-                stepKey ===
-                    'reparacion'
+                'repuesto'
             ){
 
-                el.classList.add(
-                    'active'
-                );
+                if(
+                    stepKey ===
+                    'reparacion'
+                ){
+
+                    el.classList.add(
+                        'active'
+                    );
+
+                }
+                else if(
+                    visualIndex >= 0 &&
+                    visualIndex < 3
+                ){
+
+                    el.classList.add(
+                        'completed'
+                    );
+
+                    if(num){
+                        num.textContent =
+                            '✓';
+                    }
+
+                }
 
                 return;
             }
@@ -1987,6 +2382,11 @@ export function openTicketModal(id){
                 el.classList.add(
                     'completed'
                 );
+
+                if(num){
+                    num.textContent =
+                        '✓';
+                }
 
             }
 
@@ -2170,7 +2570,6 @@ export function openTicketModal(id){
   }
 
 }
-
 export async function fijarPresupuesto(){
 
   const input =
@@ -2305,6 +2704,7 @@ export async function fijarPresupuesto(){
   }
 }
 
+
 export async function desbloquearPresupuesto(){
 
   try {
@@ -2387,6 +2787,7 @@ export async function desbloquearPresupuesto(){
   }
 }
 
+
 export function sendWhatsAppNotice(){
 
   const t =
@@ -2462,6 +2863,7 @@ export function sendWhatsAppNotice(){
 
 }
 
+
 export function checkBillingButtonVisibility(t){
 
   const btn =
@@ -2486,6 +2888,7 @@ export function checkBillingButtonVisibility(t){
 
   }
 }
+
 
 export async function saveDiagnostico(){
 
@@ -2554,6 +2957,7 @@ export async function saveDiagnostico(){
 
   }
 }
+
 
 export async function saveGarantiaDias() {
 
@@ -2637,10 +3041,6 @@ export async function saveGarantiaDias() {
             'Días de garantía guardados'
         );
 
-        /*
-           Actualizar visualmente
-           la fecha de garantía.
-        */
         const divVence =
             document.getElementById(
                 'mt-garantia-vence'
@@ -2694,6 +3094,7 @@ export async function saveGarantiaDias() {
     }
 }
 
+
 export function populateRepuestosSelect(){
 
   const sel =
@@ -2725,6 +3126,7 @@ export function populateRepuestosSelect(){
            </option>`
       ).join('');
 }
+
 
 export function renderTicketPiezas(t){
 
@@ -2921,6 +3323,7 @@ export function renderTicketPiezas(t){
   }
 }
 
+
 export async function updatePiezaPrice(
     idx,
     newPrice
@@ -2939,7 +3342,6 @@ export async function updatePiezaPrice(
       );
 
       return;
-
   }
 
   const val =
@@ -3018,6 +3420,7 @@ export async function updatePiezaPrice(
   }
 }
 
+
 export async function addPiezaToTicket(){
 
   const sel =
@@ -3032,7 +3435,6 @@ export async function addPiezaToTicket(){
       );
 
       return;
-
   }
 
   const sku =
@@ -3045,7 +3447,6 @@ export async function addPiezaToTicket(){
       );
 
       return;
-
   }
 
   const prod =
@@ -3061,7 +3462,6 @@ export async function addPiezaToTicket(){
       );
 
       return;
-
   }
 
   const t =
@@ -3077,7 +3477,6 @@ export async function addPiezaToTicket(){
       );
 
       return;
-
   }
 
   const nuevasPiezas =
@@ -3172,6 +3571,7 @@ export async function addPiezaToTicket(){
   }
 }
 
+
 export async function removePiezaFromTicket(
     idx
 ){
@@ -3189,7 +3589,6 @@ export async function removePiezaFromTicket(
       );
 
       return;
-
   }
 
   if(
@@ -3202,7 +3601,6 @@ export async function removePiezaFromTicket(
       );
 
       return;
-
   }
 
   const nuevasPiezas =
@@ -3259,6 +3657,7 @@ export async function removePiezaFromTicket(
   }
 }
 
+
 export async function enviarAFacturacion(){
 
   const t =
@@ -3307,7 +3706,6 @@ export async function enviarAFacturacion(){
       );
 
       return;
-
   }
 
   const cobroPendiente = {
@@ -3401,6 +3799,7 @@ export async function enviarAFacturacion(){
 
   }
 }
+
 
 export function limpiarFormularioTicket(){
 
@@ -3530,6 +3929,7 @@ export function limpiarFormularioTicket(){
 
 }
 
+
 export function toggleTipoServicio(){
 
     const tipo =
@@ -3614,6 +4014,7 @@ export function toggleTipoServicio(){
 
 }
 
+
 async function uploadTicketFotos(
     files,
     ticketId
@@ -3672,7 +4073,6 @@ async function uploadTicketFotos(
 
     return urls;
 }
-
 export async function createTicket(){
 
   if(
@@ -3811,7 +4211,7 @@ export async function createTicket(){
       ).value.trim()
       :
       '';
-  
+
   if(!falla){
 
       toast(
@@ -3933,7 +4333,7 @@ export async function createTicket(){
           ''
 
   };
-  
+
   const user =
       currentUserProfile
       ?
@@ -3981,7 +4381,7 @@ export async function createTicket(){
           window.db
             .collection('negocio')
             .doc('contadores');
-      
+
       await window.db.runTransaction(
           async (
               transaction
@@ -4180,7 +4580,7 @@ export async function createTicket(){
         .collection('tickets')
         .doc(id)
         .set(t);
-      
+
       limpiarFormularioTicket();
 
       toast(
@@ -4228,6 +4628,7 @@ export async function createTicket(){
   }
 }
 
+
 export async function eliminarTicketConCodigo(){
 
     if(
@@ -4250,7 +4651,7 @@ export async function eliminarTicketConCodigo(){
         return;
 
     }
-    
+
     if(
         codigo ===
         "780923"
@@ -4315,6 +4716,7 @@ export async function eliminarTicketConCodigo(){
 
 }
 
+
 export function compartirLinkPresupuesto(){
 
     if(
@@ -4373,6 +4775,7 @@ export function compartirLinkPresupuesto(){
     }
 }
 
+
 export async function initPublicPresupuesto(
     tkId
 ){
@@ -4415,7 +4818,7 @@ export async function initPublicPresupuesto(
             'flex';
 
     }
-    
+
     try {
 
         const doc =
@@ -4443,7 +4846,7 @@ export async function initPublicPresupuesto(
             return;
 
         }
-        
+
         const t =
             doc.data();
 
@@ -4458,7 +4861,7 @@ export async function initPublicPresupuesto(
                 'none';
 
         }
-        
+
         if(
             t.presupuestoAprobado === true ||
             t.presupuestoAprobado === false
@@ -4597,7 +5000,7 @@ export async function initPublicPresupuesto(
                 );
 
         }
-        
+
     } catch (e) {
 
         console.error(
@@ -4619,7 +5022,6 @@ export async function initPublicPresupuesto(
 
     }
 }
-
 export async function responderPresupuesto(
     respuesta
 ){
@@ -4801,4 +5203,5 @@ export async function responderPresupuesto(
         }
 
     }
+
 }
