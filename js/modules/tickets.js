@@ -437,6 +437,8 @@ export function openTicketModal(id){
   
   const linearStages = ['pendiente', 'diagnostico', 'presupuesto', 'reparacion', 'repuesto', 'listo', 'entregado'];
   const currentIndex = linearStages.indexOf(t.stage);
+  console.log('STAGE DEL TICKET:', t.stage);
+console.log('CURRENT INDEX:', currentIndex);
   
  document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
 
