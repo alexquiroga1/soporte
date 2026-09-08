@@ -472,6 +472,969 @@
     body.ticket-detail-active .main>.topbar {
       display: none !important;
     }
+
+
+    /* =====================================================================
+       DETALLE TICKET — CAPA VISUAL AISLADA
+       Replica el diseño del HTML de referencia sin contaminar el resto
+       de la aplicación.
+       ===================================================================== */
+
+    #view-ticket-detalle {
+      --dt-bg:#eef1f5;
+      --dt-surface:#fff;
+      --dt-surface-2:#f7f9fc;
+      --dt-ink:#111827;
+      --dt-ink-2:#273244;
+      --dt-muted:#718096;
+      --dt-line:#dfe5ed;
+      --dt-teal:#10b981;
+      --dt-copper:#ff6a3d;
+      --dt-amber:#f59e0b;
+      --dt-red:#ef4444;
+      --dt-blue:#3b82f6;
+      --dt-purple:#8b5cf6;
+      --dt-success-bg:#e9fbf4;
+      --dt-warn-bg:#fff7df;
+      --dt-danger-bg:#fff0f0;
+      --dt-purple-bg:#f4efff;
+      --dt-radius:18px;
+      --dt-shadow:0 10px 28px rgba(17,24,39,.07);
+      --dt-shadow-strong:0 18px 45px rgba(17,24,39,.12);
+      --dt-mono:"IBM Plex Mono",monospace;
+      width:100%;
+      max-width:1400px;
+      margin:0 auto;
+      padding:22px;
+      color:var(--dt-ink);
+    }
+
+    #view-ticket-detalle * { box-sizing:border-box; }
+
+    /* CABECERA LOCAL */
+    #view-ticket-detalle .detail-topbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:18px;
+      margin-bottom:18px;
+    }
+
+    #view-ticket-detalle .detail-brand {
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    #view-ticket-detalle .detail-logo {
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      background:linear-gradient(145deg,#161d29,#2f3a4e);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      box-shadow:0 12px 24px rgba(17,24,39,.18);
+      font-weight:900;
+      font-family:var(--dt-mono);
+      font-size:20px;
+    }
+
+    #view-ticket-detalle .detail-eyebrow {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      color:var(--dt-muted);
+      font-weight:800;
+    }
+
+    #view-ticket-detalle .detail-brand h1 {
+      margin:2px 0 0;
+      font-size:22px;
+      letter-spacing:-.03em;
+    }
+
+    #view-ticket-detalle .detail-top-actions {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    /* BOTONES */
+    #view-ticket-detalle .detail-btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--dt-line);
+      background:#fff;
+      color:var(--dt-ink-2);
+      border-radius:10px;
+      padding:10px 14px;
+      font-weight:700;
+      font-size:13px;
+      cursor:pointer;
+      transition:.2s transform,.2s box-shadow,.2s border-color,.2s background;
+    }
+
+    #view-ticket-detalle .detail-btn:hover {
+      transform:translateY(-2px);
+      box-shadow:0 8px 20px rgba(17,24,39,.08);
+    }
+
+    #view-ticket-detalle .detail-btn:active { transform:translateY(0); }
+
+    #view-ticket-detalle .detail-btn-primary {
+      background:linear-gradient(135deg,#151b25,#2a3342);
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 8px 20px rgba(17,24,39,.20);
+    }
+
+    #view-ticket-detalle .detail-btn-success {
+      border-color:#a7ecd2;
+      color:#0b805e;
+      background:#effdf8;
+    }
+
+    #view-ticket-detalle .detail-btn-danger {
+      border-color:#f4b8b8;
+      color:#bb1d1d;
+      background:#fff7f7;
+    }
+
+    #view-ticket-detalle .detail-btn-ghost {
+      background:#fff;
+      color:var(--dt-ink);
+      border-color:var(--dt-line);
+    }
+
+    #view-ticket-detalle .detail-btn-sm {
+      padding:6px 12px;
+      font-size:12px;
+      border-radius:8px;
+    }
+
+    #view-ticket-detalle .detail-btn-billing {
+      border-color:var(--dt-teal);
+      color:var(--dt-teal);
+    }
+
+    #view-ticket-detalle .shine:after {
+      content:"";
+      position:absolute;
+      inset:-20%;
+      background:linear-gradient(105deg,transparent 45%,rgba(255,255,255,.42) 50%,transparent 55%);
+      transform:translateX(-130%);
+      animation:detailShine 3.8s infinite;
+    }
+
+    @keyframes detailShine {
+      0%,58% { transform:translateX(-130%); }
+      72%,100% { transform:translateX(130%); }
+    }
+
+    /* BADGES */
+    #view-ticket-detalle .status-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      position:relative;
+      box-shadow:inset 0 1px rgba(255,255,255,.7),0 4px 11px rgba(17,24,39,.08);
+      white-space:nowrap;
+    }
+
+    #view-ticket-detalle .status-badge:before {
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:currentColor;
+    }
+
+    #view-ticket-detalle .emitida {
+      background:var(--dt-success-bg);
+      color:#09805d;
+      animation:detailPulse 2.7s infinite;
+    }
+
+    #view-ticket-detalle .pendiente {
+      background:var(--dt-warn-bg);
+      color:#9a6500;
+      animation:detailBlink 1.55s infinite;
+    }
+
+    #view-ticket-detalle .nota {
+      background:var(--dt-purple-bg);
+      color:#6d42d1;
+      animation:detailGlow 2.4s infinite;
+    }
+
+    #view-ticket-detalle .critico {
+      background:var(--dt-danger-bg);
+      color:#bf2424;
+      animation:detailCritical 1.05s infinite;
+    }
+
+    @keyframes detailPulse {
+      0%,100%{transform:perspective(300px) rotateX(0) translateY(0);box-shadow:0 5px 12px rgba(16,185,129,.13)}
+      50%{transform:perspective(300px) rotateX(5deg) translateY(-1px);box-shadow:0 11px 18px rgba(16,185,129,.22)}
+    }
+
+    @keyframes detailBlink {
+      0%,100%{opacity:1;filter:none}
+      50%{opacity:.45;filter:drop-shadow(0 0 7px rgba(245,158,11,.45))}
+    }
+
+    @keyframes detailGlow {
+      50%{box-shadow:0 0 0 5px rgba(139,92,246,.09),0 0 18px rgba(139,92,246,.25)}
+    }
+
+    @keyframes detailCritical {
+      50%{box-shadow:0 0 0 5px rgba(239,68,68,.09)}
+    }
+
+    /* HERO */
+    #view-ticket-detalle .detail-hero {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:18px;
+      align-items:stretch;
+      margin-bottom:18px;
+    }
+
+    #view-ticket-detalle .detail-hero-main,
+    #view-ticket-detalle .detail-hero-side,
+    #view-ticket-detalle .detail-card {
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(10px);
+      border:1px solid rgba(223,229,237,.9);
+      border-radius:var(--dt-radius);
+      box-shadow:var(--dt-shadow);
+    }
+
+    #view-ticket-detalle .detail-hero-main {
+      padding:22px;
+      min-width:0;
+    }
+
+    #view-ticket-detalle .detail-hero-meta {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    #view-ticket-detalle .detail-ticket-id {
+      font:800 22px var(--dt-mono);
+      letter-spacing:-.03em;
+    }
+
+    #view-ticket-detalle .detail-hero-title {
+      margin:12px 0 4px;
+      font-size:28px;
+      line-height:1.15;
+      letter-spacing:-.04em;
+      font-weight:800;
+    }
+
+    #view-ticket-detalle .detail-hero-sub {
+      margin:0;
+      color:var(--dt-muted);
+      font-size:13px;
+    }
+
+    #view-ticket-detalle .detail-hero-side {
+      padding:18px;
+      min-width:300px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+
+    #view-ticket-detalle .detail-mini-label {
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      color:var(--dt-muted);
+      font-weight:800;
+    }
+
+    #view-ticket-detalle .detail-next-action {
+      font-size:21px;
+      font-weight:800;
+      margin:5px 0;
+    }
+
+    #view-ticket-detalle .detail-hint {
+      font-size:12px;
+      color:var(--dt-muted);
+      line-height:1.45;
+      max-width:360px;
+    }
+
+    #view-ticket-detalle .detail-os {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:14px;
+      padding:11px 12px;
+      border-radius:13px;
+      background:#111827;
+      color:#fff;
+    }
+
+    #view-ticket-detalle .detail-os-title {
+      font-weight:800;
+      font-size:12px;
+    }
+
+    #view-ticket-detalle .detail-os-sub {
+      font-size:11px;
+      color:#b7c0cc;
+      margin-top:2px;
+    }
+
+    #view-ticket-detalle .detail-os-dot {
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#34d399;
+      animation:detailOs 1.8s infinite;
+    }
+
+    @keyframes detailOs {
+      70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}
+    }
+
+    /* STEPPER */
+    #view-ticket-detalle .detail-stepper {
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:0;
+      background:#fff;
+      border:1px solid var(--dt-line);
+      border-radius:16px;
+      box-shadow:var(--dt-shadow);
+      overflow:hidden;
+      margin-bottom:24px;
+    }
+
+    #view-ticket-detalle .detail-stepper .step {
+      padding:16px 14px;
+      position:relative;
+      text-align:center;
+      border-right:1px solid var(--dt-line);
+      font-size:12px;
+      font-weight:800;
+      color:var(--dt-muted);
+      background:#fff;
+      transition:.2s ease;
+    }
+
+    #view-ticket-detalle .detail-stepper .step:last-child {
+      border-right:0;
+    }
+
+    #view-ticket-detalle .detail-stepper .step .num {
+      width:28px;
+      height:28px;
+      border-radius:50%;
+      margin:0 auto 8px;
+      display:grid;
+      place-items:center;
+      background:#e9edf3;
+      color:#64748b;
+      font:800 12px var(--dt-mono);
+      position:relative;
+      z-index:1;
+    }
+
+    #view-ticket-detalle .detail-stepper .step.completed {
+      color:var(--dt-ink);
+    }
+
+    #view-ticket-detalle .detail-stepper .step.completed .num {
+      background:var(--dt-teal);
+      color:#fff;
+      box-shadow:0 0 0 5px rgba(16,185,129,.12);
+    }
+
+    #view-ticket-detalle .detail-stepper .step.active {
+      color:var(--dt-copper);
+      background:linear-gradient(180deg,#fff8f5,#fff);
+    }
+
+    #view-ticket-detalle .detail-stepper .step.active .num {
+      background:var(--dt-copper);
+      color:#fff;
+      box-shadow:0 0 0 5px rgba(255,106,61,.11);
+    }
+
+    /* TABS */
+    #view-ticket-detalle .detail-tabs-nav {
+      display:flex;
+      gap:8px;
+      margin-bottom:20px;
+      background:#fff;
+      padding:6px;
+      border-radius:12px;
+      border:1px solid var(--dt-line);
+      box-shadow:var(--dt-shadow);
+      width:fit-content;
+    }
+
+    #view-ticket-detalle .detail-tabs-nav .tab-btn {
+      padding:10px 20px;
+      border-radius:8px;
+      font-size:13.5px;
+      font-weight:700;
+      color:var(--dt-muted);
+      cursor:pointer;
+      border:none;
+      background:transparent;
+      transition:.2s;
+    }
+
+    #view-ticket-detalle .detail-tabs-nav .tab-btn:hover {
+      color:var(--dt-ink);
+    }
+
+    #view-ticket-detalle .detail-tabs-nav .tab-btn.active {
+      background:var(--dt-surface-2);
+      color:var(--dt-copper);
+      box-shadow:0 2px 6px rgba(0,0,0,.05);
+      border:1px solid var(--dt-line);
+    }
+
+    /* GRID */
+    #view-ticket-detalle .detail-grid {
+      display:grid;
+      grid-template-columns:minmax(0,1.8fr) minmax(320px,.8fr);
+      gap:24px;
+    }
+
+    #view-ticket-detalle .detail-stack {
+      display:grid;
+      gap:20px;
+    }
+
+    #view-ticket-detalle .detail-card {
+      overflow:hidden;
+      transition:transform .3s,box-shadow .3s;
+    }
+
+    #view-ticket-detalle .detail-card:hover {
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(0,0,0,.06);
+      border-color:rgba(228,230,236,1);
+    }
+
+    #view-ticket-detalle .detail-card-head {
+      padding:15px 18px;
+      border-bottom:1px solid var(--dt-line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:#fafbfc;
+    }
+
+    #view-ticket-detalle .detail-head-left {
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    #view-ticket-detalle .detail-icon {
+      width:34px;
+      height:34px;
+      border-radius:10px;
+      background:var(--dt-surface-2);
+      display:grid;
+      place-items:center;
+      font-size:16px;
+      border:1px solid var(--dt-line);
+    }
+
+    #view-ticket-detalle .detail-card-head h2 {
+      font-size:14px;
+      margin:0;
+      letter-spacing:-.01em;
+    }
+
+    #view-ticket-detalle .detail-card-head p {
+      margin:3px 0 0;
+      color:var(--dt-muted);
+      font-size:11px;
+    }
+
+    #view-ticket-detalle .detail-card-body {
+      padding:20px;
+    }
+
+    /* FICHA */
+    #view-ticket-detalle .detail-section-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:12px;
+    }
+
+    #view-ticket-detalle .detail-field {
+      padding:14px;
+      background:var(--dt-surface-2);
+      border:1px solid var(--dt-line);
+      border-radius:13px;
+    }
+
+    #view-ticket-detalle .detail-field label {
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.07em;
+      color:var(--dt-muted);
+      font-weight:900;
+      display:block;
+      margin-bottom:6px;
+    }
+
+    #view-ticket-detalle .detail-field strong {
+      font-size:14px;
+      display:block;
+      line-height:1.35;
+      color:var(--dt-ink);
+      overflow-wrap:anywhere;
+    }
+
+    #view-ticket-detalle .detail-field small {
+      font-size:11px;
+      color:var(--dt-muted);
+    }
+
+    #view-ticket-detalle .detail-mono {
+      font-family:var(--dt-mono);
+      font-size:13px;
+    }
+
+    #view-ticket-detalle .detail-pin-field {
+      border-color:var(--dt-copper);
+      background:var(--dt-bg);
+    }
+
+    #view-ticket-detalle .detail-pin-field label {
+      color:var(--dt-copper);
+    }
+
+    #view-ticket-detalle .detail-pin-field strong {
+      font-family:var(--dt-mono);
+      font-size:16px;
+      color:var(--dt-ink);
+    }
+
+    /* CONDICIÓN */
+    #view-ticket-detalle .detail-alert {
+      padding:16px;
+      border-radius:12px;
+      border:1px solid rgba(239,68,68,.30);
+      background:var(--dt-danger-bg);
+      color:var(--dt-red);
+      line-height:1.5;
+      font-size:13px;
+    }
+
+    #view-ticket-detalle .detail-two {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+      margin-top:20px;
+    }
+
+    #view-ticket-detalle .detail-pills {
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin-top:10px;
+    }
+
+    #view-ticket-detalle .detail-observations {
+      margin-top:20px;
+      border-top:1px dashed var(--dt-line);
+      padding-top:16px;
+    }
+
+    #view-ticket-detalle .detail-observation-text {
+      font-size:13px;
+      color:var(--dt-muted);
+      margin-top:4px;
+      line-height:1.45;
+    }
+
+    #view-ticket-detalle .detail-photos-wrap {
+      margin-top:16px;
+    }
+
+    #view-ticket-detalle .detail-photos {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    #view-ticket-detalle .detail-photos a {
+      display:block;
+    }
+
+    #view-ticket-detalle .detail-photos img {
+      width:80px;
+      height:80px;
+      object-fit:cover;
+      border-radius:10px;
+      background:var(--dt-surface-2);
+      border:1px solid var(--dt-line);
+    }
+
+    /* DIAGNÓSTICO */
+    #view-ticket-detalle .detail-textarea,
+    #view-ticket-detalle .detail-input,
+    #view-ticket-detalle .detail-select {
+      width:100%;
+      border:1px solid var(--dt-line);
+      border-radius:10px;
+      background:#fff;
+      padding:12px 14px;
+      outline:0;
+      color:var(--dt-ink);
+      transition:.2s;
+      font-size:13px;
+    }
+
+    #view-ticket-detalle .detail-textarea {
+      resize:vertical;
+      min-height:120px;
+      line-height:1.5;
+    }
+
+    #view-ticket-detalle .detail-textarea:focus,
+    #view-ticket-detalle .detail-input:focus,
+    #view-ticket-detalle .detail-select:focus {
+      border-color:var(--dt-copper);
+      box-shadow:0 0 0 3px rgba(255,106,61,.10);
+    }
+
+    #view-ticket-detalle .detail-textarea:disabled {
+      background:#f0f3f7;
+      color:var(--dt-ink-2);
+      font-weight:500;
+      border-color:transparent;
+      cursor:not-allowed;
+    }
+
+    #view-ticket-detalle .detail-actions-row {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    /* PRESUPUESTO */
+    #view-ticket-detalle .detail-budget-edit {
+      display:flex;
+      gap:10px;
+      margin-bottom:20px;
+    }
+
+    #view-ticket-detalle .detail-budget-input {
+      font-size:16px;
+      font-weight:800;
+      font-family:var(--dt-mono);
+      color:var(--dt-copper);
+    }
+
+    #view-ticket-detalle .detail-budget-locked {
+      background:#ecfbf4;
+      border:2px dashed var(--dt-teal);
+      border-radius:12px;
+      padding:20px;
+      text-align:center;
+      margin-bottom:20px;
+    }
+
+    #view-ticket-detalle .detail-locked-label {
+      font-size:11px;
+      color:var(--dt-teal);
+      font-weight:800;
+      text-transform:uppercase;
+    }
+
+    #view-ticket-detalle .detail-locked-total {
+      font-size:32px;
+      font-weight:800;
+      font-family:var(--dt-mono);
+      color:var(--dt-teal);
+      margin:10px 0;
+    }
+
+    #view-ticket-detalle .detail-locked-actions {
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+
+    #view-ticket-detalle .detail-budget-section {
+      margin-top:20px;
+    }
+
+    #view-ticket-detalle .detail-inline-add {
+      display:flex;
+      gap:10px;
+      margin:10px 0 14px;
+    }
+
+    #view-ticket-detalle .detail-inline-add .detail-select {
+      flex:1;
+    }
+
+    #view-ticket-detalle .detail-table-scroll {
+      width:100%;
+      overflow:auto;
+    }
+
+    #view-ticket-detalle .detail-quote-table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:13px;
+      min-width:650px;
+    }
+
+    #view-ticket-detalle .detail-quote-table th {
+      padding:12px 10px;
+      text-align:left;
+      color:var(--dt-muted);
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.07em;
+      border-bottom:1px solid var(--dt-line);
+    }
+
+    #view-ticket-detalle .detail-quote-table td {
+      padding:10px;
+      border-bottom:1px solid #edf0f4;
+      vertical-align:middle;
+    }
+
+    #view-ticket-detalle .detail-quote-table .num {
+      text-align:right;
+      font-family:var(--dt-mono);
+      font-weight:600;
+    }
+
+    #view-ticket-detalle .detail-quote-table .price {
+      width:110px;
+    }
+
+    #view-ticket-detalle .detail-quote-table .remove {
+      border:0;
+      background:transparent;
+      color:#a0a7b2;
+      cursor:pointer;
+      font-size:16px;
+      font-weight:bold;
+    }
+
+    #view-ticket-detalle .detail-quote-table .remove:hover {
+      color:var(--dt-red);
+    }
+
+    #view-ticket-detalle .detail-quote-footer {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:20px;
+      align-items:start;
+      margin-top:20px;
+      padding-top:20px;
+      border-top:1px dashed var(--dt-line);
+    }
+
+    #view-ticket-detalle .detail-approval-box {
+      padding:16px;
+      border-radius:12px;
+      background:var(--dt-surface-2);
+      border:1px solid var(--dt-line);
+      margin-bottom:12px;
+    }
+
+    #view-ticket-detalle .detail-approval-box strong {
+      display:block;
+      margin-top:4px;
+      font-size:14px;
+      color:var(--dt-ink);
+    }
+
+    #view-ticket-detalle .detail-totals {
+      display:grid;
+      gap:10px;
+      min-width:300px;
+    }
+
+    #view-ticket-detalle .detail-total-row {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:20px;
+      font-size:13px;
+      color:var(--dt-muted);
+    }
+
+    #view-ticket-detalle .detail-total-row strong {
+      font:700 14px var(--dt-mono);
+      color:var(--dt-ink);
+      white-space:nowrap;
+    }
+
+    #view-ticket-detalle .detail-discount {
+      color:var(--dt-red) !important;
+    }
+
+    #view-ticket-detalle .detail-grand {
+      padding-top:12px;
+      margin-top:6px;
+      border-top:1px solid var(--dt-line);
+      font-size:14px;
+      color:var(--dt-ink);
+    }
+
+    #view-ticket-detalle .detail-grand strong {
+      font-size:24px;
+      color:var(--dt-teal);
+    }
+
+    #view-ticket-detalle .detail-quote-actions {
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-top:20px;
+    }
+
+    /* BITÁCORA */
+    #view-ticket-detalle .detail-timeline {
+      display:grid;
+      gap:12px;
+    }
+
+    #view-ticket-detalle .detail-note-compose {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      margin-top:20px;
+      border-top:1px solid var(--dt-line);
+      padding-top:20px;
+    }
+
+    /* CONTROL OPERATIVO */
+    #view-ticket-detalle .detail-control-grid {
+      display:grid;
+      gap:16px;
+    }
+
+    #view-ticket-detalle .detail-control {
+      padding:16px;
+      background:var(--dt-surface-2);
+      border:1px solid var(--dt-line);
+      border-radius:14px;
+    }
+
+    #view-ticket-detalle .detail-control label {
+      display:block;
+      font-size:10px;
+      font-weight:900;
+      text-transform:uppercase;
+      color:var(--dt-muted);
+      margin-bottom:8px;
+    }
+
+    #view-ticket-detalle .detail-inline {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+    }
+
+    #view-ticket-detalle .detail-tech-value {
+      font-size:13px;
+      font-weight:600;
+      min-height:22px;
+    }
+
+    #view-ticket-detalle .detail-control-status {
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+    }
+
+    /* DARK MODE */
+    body.dark-mode #view-ticket-detalle .detail-hero-main,
+    body.dark-mode #view-ticket-detalle .detail-hero-side,
+    body.dark-mode #view-ticket-detalle .detail-card {
+      background:var(--panel);
+      border-color:var(--line);
+    }
+
+    body.dark-mode #view-ticket-detalle .detail-stepper,
+    body.dark-mode #view-ticket-detalle .detail-stepper .step,
+    body.dark-mode #view-ticket-detalle .detail-tabs-nav {
+      background:var(--panel);
+      border-color:var(--line);
+    }
+
+    body.dark-mode #view-ticket-detalle .detail-field,
+    body.dark-mode #view-ticket-detalle .detail-control,
+    body.dark-mode #view-ticket-detalle .detail-approval-box {
+      background:#222630;
+      border-color:var(--line);
+    }
+
+    body.dark-mode #view-ticket-detalle .detail-input,
+    body.dark-mode #view-ticket-detalle .detail-select,
+    body.dark-mode #view-ticket-detalle .detail-textarea {
+      background:#2a2e39;
+      color:#fff;
+      border-color:#3a3f4c;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width:1024px) {
+      #view-ticket-detalle .detail-grid { grid-template-columns:1fr; }
+      #view-ticket-detalle .detail-hero { grid-template-columns:1fr; }
+      #view-ticket-detalle .detail-hero-side { min-width:0; }
+      #view-ticket-detalle .detail-quote-footer { grid-template-columns:1fr; }
+      #view-ticket-detalle .detail-totals { min-width:0; }
+    }
+
+    @media (max-width:760px) {
+      #view-ticket-detalle { padding:14px; }
+      #view-ticket-detalle .detail-topbar { align-items:flex-start; flex-direction:column; }
+      #view-ticket-detalle .detail-top-actions { width:100%; justify-content:flex-start; }
+      #view-ticket-detalle .detail-hero-title { font-size:23px; }
+      #view-ticket-detalle .detail-ticket-id { font-size:19px; }
+      #view-ticket-detalle .detail-two { grid-template-columns:1fr; }
+      #view-ticket-detalle .detail-budget-edit { flex-direction:column; }
+      #view-ticket-detalle .detail-inline-add { flex-direction:column; }
+      #view-ticket-detalle .detail-note-compose { grid-template-columns:1fr; }
+      #view-ticket-detalle .detail-tabs-nav { width:100%; overflow:auto; }
+      #view-ticket-detalle .detail-tabs-nav .tab-btn { white-space:nowrap; }
+      #view-ticket-detalle .detail-stepper { overflow:auto; grid-template-columns:repeat(5,160px); }
+    }
+
   </style>
 </head>
 
@@ -2367,316 +3330,414 @@
         </div>
 
         <!-- ======================================================================================
-             NUEVA VISTA: DETALLE TICKET (ESTILO MOCKUP PREMIUM 2026)
+             DETALLE TICKET — DISEÑO INTEGRADO DESDE MOCKUP PREMIUM 2026
+             IMPORTANTE: mantiene los IDs que utiliza tickets.js
              ====================================================================================== -->
         <div class="view" id="view-ticket-detalle">
-          <div class="hero">
-            <div class="hero-meta">
-              <span class="ticket-id" id="mt-id">#TK-0000</span>
-              <div id="mt-prioridad"></div>
-              <div id="mt-stage-badge"></div>
-            </div>
-            <h2 class="hero-title" id="mt-equipo">Cargando equipo...</h2>
-            <p class="hero-sub" id="mt-ingreso"></p>
-          </div>
-          <aside class="hero-side">
-            <div>
-              <div class="mini-label">Siguiente Acción</div>
-              <div class="next-action" id="mt-estado-text">Revisar Ticket</div>
-            </div>
-            <div class="hero-actions">
-              <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);"
-                onclick="eliminarTicketConCodigo()">🗑️ Eliminar</button>
-              <button class="btn btn-ghost"
-                onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨
-                Comprobante</button>
-              <button class="btn btn-ghost" onclick="goView('tickets')">← Volver</button>
-            </div>
-          </aside>
-        </div>
 
-        <div class="stepper-premium" id="mt-stepper">
-          <div class="step step-sm" data-step="pendiente">
-            <div class="num">1</div>Recibido
-          </div>
-          <div class="step step-sm" data-step="diagnostico">
-            <div class="num">2</div>Diagnóstico
-          </div>
-          <div class="step step-sm" data-step="presupuesto">
-            <div class="num">3</div>Aprobación
-          </div>
-          <div class="step step-sm" data-step="reparacion">
-            <div class="num">4</div>Reparación
-          </div>
-          <div class="step step-sm" data-step="listo">
-            <div class="num">5</div>Listo / Entrega
-          </div>
-        </div>
-
-        <div class="tabs-nav">
-          <button class="tab tab-btn active" data-sub="tab-info">📋 Información General</button>
-          <button class="tab tab-btn" data-sub="tab-presupuesto">💰 Presupuesto y Cobro</button>
-          <button class="tab tab-btn" data-sub="tab-bitacora">📝 Bitácora</button>
-        </div>
-
-        <main class="grid">
-          <div class="stack">
-
-            <!-- PESTAÑA 1: INFO GENERAL -->
-            <div id="tab-info" class="subview active">
-              <div class="stack">
-                <section class="card">
-                  <div class="card-head">
-                    <div class="head-left">
-                      <div class="icon">👤</div>
-                      <div>
-                        <h2>Ficha Técnica y Cliente</h2>
-                        <p>Identificación completa</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-body section-grid">
-                    <div class="field-card"><label>Cliente</label><strong id="mt-cliente"></strong></div>
-                    <div class="field-card"><label>Marca / Modelo</label><strong id="mt-marca-modelo"></strong><small
-                        id="mt-serie" class="mono"></small></div>
-                    <div class="field-card"><label>S.O. / Specs</label><strong id="mt-specs"></strong></div>
-                    <div class="field-card" style="border-color: var(--copper); background: var(--bg);"><label
-                        style="color:var(--copper);">Contraseña / PIN</label><strong class="mono" id="mt-pin"
-                        style="font-size:16px;"></strong></div>
-                  </div>
-                </section>
-
-                <section class="card">
-                  <div class="card-head">
-                    <div class="head-left">
-                      <div class="icon">🛠</div>
-                      <div>
-                        <h2>Condición de Ingreso</h2>
-                        <p>Estado físico, accesorios y falla</p>
-                      </div>
-                    </div>
-                    <span class="status-badge st-critico">Falla Reportada</span>
-                  </div>
-                  <div class="card-body">
-                    <div
-                      style="background:var(--danger-bg); border:1px solid rgba(239, 68, 68, 0.3); color:var(--red); padding:16px; border-radius:12px; font-size:13px; line-height:1.5;">
-                      <strong>Motivo de consulta:</strong><br>
-                      <span id="mt-falla"></span>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
-                      <div>
-                        <div class="mini-label">Estado físico OK</div>
-                        <div class="pill-grid" id="mt-estado-fisico"></div>
-                      </div>
-                      <div>
-                        <div class="mini-label">Accesorios recibidos</div>
-                        <div class="pill-grid" id="mt-accesorios-obj"></div>
-                      </div>
-                    </div>
-                    <div style="margin-top:20px; border-top: 1px dashed var(--line); padding-top: 16px;">
-                      <div class="mini-label">Observaciones Adicionales</div>
-                      <div style="font-size: 13px; color: var(--muted); margin-top: 4px;" id="mt-condicion"></div>
-                    </div>
-                    <div id="mt-fotos-container" style="display:none; margin-top:16px;">
-                      <div class="mini-label">Evidencia fotográfica</div>
-                      <div class="pill-grid" id="mt-fotos-gallery"></div>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="card">
-                  <div class="card-head">
-                    <div class="head-left">
-                      <div class="icon">🔬</div>
-                      <div>
-                        <h2>Diagnóstico Técnico</h2>
-                        <p>Evaluación del laboratorio</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-body">
-                    <textarea id="mt-diagnostico-input" class="inp" disabled
-                      style="background:var(--bg); color:var(--ink-2); font-weight:500; cursor:not-allowed; resize:vertical; min-height:100px;"></textarea>
-                    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-                      <button id="btn-diag-edit" class="btn btn-ghost btn-sm"
-                        onclick="document.getElementById('mt-diagnostico-input').disabled=false; document.getElementById('mt-diagnostico-input').focus(); this.style.display='none'; document.getElementById('btn-diag-save').style.display='inline-flex';">✏️
-                        Editar Diagnóstico</button>
-                      <button id="btn-diag-save" class="btn btn-primary shine btn-sm" style="display:none;"
-                        onclick="document.getElementById('mt-diagnostico-input').disabled=true; this.style.display='none'; document.getElementById('btn-diag-edit').style.display='inline-flex'; saveDiagnostico();">Guardar
-                        y Bloquear</button>
-                    </div>
-                  </div>
-                </section>
+          <!-- CABECERA LOCAL DEL DETALLE -->
+          <div class="detail-topbar">
+            <div class="detail-brand">
+              <div class="detail-logo">S</div>
+              <div>
+                <div class="detail-eyebrow">SERVIX · Gestión Operativa</div>
+                <h1>Ticket de Servicio</h1>
               </div>
             </div>
 
-            <!-- PESTAÑA 2: PRESUPUESTO Y COBRO -->
-            <div id="tab-presupuesto" class="subview" style="display:none;">
-              <div class="stack" style="max-width: 1000px; margin: 0 auto;">
-                <section class="card">
-                  <div class="card-head">
-                    <div class="head-left">
-                      <div class="icon">💰</div>
-                      <div>
-                        <h2>Cotización y Materiales</h2>
-                        <p>Generación de presupuesto para el cliente</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-body">
+            <div class="detail-top-actions">
+              <button class="detail-btn detail-btn-ghost" onclick="goView('tickets')">← Volver a Lista</button>
+              <button class="detail-btn detail-btn-ghost" onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨 Imprimir</button>
+              <button class="detail-btn detail-btn-danger" onclick="eliminarTicketConCodigo()">Eliminar Ticket</button>
+            </div>
+          </div>
 
-                    <div id="view-edit-budget" style="display:flex; gap:10px; margin-bottom: 20px;">
-                      <input type="number" class="inp" id="input-presupuesto"
-                        placeholder="Ingresar Total Final a Cobrar ($)"
-                        style="font-size:16px; font-weight:bold; font-family:var(--font-mono); color:var(--copper);">
-                      <button class="btn btn-primary shine" onclick="fijarPresupuesto()">Fijar Presupuesto</button>
-                    </div>
+          <!-- HERO -->
+          <section class="detail-hero">
+            <div class="detail-hero-main">
+              <div class="detail-hero-meta">
+                <span class="detail-ticket-id" id="mt-id">#TK-0000</span>
+                <span id="mt-prioridad"></span>
+                <span class="status-badge pendiente" id="mt-stage-badge">Pendiente</span>
+              </div>
 
-                    <div id="view-locked-budget"
-                      style="display:none; background:var(--teal-dim); border:2px dashed var(--teal); border-radius:12px; padding:20px; text-align:center; margin-bottom:20px;">
-                      <div style="font-size:11px; color:var(--teal); font-weight:800; text-transform:uppercase;">✓
-                        Presupuesto Fijado</div>
-                      <div id="txt-presupuesto-fijado"
-                        style="font-size:32px; font-weight:800; font-family:var(--font-mono); color:var(--teal); margin:10px 0;">
-                      </div>
-                      <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
-                        <button class="btn btn-ghost btn-sm" onclick="desbloquearPresupuesto()"
-                          style="color:var(--amber); border-color:var(--amber);">Modificar</button>
-                        <button class="btn btn-ghost btn-sm" onclick="compartirLinkPresupuesto()"
-                          style="color:var(--teal); border-color:var(--teal);">🔗 Link de Aprobación</button>
-                      </div>
-                    </div>
+              <h2 class="detail-hero-title" id="mt-equipo">Cargando equipo...</h2>
+              <p class="detail-hero-sub" id="mt-ingreso"></p>
+            </div>
 
-                    <div style="margin-top:20px;">
-                      <div class="mini-label">Detalle de Costos (Interno)</div>
-                      <div style="display:flex; gap:10px; margin-bottom: 14px;">
-                        <select class="sel" id="mt-repuesto-select" style="flex:1;"></select>
-                        <button class="btn btn-ghost" onclick="addPiezaToTicket()">+ Añadir Ítem</button>
-                      </div>
-                      <div class="table-scroll">
-                        <table class="floating-table" style="margin:0;">
-                          <thead>
-                            <tr>
-                              <th>Artículo / Servicio</th>
-                              <th style="text-align:center;">Cant.</th>
-                              <th style="text-align:right;">Costo Unit.</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody id="mt-piezas"></tbody>
-                        </table>
-                      </div>
-                    </div>
+            <aside class="detail-hero-side">
+              <div>
+                <div class="detail-mini-label">Siguiente Acción</div>
+                <div class="detail-next-action" id="mt-estado-text">Revisar Ticket</div>
+                <div class="detail-hint" id="mt-estado-hint">El ticket se está cargando...</div>
+              </div>
 
-                    <div
-                      style="display:grid; grid-template-columns:1fr auto; gap:20px; align-items:start; margin-top:20px; padding-top:20px; border-top:1px dashed var(--line);">
-                      <div>
-                        <div
-                          style="padding:16px; border-radius:12px; background:var(--surface-2); border:1px solid var(--line); margin-bottom:12px;">
-                          <div class="mini-label">Garantía Ofrecida</div><strong id="mt-garantia-vence"
-                            style="font-size:13px; color:var(--ink);"></strong>
+              <div class="detail-os">
+                <div>
+                  <div class="detail-os-title">Seguimiento operativo</div>
+                  <div class="detail-os-sub">Ticket activo en SERVIX</div>
+                </div>
+                <span class="detail-os-dot"></span>
+              </div>
+            </aside>
+          </section>
+
+          <!-- STEPPER -->
+          <div class="detail-stepper" id="mt-stepper">
+            <div class="step step-sm" data-step="pendiente">
+              <div class="num">1</div>
+              <span>Recibido</span>
+            </div>
+            <div class="step step-sm" data-step="diagnostico">
+              <div class="num">2</div>
+              <span>Diagnóstico</span>
+            </div>
+            <div class="step step-sm" data-step="presupuesto">
+              <div class="num">3</div>
+              <span>Aprobación</span>
+            </div>
+            <div class="step step-sm" data-step="reparacion">
+              <div class="num">4</div>
+              <span>Reparación</span>
+            </div>
+            <div class="step step-sm" data-step="listo">
+              <div class="num">5</div>
+              <span>Listo / Entrega</span>
+            </div>
+          </div>
+
+          <!-- TABS -->
+          <div class="detail-tabs-nav">
+            <button class="tab tab-btn active" data-sub="tab-info">📋 Información General</button>
+            <button class="tab tab-btn" data-sub="tab-presupuesto">💰 Presupuesto y Cobro</button>
+            <button class="tab tab-btn" data-sub="tab-bitacora">📝 Bitácora</button>
+          </div>
+
+          <!-- CONTENIDO -->
+          <main class="detail-grid">
+
+            <div class="detail-main-column">
+
+              <!-- ================= PESTAÑA 1 ================= -->
+              <div id="tab-info" class="subview active">
+                <div class="detail-stack">
+
+                  <section class="detail-card">
+                    <div class="detail-card-head">
+                      <div class="detail-head-left">
+                        <div class="detail-icon">👤</div>
+                        <div>
+                          <h2>Ficha Técnica y Cliente</h2>
+                          <p>Identificación completa</p>
                         </div>
                       </div>
-                      <div style="display:grid; gap:10px; min-width:280px;">
-                        <div
-                          style="display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted);">
-                          <span>Costo Repuestos</span><strong id="mt-total-costo"
-                            style="font-family:var(--font-mono); color:var(--ink);"></strong></div>
+                    </div>
+
+                    <div class="detail-card-body detail-section-grid">
+                      <div class="detail-field">
+                        <label>Cliente</label>
+                        <strong id="mt-cliente"></strong>
+                      </div>
+
+                      <div class="detail-field">
+                        <label>Marca / Modelo</label>
+                        <strong id="mt-marca-modelo"></strong>
+                        <small id="mt-serie" class="detail-mono"></small>
+                      </div>
+
+                      <div class="detail-field">
+                        <label>S.O. / Specs</label>
+                        <strong id="mt-specs"></strong>
+                      </div>
+
+                      <div class="detail-field detail-pin-field">
+                        <label>Contraseña / PIN</label>
+                        <strong class="detail-mono" id="mt-pin">N/A</strong>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="detail-card">
+                    <div class="detail-card-head">
+                      <div class="detail-head-left">
+                        <div class="detail-icon">🛠</div>
+                        <div>
+                          <h2>Condición de Ingreso</h2>
+                          <p>Estado físico, accesorios y falla</p>
+                        </div>
+                      </div>
+                      <span class="status-badge critico">Falla Reportada</span>
+                    </div>
+
+                    <div class="detail-card-body">
+                      <div class="detail-alert">
+                        <strong>Motivo de consulta:</strong><br>
+                        <span id="mt-falla"></span>
+                      </div>
+
+                      <div class="detail-two">
+                        <div>
+                          <div class="detail-mini-label">Estado físico OK</div>
+                          <div class="detail-pills" id="mt-estado-fisico"></div>
+                        </div>
+
+                        <div>
+                          <div class="detail-mini-label">Accesorios recibidos</div>
+                          <div class="detail-pills" id="mt-accesorios-obj"></div>
+                        </div>
+                      </div>
+
+                      <div class="detail-observations">
+                        <div class="detail-mini-label">Observaciones Adicionales</div>
+                        <div class="detail-observation-text" id="mt-condicion"></div>
+                      </div>
+
+                      <div id="mt-fotos-container" style="display:none;" class="detail-photos-wrap">
+                        <div class="detail-mini-label">Evidencia fotográfica</div>
+                        <div class="detail-photos" id="mt-fotos-gallery"></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="detail-card">
+                    <div class="detail-card-head">
+                      <div class="detail-head-left">
+                        <div class="detail-icon">🔬</div>
+                        <div>
+                          <h2>Diagnóstico Técnico</h2>
+                          <p>Evaluación del laboratorio</p>
+                        </div>
                       </div>
                     </div>
 
-                    <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
-                      <button class="btn btn-ghost" id="btn-facturar-ticket"
-                        style="display:none; border-color:var(--teal); color:var(--teal);"
-                        onclick="enviarAFacturacion()">💳 Enviar a Facturación y Cobro</button>
-                    </div>
+                    <div class="detail-card-body">
+                      <textarea id="mt-diagnostico-input" class="detail-textarea" disabled></textarea>
 
-                  </div>
-                </section>
-              </div>
-            </div>
+                      <div class="detail-actions-row">
+                        <button
+                          id="btn-diag-edit"
+                          class="detail-btn detail-btn-ghost detail-btn-sm"
+                          onclick="document.getElementById('mt-diagnostico-input').disabled=false; document.getElementById('mt-diagnostico-input').focus(); this.style.display='none'; document.getElementById('btn-diag-save').style.display='inline-flex';"
+                        >✏️ Editar Diagnóstico</button>
 
-            <!-- PESTAÑA 3: BITÁCORA -->
-            <div id="tab-bitacora" class="subview" style="display:none;">
-              <div class="stack" style="max-width: 1000px; margin: 0 auto;">
-                <section class="card">
-                  <div class="card-head">
-                    <div class="head-left">
-                      <div class="icon">📝</div>
-                      <div>
-                        <h2>Historial del Ticket</h2>
-                        <p>Trazabilidad y notas internas</p>
+                        <button
+                          id="btn-diag-save"
+                          class="detail-btn detail-btn-primary detail-btn-sm shine"
+                          style="display:none;"
+                          onclick="document.getElementById('mt-diagnostico-input').disabled=true; this.style.display='none'; document.getElementById('btn-diag-edit').style.display='inline-flex'; saveDiagnostico();"
+                        >Guardar y Bloquear</button>
                       </div>
                     </div>
-                  </div>
-                  <div class="card-body">
-                    <div style="display:grid; gap:16px;" id="mt-notas"></div>
-                    <div
-                      style="display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:20px; border-top:1px solid var(--line); padding-top:20px;">
-                      <input id="mt-nota-input" class="inp" placeholder="Escribe una nota interna..."
-                        style="font-size:13px;">
-                      <button class="btn btn-primary" onclick="addTicketNota()">Enviar Nota</button>
-                    </div>
-                  </div>
-                </section>
+                  </section>
+
+                </div>
               </div>
+
+              <!-- ================= PESTAÑA 2 ================= -->
+              <div id="tab-presupuesto" class="subview" style="display:none;">
+                <div class="detail-stack">
+
+                  <section class="detail-card">
+                    <div class="detail-card-head">
+                      <div class="detail-head-left">
+                        <div class="detail-icon">💰</div>
+                        <div>
+                          <h2>Cotización y Materiales</h2>
+                          <p>Detalle de repuestos, servicios y facturación</p>
+                        </div>
+                      </div>
+                      <span class="status-badge pendiente" id="quoteStatus">Pendiente</span>
+                    </div>
+
+                    <div class="detail-card-body">
+
+                      <div id="view-edit-budget" class="detail-budget-edit">
+                        <input
+                          type="number"
+                          class="detail-input detail-budget-input"
+                          id="input-presupuesto"
+                          placeholder="Ingresar Total Final a Cobrar ($)"
+                        >
+                        <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">
+                          Fijar Presupuesto
+                        </button>
+                      </div>
+
+                      <div id="view-locked-budget" class="detail-budget-locked" style="display:none;">
+                        <div class="detail-locked-label">✓ Presupuesto Fijado</div>
+                        <div id="txt-presupuesto-fijado" class="detail-locked-total"></div>
+
+                        <div class="detail-locked-actions">
+                          <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="desbloquearPresupuesto()">Modificar</button>
+                          <button class="detail-btn detail-btn-success detail-btn-sm" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
+                        </div>
+                      </div>
+
+                      <div class="detail-budget-section">
+                        <div class="detail-mini-label">Detalle de Costos (Interno)</div>
+
+                        <div class="detail-inline-add">
+                          <select class="detail-select" id="mt-repuesto-select"></select>
+                          <button class="detail-btn detail-btn-ghost" onclick="addPiezaToTicket()">+ Añadir Ítem</button>
+                        </div>
+
+                        <div class="detail-table-scroll">
+                          <table class="detail-quote-table">
+                            <thead>
+                              <tr>
+                                <th>Artículo / Servicio</th>
+                                <th style="text-align:center;">Cant.</th>
+                                <th style="text-align:right;">Costo Unit.</th>
+                                <th style="text-align:right;">Subtotal</th>
+                                <th></th>
+                              </tr>
+                            </thead>
+                            <tbody id="mt-piezas"></tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div class="detail-quote-footer">
+                        <div>
+                          <div class="detail-approval-box">
+                            <div class="detail-mini-label">Garantía Ofrecida</div>
+                            <strong id="mt-garantia-vence"></strong>
+                          </div>
+
+                          <div class="detail-approval-box">
+                            <div class="detail-mini-label">Estado de Pago</div>
+                            <strong id="quotePaymentState">Pendiente de Cobro</strong>
+                          </div>
+                        </div>
+
+                        <div class="detail-totals">
+                          <div class="detail-total-row">
+                            <span>Costo Repuestos</span>
+                            <strong id="mt-total-costo"></strong>
+                          </div>
+
+                          <div class="detail-total-row">
+                            <span>Descuento Aplicado</span>
+                            <strong class="detail-discount">-$ 0,00</strong>
+                          </div>
+
+                          <div class="detail-total-row detail-grand">
+                            <span>TOTAL A COBRAR</span>
+                            <strong id="mt-total-presupuesto"></strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="detail-quote-actions">
+                        <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">Fijar Presupuesto</button>
+                        <button class="detail-btn detail-btn-success" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
+                        <button class="detail-btn detail-btn-ghost detail-btn-billing" id="btn-facturar-ticket" onclick="enviarAFacturacion()">💳 Enviar a Facturación y Cobro</button>
+                      </div>
+
+                    </div>
+                  </section>
+
+                </div>
+              </div>
+
+              <!-- ================= PESTAÑA 3 ================= -->
+              <div id="tab-bitacora" class="subview" style="display:none;">
+                <div class="detail-stack">
+
+                  <section class="detail-card">
+                    <div class="detail-card-head">
+                      <div class="detail-head-left">
+                        <div class="detail-icon">📝</div>
+                        <div>
+                          <h2>Historial del Ticket</h2>
+                          <p>Trazabilidad y notas internas</p>
+                        </div>
+                      </div>
+                      <span class="status-badge nota" id="mt-notas-count">0 Notas</span>
+                    </div>
+
+                    <div class="detail-card-body">
+                      <div class="detail-timeline" id="mt-notas"></div>
+
+                      <div class="detail-note-compose">
+                        <input id="mt-nota-input" class="detail-input" placeholder="Escribe una nota interna...">
+                        <button class="detail-btn detail-btn-primary" onclick="addTicketNota()">Enviar Nota</button>
+                      </div>
+                    </div>
+                  </section>
+
+                </div>
+              </div>
+
             </div>
 
-          </div>
+            <!-- ================= CONTROL OPERATIVO ================= -->
+            <aside class="detail-sidebar">
 
-          <!-- COLUMNA DERECHA (CONTROL OPERATIVO FIJO) -->
-          <aside class="stack">
-            <section class="card">
-              <div class="card-head">
-                <div class="head-left">
-                  <div class="icon">⚙️</div>
-                  <div>
-                    <h2>Control Operativo</h2>
-                    <p>Gestión del ticket</p>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body" style="display:grid; gap:16px;">
-
-                <div
-                  style="padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:14px;">
-                  <label class="mini-label">Fase / Estado</label>
-                  <select class="sel" id="mt-estado-select" onchange="changeTicketStage()"
-                    style="font-weight:bold; color:var(--copper); border-color:var(--copper);">
-                    <option value="pendiente">Recibido</option>
-                    <option value="diagnostico">En diagnóstico</option>
-                    <option value="presupuesto">Esperando Aprobación</option>
-                    <option value="reparacion">En reparación</option>
-                    <option value="repuesto">Esperando repuesto</option>
-                    <option value="listo">Listo para entrega</option>
-                    <option value="entregado">Entregado</option>
-                    <option value="noreparable">No reparable</option>
-                    <option value="cancelado">Cancelado / Retirado</option>
-                    <option value="garantia">Garantía</option>
-                  </select>
-                </div>
-
-                <div
-                  style="padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:14px;">
-                  <label class="mini-label">Técnico Asignado</label>
-                  <div id="mt-tecnico" style="font-size:13px; font-weight:600;"></div>
-                </div>
-
-                <div
-                  style="padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:14px;">
-                  <label class="mini-label">Garantía de Reparación</label>
-                  <div style="display:grid; grid-template-columns:1fr auto; gap:8px;">
-                    <input type="number" id="mt-garantia-dias" class="inp" placeholder="Días" value="30"
-                      style="text-align: center;">
-                    <button class="btn btn-ghost btn-sm" onclick="saveGarantiaDias()">Fijar</button>
+              <section class="detail-card">
+                <div class="detail-card-head">
+                  <div class="detail-head-left">
+                    <div class="detail-icon">⚙️</div>
+                    <div>
+                      <h2>Control Operativo</h2>
+                      <p>Gestión del ticket</p>
+                    </div>
                   </div>
                 </div>
 
-              </div>
-            </section>
-          </aside>
-        </main>
-      </div>
+                <div class="detail-card-body detail-control-grid">
+
+                  <div class="detail-control">
+                    <label>Fase / Estado</label>
+                    <select
+                      class="detail-select"
+                      id="mt-estado-select"
+                      onchange="changeTicketStage()"
+                    >
+                      <option value="pendiente">Recibido</option>
+                      <option value="diagnostico">En diagnóstico</option>
+                      <option value="presupuesto">Esperando Aprobación</option>
+                      <option value="reparacion">En reparación</option>
+                      <option value="repuesto">Esperando repuesto</option>
+                      <option value="listo">Listo para entrega</option>
+                      <option value="entregado">Entregado</option>
+                      <option value="noreparable">No reparable</option>
+                      <option value="cancelado">Cancelado / Retirado</option>
+                      <option value="garantia">Garantía</option>
+                    </select>
+                  </div>
+
+                  <div class="detail-control">
+                    <label>Técnico Asignado</label>
+                    <div id="mt-tecnico" class="detail-tech-value"></div>
+                  </div>
+
+                  <div class="detail-control">
+                    <label>Garantía de Reparación</label>
+                    <div class="detail-inline">
+                      <input
+                        type="number"
+                        id="mt-garantia-dias"
+                        class="detail-input"
+                        placeholder="Días"
+                        value="30"
+                      >
+                      <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="saveGarantiaDias()">Fijar</button>
+                    </div>
+                  </div>
+
+                  <div class="detail-control detail-control-status">
+                    <label>Estado actual</label>
+                    <span class="status-badge pendiente" id="mt-control-status">Pendiente</span>
+                  </div>
+
+                </div>
+              </section>
+
+            </aside>
+
+          </main>
+        </div>
 
 
       <!-- ================= NUEVO TICKET (PANTALLA COMPLETA ORIGINAL) ================= -->
