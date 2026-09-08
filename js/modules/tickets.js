@@ -437,18 +437,53 @@ export function openTicketModal(id){
   const linearStages = ['pendiente', 'diagnostico', 'presupuesto', 'reparacion', 'repuesto', 'listo', 'entregado'];
   const currentIndex = linearStages.indexOf(t.stage);
   
-  document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
+ document.querySelectorAll('#mt-stepper .step-sm').forEach(el => {
+
     const stepKey = el.getAttribute('data-step');
     const stepIndex = linearStages.indexOf(stepKey);
-    el.className = 'step-sm'; 
-    if(t.stage === 'entregado') { el.classList.add('completed'); } 
-    else if (t.stage === 'cancelado' || t.stage === 'noreparable') { if(stepIndex === 0) el.classList.add('completed'); } 
-    else if (t.stage === 'garantia') { if(stepKey === 'reparacion') el.classList.add('active'); } 
-    else {
-        if(stepKey === t.stage) el.classList.add('active');
-        else if (stepIndex < currentIndex && currentIndex !== -1) el.classList.add('completed');
+
+    // IMPORTANTE:
+    // conservar las clases base del diseño.
+    // No debemos borrar "step" ni "step-sm".
+    el.className = 'step step-sm';
+
+    if (t.stage === 'entregado') {
+
+        el.classList.add('completed');
+
+    } else if (
+        t.stage === 'cancelado' ||
+        t.stage === 'noreparable'
+    ) {
+
+        if (stepIndex === 0) {
+            el.classList.add('completed');
+        }
+
+    } else if (t.stage === 'garantia') {
+
+        if (stepKey === 'reparacion') {
+            el.classList.add('active');
+        }
+
+    } else {
+
+        if (stepKey === t.stage) {
+
+            el.classList.add('active');
+
+        } else if (
+            stepIndex < currentIndex &&
+            currentIndex !== -1
+        ) {
+
+            el.classList.add('completed');
+
+        }
+
     }
-  });
+
+});
 
   if(!t.presupuestoFijado) t.presupuestoFijado = false;
   setVal('input-presupuesto', t.presupuestoEstimado || '');
