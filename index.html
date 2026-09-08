@@ -3335,412 +3335,412 @@
              ====================================================================================== -->
         <div class="view" id="view-ticket-detalle">
 
-          <!-- CABECERA LOCAL DEL DETALLE -->
-          <div class="detail-topbar">
-            <div class="detail-brand">
-              <div class="detail-logo">S</div>
-              <div>
-                <div class="detail-eyebrow">SERVIX · Gestión Operativa</div>
-                <h1>Ticket de Servicio</h1>
-              </div>
-            </div>
+  <!-- CABECERA LOCAL DEL DETALLE -->
+  <div class="detail-topbar">
+    <div class="detail-brand">
+      <div class="detail-logo">S</div>
+      <div>
+        <div class="detail-eyebrow">SERVIX · Gestión Operativa</div>
+        <h1>Ticket de Servicio</h1>
+      </div>
+    </div>
 
-            <div class="detail-top-actions">
-              <button class="detail-btn detail-btn-ghost" onclick="goView('tickets')">← Volver a Lista</button>
-              <button class="detail-btn detail-btn-ghost" onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨 Imprimir</button>
-              <button class="detail-btn detail-btn-danger" onclick="eliminarTicketConCodigo()">Eliminar Ticket</button>
-            </div>
-          </div>
+    <div class="detail-top-actions">
+      <button class="detail-btn detail-btn-ghost" onclick="goView('tickets')">← Volver a Lista</button>
+      <button class="detail-btn detail-btn-ghost" onclick="printTicket(document.getElementById('mt-id').textContent.replace('#',''))">🖨 Imprimir</button>
+      <button class="detail-btn detail-btn-danger" onclick="eliminarTicketConCodigo()">Eliminar Ticket</button>
+    </div>
+  </div>
 
-          <!-- HERO -->
-          <section class="detail-hero">
-            <div class="detail-hero-main">
-              <div class="detail-hero-meta">
-                <span class="detail-ticket-id" id="mt-id">#TK-0000</span>
-                <span id="mt-prioridad"></span>
-                <span class="status-badge pendiente" id="mt-stage-badge">Pendiente</span>
-              </div>
+  <!-- HERO -->
+  <section class="detail-hero">
+    <div class="detail-hero-main">
+      <div class="detail-hero-meta">
+        <span class="detail-ticket-id" id="mt-id">#TK-0000</span>
+        <span id="mt-prioridad"></span>
+        <span class="status-badge pendiente" id="mt-stage-badge">Pendiente</span>
+      </div>
 
-              <h2 class="detail-hero-title" id="mt-equipo">Cargando equipo...</h2>
-              <p class="detail-hero-sub" id="mt-ingreso"></p>
-            </div>
+      <h2 class="detail-hero-title" id="mt-equipo">Cargando equipo...</h2>
+      <p class="detail-hero-sub" id="mt-ingreso"></p>
+    </div>
 
-            <aside class="detail-hero-side">
-              <div>
-                <div class="detail-mini-label">Siguiente Acción</div>
-                <div class="detail-next-action" id="mt-estado-text">Revisar Ticket</div>
-                <div class="detail-hint" id="mt-estado-hint">El ticket se está cargando...</div>
-              </div>
+    <aside class="detail-hero-side">
+      <div>
+        <div class="detail-mini-label">Siguiente Acción</div>
+        <div class="detail-next-action" id="mt-estado-text">Revisar Ticket</div>
+        <div class="detail-hint" id="mt-estado-hint">El ticket se está cargando...</div>
+      </div>
 
-              <div class="detail-os">
+      <div class="detail-os">
+        <div>
+          <div class="detail-os-title">Equipo en Laboratorio</div>
+          <div class="detail-os-sub">Taller Local</div>
+        </div>
+        <span class="detail-os-dot"></span>
+      </div>
+    </aside>
+  </section>
+
+  <!-- STEPPER -->
+  <div class="detail-stepper" id="mt-stepper">
+    <div class="step step-sm" data-step="pendiente">
+      <div class="num">1</div>
+      <span>Recibido</span>
+    </div>
+    <div class="step step-sm" data-step="diagnostico">
+      <div class="num">2</div>
+      <span>Diagnóstico</span>
+    </div>
+    <div class="step step-sm" data-step="presupuesto">
+      <div class="num">3</div>
+      <span>Aprobación</span>
+    </div>
+    <div class="step step-sm" data-step="reparacion">
+      <div class="num">4</div>
+      <span>Reparación</span>
+    </div>
+    <div class="step step-sm" data-step="listo">
+      <div class="num">5</div>
+      <span>Listo / Entrega</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="detail-tabs-nav">
+    <button class="tab tab-btn active" data-sub="tab-info">📋 Información General</button>
+    <button class="tab tab-btn" data-sub="tab-presupuesto">💰 Presupuesto y Cobro</button>
+    <button class="tab tab-btn" data-sub="tab-bitacora">📝 Bitácora</button>
+  </div>
+
+  <!-- CONTENIDO -->
+  <main class="detail-grid">
+
+    <div class="detail-main-column">
+
+      <!-- ================= PESTAÑA 1 ================= -->
+      <div id="tab-info" class="subview active">
+        <div class="detail-stack">
+
+          <section class="detail-card">
+            <div class="detail-card-head">
+              <div class="detail-head-left">
+                <div class="detail-icon">👤</div>
                 <div>
-                  <div class="detail-os-title">Seguimiento operativo</div>
-                  <div class="detail-os-sub">Ticket activo en SERVIX</div>
+                  <h2>Ficha Técnica y Cliente</h2>
+                  <p>Identificación completa</p>
                 </div>
-                <span class="detail-os-dot"></span>
               </div>
-            </aside>
+            </div>
+
+            <div class="detail-card-body detail-section-grid">
+              <div class="detail-field">
+                <label>Cliente</label>
+                <strong id="mt-cliente"></strong>
+              </div>
+
+              <div class="detail-field">
+                <label>Marca / Modelo</label>
+                <strong id="mt-marca-modelo"></strong>
+                <small id="mt-serie" class="detail-mono"></small>
+              </div>
+
+              <div class="detail-field">
+                <label>S.O. / Specs</label>
+                <strong id="mt-specs"></strong>
+              </div>
+
+              <div class="detail-field detail-pin-field">
+                <label>Contraseña / PIN</label>
+                <strong class="detail-mono" id="mt-pin">N/A</strong>
+              </div>
+            </div>
           </section>
 
-          <!-- STEPPER -->
-          <div class="detail-stepper" id="mt-stepper">
-            <div class="step step-sm" data-step="pendiente">
-              <div class="num">1</div>
-              <span>Recibido</span>
+          <section class="detail-card">
+            <div class="detail-card-head">
+              <div class="detail-head-left">
+                <div class="detail-icon">🛠</div>
+                <div>
+                  <h2>Condición de Ingreso</h2>
+                  <p>Estado físico, accesorios y falla</p>
+                </div>
+              </div>
+              <span class="status-badge critico">Falla Reportada</span>
             </div>
-            <div class="step step-sm" data-step="diagnostico">
-              <div class="num">2</div>
-              <span>Diagnóstico</span>
+
+            <div class="detail-card-body">
+              <div class="detail-alert">
+                <strong>Motivo de consulta:</strong><br>
+                <span id="mt-falla"></span>
+              </div>
+
+              <div class="detail-two">
+                <div>
+                  <div class="detail-mini-label">Estado físico OK</div>
+                  <div class="detail-pills" id="mt-estado-fisico"></div>
+                </div>
+
+                <div>
+                  <div class="detail-mini-label">Accesorios recibidos</div>
+                  <div class="detail-pills" id="mt-accesorios-obj"></div>
+                </div>
+              </div>
+
+              <div class="detail-observations">
+                <div class="detail-mini-label">Observaciones Adicionales</div>
+                <div class="detail-observation-text" id="mt-condicion"></div>
+              </div>
+
+              <div id="mt-fotos-container" class="detail-photos-wrap" style="display:none;">
+                <div class="detail-mini-label">Evidencia fotográfica</div>
+                <div class="detail-photos" id="mt-fotos-gallery"></div>
+              </div>
             </div>
-            <div class="step step-sm" data-step="presupuesto">
-              <div class="num">3</div>
-              <span>Aprobación</span>
+          </section>
+
+          <section class="detail-card">
+            <div class="detail-card-head">
+              <div class="detail-head-left">
+                <div class="detail-icon">🔬</div>
+                <div>
+                  <h2>Diagnóstico Técnico</h2>
+                  <p>Evaluación del laboratorio</p>
+                </div>
+              </div>
             </div>
-            <div class="step step-sm" data-step="reparacion">
-              <div class="num">4</div>
-              <span>Reparación</span>
+
+            <div class="detail-card-body">
+              <textarea id="mt-diagnostico-input" class="detail-textarea" disabled></textarea>
+
+              <div class="detail-actions-row">
+                <button
+                  id="btn-diag-edit"
+                  class="detail-btn detail-btn-ghost detail-btn-sm"
+                  onclick="document.getElementById('mt-diagnostico-input').disabled=false; document.getElementById('mt-diagnostico-input').focus(); this.style.display='none'; document.getElementById('btn-diag-save').style.display='inline-flex';"
+                >✏️ Editar Diagnóstico</button>
+
+                <button
+                  id="btn-diag-save"
+                  class="detail-btn detail-btn-primary detail-btn-sm shine"
+                  style="display:none;"
+                  onclick="document.getElementById('mt-diagnostico-input').disabled=true; this.style.display='none'; document.getElementById('btn-diag-edit').style.display='inline-flex'; saveDiagnostico();"
+                >Guardar y Bloquear</button>
+              </div>
             </div>
-            <div class="step step-sm" data-step="listo">
-              <div class="num">5</div>
-              <span>Listo / Entrega</span>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2 ================= -->
+      <div id="tab-presupuesto" class="subview" style="display:none;">
+        <div class="detail-stack">
+
+          <section class="detail-card">
+            <div class="detail-card-head">
+              <div class="detail-head-left">
+                <div class="detail-icon">💰</div>
+                <div>
+                  <h2>Cotización y Materiales</h2>
+                  <p>Detalle de repuestos, servicios y facturación</p>
+                </div>
+              </div>
+              <span class="status-badge pendiente" id="quoteStatus">Pendiente</span>
+            </div>
+
+            <div class="detail-card-body">
+
+              <div id="view-edit-budget" class="detail-budget-edit">
+                <input
+                  type="number"
+                  class="detail-input detail-budget-input"
+                  id="input-presupuesto"
+                  placeholder="Ingresar Total Final a Cobrar ($)"
+                >
+                <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">
+                  Fijar Presupuesto
+                </button>
+              </div>
+
+              <div id="view-locked-budget" class="detail-budget-locked" style="display:none;">
+                <div class="detail-locked-label">✓ Presupuesto Fijado</div>
+                <div id="txt-presupuesto-fijado" class="detail-locked-total"></div>
+
+                <div class="detail-locked-actions">
+                  <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="desbloquearPresupuesto()">Modificar</button>
+                  <button class="detail-btn detail-btn-success detail-btn-sm" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
+                </div>
+              </div>
+
+              <div class="detail-budget-section">
+                <div class="detail-mini-label">Detalle de Costos (Interno)</div>
+
+                <div class="detail-inline-add">
+                  <select class="detail-select" id="mt-repuesto-select"></select>
+                  <button class="detail-btn detail-btn-ghost" onclick="addPiezaToTicket()">+ Añadir Ítem</button>
+                </div>
+
+                <div class="detail-table-scroll">
+                  <table class="detail-quote-table">
+                    <thead>
+                      <tr>
+                        <th>Artículo / Servicio</th>
+                        <th style="text-align:center;">Cant.</th>
+                        <th style="text-align:right;">Costo Unit.</th>
+                        <th style="text-align:right;">Subtotal</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="mt-piezas"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="detail-quote-footer">
+                <div>
+                  <div class="detail-approval-box">
+                    <div class="detail-mini-label">Garantía Ofrecida</div>
+                    <strong id="mt-garantia-vence">Garantía inactiva (Ticket no entregado)</strong>
+                  </div>
+
+                  <div class="detail-approval-box">
+                    <div class="detail-mini-label">Estado de Pago</div>
+                    <strong id="quotePaymentState">Pendiente de Cobro</strong>
+                  </div>
+                </div>
+
+                <div class="detail-totals">
+                  <div class="detail-total-row">
+                    <span>Costo Repuestos</span>
+                    <strong id="mt-total-costo"></strong>
+                  </div>
+
+                  <div class="detail-total-row">
+                    <span>Descuento Aplicado</span>
+                    <strong class="detail-discount">-$ 0,00</strong>
+                  </div>
+
+                  <div class="detail-total-row detail-grand">
+                    <span>TOTAL A COBRAR</span>
+                    <strong id="mt-total-presupuesto"></strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-quote-actions">
+                <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">Fijar Presupuesto</button>
+                <button class="detail-btn detail-btn-success" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
+                <button class="detail-btn detail-btn-ghost detail-btn-billing" id="btn-facturar-ticket" onclick="enviarAFacturacion()">💳 Enviar a Facturación y Cobro</button>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3 ================= -->
+      <div id="tab-bitacora" class="subview" style="display:none;">
+        <div class="detail-stack">
+
+          <section class="detail-card">
+            <div class="detail-card-head">
+              <div class="detail-head-left">
+                <div class="detail-icon">📝</div>
+                <div>
+                  <h2>Historial del Ticket</h2>
+                  <p>Trazabilidad y notas internas</p>
+                </div>
+              </div>
+              <span class="status-badge nota" id="mt-notas-count">0 Notas</span>
+            </div>
+
+            <div class="detail-card-body">
+              <div class="detail-timeline" id="mt-notas"></div>
+
+              <div class="detail-note-compose">
+                <input id="mt-nota-input" class="detail-input" placeholder="Escribe una nota interna...">
+                <button class="detail-btn detail-btn-primary" onclick="addTicketNota()">Enviar Nota</button>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= CONTROL OPERATIVO ================= -->
+    <aside class="detail-sidebar">
+
+      <section class="detail-card">
+        <div class="detail-card-head">
+          <div class="detail-head-left">
+            <div class="detail-icon">⚙️</div>
+            <div>
+              <h2>Control Operativo</h2>
+              <p>Gestión del ticket</p>
             </div>
           </div>
-
-          <!-- TABS -->
-          <div class="detail-tabs-nav">
-            <button class="tab tab-btn active" data-sub="tab-info">📋 Información General</button>
-            <button class="tab tab-btn" data-sub="tab-presupuesto">💰 Presupuesto y Cobro</button>
-            <button class="tab tab-btn" data-sub="tab-bitacora">📝 Bitácora</button>
-          </div>
-
-          <!-- CONTENIDO -->
-          <main class="detail-grid">
-
-            <div class="detail-main-column">
-
-              <!-- ================= PESTAÑA 1 ================= -->
-              <div id="tab-info" class="subview active">
-                <div class="detail-stack">
-
-                  <section class="detail-card">
-                    <div class="detail-card-head">
-                      <div class="detail-head-left">
-                        <div class="detail-icon">👤</div>
-                        <div>
-                          <h2>Ficha Técnica y Cliente</h2>
-                          <p>Identificación completa</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="detail-card-body detail-section-grid">
-                      <div class="detail-field">
-                        <label>Cliente</label>
-                        <strong id="mt-cliente"></strong>
-                      </div>
-
-                      <div class="detail-field">
-                        <label>Marca / Modelo</label>
-                        <strong id="mt-marca-modelo"></strong>
-                        <small id="mt-serie" class="detail-mono"></small>
-                      </div>
-
-                      <div class="detail-field">
-                        <label>S.O. / Specs</label>
-                        <strong id="mt-specs"></strong>
-                      </div>
-
-                      <div class="detail-field detail-pin-field">
-                        <label>Contraseña / PIN</label>
-                        <strong class="detail-mono" id="mt-pin">N/A</strong>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="detail-card">
-                    <div class="detail-card-head">
-                      <div class="detail-head-left">
-                        <div class="detail-icon">🛠</div>
-                        <div>
-                          <h2>Condición de Ingreso</h2>
-                          <p>Estado físico, accesorios y falla</p>
-                        </div>
-                      </div>
-                      <span class="status-badge critico">Falla Reportada</span>
-                    </div>
-
-                    <div class="detail-card-body">
-                      <div class="detail-alert">
-                        <strong>Motivo de consulta:</strong><br>
-                        <span id="mt-falla"></span>
-                      </div>
-
-                      <div class="detail-two">
-                        <div>
-                          <div class="detail-mini-label">Estado físico OK</div>
-                          <div class="detail-pills" id="mt-estado-fisico"></div>
-                        </div>
-
-                        <div>
-                          <div class="detail-mini-label">Accesorios recibidos</div>
-                          <div class="detail-pills" id="mt-accesorios-obj"></div>
-                        </div>
-                      </div>
-
-                      <div class="detail-observations">
-                        <div class="detail-mini-label">Observaciones Adicionales</div>
-                        <div class="detail-observation-text" id="mt-condicion"></div>
-                      </div>
-
-                      <div id="mt-fotos-container" style="display:none;" class="detail-photos-wrap">
-                        <div class="detail-mini-label">Evidencia fotográfica</div>
-                        <div class="detail-photos" id="mt-fotos-gallery"></div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="detail-card">
-                    <div class="detail-card-head">
-                      <div class="detail-head-left">
-                        <div class="detail-icon">🔬</div>
-                        <div>
-                          <h2>Diagnóstico Técnico</h2>
-                          <p>Evaluación del laboratorio</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="detail-card-body">
-                      <textarea id="mt-diagnostico-input" class="detail-textarea" disabled></textarea>
-
-                      <div class="detail-actions-row">
-                        <button
-                          id="btn-diag-edit"
-                          class="detail-btn detail-btn-ghost detail-btn-sm"
-                          onclick="document.getElementById('mt-diagnostico-input').disabled=false; document.getElementById('mt-diagnostico-input').focus(); this.style.display='none'; document.getElementById('btn-diag-save').style.display='inline-flex';"
-                        >✏️ Editar Diagnóstico</button>
-
-                        <button
-                          id="btn-diag-save"
-                          class="detail-btn detail-btn-primary detail-btn-sm shine"
-                          style="display:none;"
-                          onclick="document.getElementById('mt-diagnostico-input').disabled=true; this.style.display='none'; document.getElementById('btn-diag-edit').style.display='inline-flex'; saveDiagnostico();"
-                        >Guardar y Bloquear</button>
-                      </div>
-                    </div>
-                  </section>
-
-                </div>
-              </div>
-
-              <!-- ================= PESTAÑA 2 ================= -->
-              <div id="tab-presupuesto" class="subview" style="display:none;">
-                <div class="detail-stack">
-
-                  <section class="detail-card">
-                    <div class="detail-card-head">
-                      <div class="detail-head-left">
-                        <div class="detail-icon">💰</div>
-                        <div>
-                          <h2>Cotización y Materiales</h2>
-                          <p>Detalle de repuestos, servicios y facturación</p>
-                        </div>
-                      </div>
-                      <span class="status-badge pendiente" id="quoteStatus">Pendiente</span>
-                    </div>
-
-                    <div class="detail-card-body">
-
-                      <div id="view-edit-budget" class="detail-budget-edit">
-                        <input
-                          type="number"
-                          class="detail-input detail-budget-input"
-                          id="input-presupuesto"
-                          placeholder="Ingresar Total Final a Cobrar ($)"
-                        >
-                        <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">
-                          Fijar Presupuesto
-                        </button>
-                      </div>
-
-                      <div id="view-locked-budget" class="detail-budget-locked" style="display:none;">
-                        <div class="detail-locked-label">✓ Presupuesto Fijado</div>
-                        <div id="txt-presupuesto-fijado" class="detail-locked-total"></div>
-
-                        <div class="detail-locked-actions">
-                          <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="desbloquearPresupuesto()">Modificar</button>
-                          <button class="detail-btn detail-btn-success detail-btn-sm" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
-                        </div>
-                      </div>
-
-                      <div class="detail-budget-section">
-                        <div class="detail-mini-label">Detalle de Costos (Interno)</div>
-
-                        <div class="detail-inline-add">
-                          <select class="detail-select" id="mt-repuesto-select"></select>
-                          <button class="detail-btn detail-btn-ghost" onclick="addPiezaToTicket()">+ Añadir Ítem</button>
-                        </div>
-
-                        <div class="detail-table-scroll">
-                          <table class="detail-quote-table">
-                            <thead>
-                              <tr>
-                                <th>Artículo / Servicio</th>
-                                <th style="text-align:center;">Cant.</th>
-                                <th style="text-align:right;">Costo Unit.</th>
-                                <th style="text-align:right;">Subtotal</th>
-                                <th></th>
-                              </tr>
-                            </thead>
-                            <tbody id="mt-piezas"></tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div class="detail-quote-footer">
-                        <div>
-                          <div class="detail-approval-box">
-                            <div class="detail-mini-label">Garantía Ofrecida</div>
-                            <strong id="mt-garantia-vence"></strong>
-                          </div>
-
-                          <div class="detail-approval-box">
-                            <div class="detail-mini-label">Estado de Pago</div>
-                            <strong id="quotePaymentState">Pendiente de Cobro</strong>
-                          </div>
-                        </div>
-
-                        <div class="detail-totals">
-                          <div class="detail-total-row">
-                            <span>Costo Repuestos</span>
-                            <strong id="mt-total-costo"></strong>
-                          </div>
-
-                          <div class="detail-total-row">
-                            <span>Descuento Aplicado</span>
-                            <strong class="detail-discount">-$ 0,00</strong>
-                          </div>
-
-                          <div class="detail-total-row detail-grand">
-                            <span>TOTAL A COBRAR</span>
-                            <strong id="mt-total-presupuesto"></strong>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="detail-quote-actions">
-                        <button class="detail-btn detail-btn-primary shine" onclick="fijarPresupuesto()">Fijar Presupuesto</button>
-                        <button class="detail-btn detail-btn-success" onclick="compartirLinkPresupuesto()">🔗 Link de Aprobación</button>
-                        <button class="detail-btn detail-btn-ghost detail-btn-billing" id="btn-facturar-ticket" onclick="enviarAFacturacion()">💳 Enviar a Facturación y Cobro</button>
-                      </div>
-
-                    </div>
-                  </section>
-
-                </div>
-              </div>
-
-              <!-- ================= PESTAÑA 3 ================= -->
-              <div id="tab-bitacora" class="subview" style="display:none;">
-                <div class="detail-stack">
-
-                  <section class="detail-card">
-                    <div class="detail-card-head">
-                      <div class="detail-head-left">
-                        <div class="detail-icon">📝</div>
-                        <div>
-                          <h2>Historial del Ticket</h2>
-                          <p>Trazabilidad y notas internas</p>
-                        </div>
-                      </div>
-                      <span class="status-badge nota" id="mt-notas-count">0 Notas</span>
-                    </div>
-
-                    <div class="detail-card-body">
-                      <div class="detail-timeline" id="mt-notas"></div>
-
-                      <div class="detail-note-compose">
-                        <input id="mt-nota-input" class="detail-input" placeholder="Escribe una nota interna...">
-                        <button class="detail-btn detail-btn-primary" onclick="addTicketNota()">Enviar Nota</button>
-                      </div>
-                    </div>
-                  </section>
-
-                </div>
-              </div>
-
-            </div>
-
-            <!-- ================= CONTROL OPERATIVO ================= -->
-            <aside class="detail-sidebar">
-
-              <section class="detail-card">
-                <div class="detail-card-head">
-                  <div class="detail-head-left">
-                    <div class="detail-icon">⚙️</div>
-                    <div>
-                      <h2>Control Operativo</h2>
-                      <p>Gestión del ticket</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="detail-card-body detail-control-grid">
-
-                  <div class="detail-control">
-                    <label>Fase / Estado</label>
-                    <select
-                      class="detail-select"
-                      id="mt-estado-select"
-                      onchange="changeTicketStage()"
-                    >
-                      <option value="pendiente">Recibido</option>
-                      <option value="diagnostico">En diagnóstico</option>
-                      <option value="presupuesto">Esperando Aprobación</option>
-                      <option value="reparacion">En reparación</option>
-                      <option value="repuesto">Esperando repuesto</option>
-                      <option value="listo">Listo para entrega</option>
-                      <option value="entregado">Entregado</option>
-                      <option value="noreparable">No reparable</option>
-                      <option value="cancelado">Cancelado / Retirado</option>
-                      <option value="garantia">Garantía</option>
-                    </select>
-                  </div>
-
-                  <div class="detail-control">
-                    <label>Técnico Asignado</label>
-                    <div id="mt-tecnico" class="detail-tech-value"></div>
-                  </div>
-
-                  <div class="detail-control">
-                    <label>Garantía de Reparación</label>
-                    <div class="detail-inline">
-                      <input
-                        type="number"
-                        id="mt-garantia-dias"
-                        class="detail-input"
-                        placeholder="Días"
-                        value="30"
-                      >
-                      <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="saveGarantiaDias()">Fijar</button>
-                    </div>
-                  </div>
-
-                  <div class="detail-control detail-control-status">
-                    <label>Estado actual</label>
-                    <span class="status-badge pendiente" id="mt-control-status">Pendiente</span>
-                  </div>
-
-                </div>
-              </section>
-
-            </aside>
-
-          </main>
         </div>
 
+        <div class="detail-card-body detail-control-grid">
 
-      <!-- ================= NUEVO TICKET (PANTALLA COMPLETA ORIGINAL) ================= -->
+          <div class="detail-control">
+            <label>Fase / Estado</label>
+            <select
+              class="detail-select"
+              id="mt-estado-select"
+              onchange="changeTicketStage()"
+            >
+              <option value="pendiente">Recibido</option>
+              <option value="diagnostico">En diagnóstico</option>
+              <option value="presupuesto">Esperando Aprobación</option>
+              <option value="reparacion">En reparación</option>
+              <option value="repuesto">Esperando repuesto</option>
+              <option value="listo">Listo para entrega</option>
+              <option value="entregado">Entregado</option>
+              <option value="noreparable">No reparable</option>
+              <option value="cancelado">Cancelado / Retirado</option>
+              <option value="garantia">Garantía</option>
+            </select>
+          </div>
+
+          <div class="detail-control">
+            <label>Técnico Asignado</label>
+            <div id="mt-tecnico" class="detail-tech-value"></div>
+          </div>
+
+          <div class="detail-control">
+            <label>Garantía de Reparación</label>
+            <div class="detail-inline">
+              <input
+                type="number"
+                id="mt-garantia-dias"
+                class="detail-input"
+                placeholder="Días"
+                value="30"
+              >
+              <button class="detail-btn detail-btn-ghost detail-btn-sm" onclick="saveGarantiaDias()">Fijar</button>
+            </div>
+          </div>
+
+          <div class="detail-control detail-control-status">
+            <label>Estado actual</label>
+            <span class="status-badge pendiente" id="mt-control-status">Pendiente</span>
+          </div>
+
+        </div>
+      </section>
+
+    </aside>
+
+  </main>
+</div>
+
+
+      <!-- ================= NUEVO TICKET (PANTALLA COMPLETA ORIGINAL) ================= --><!-- ================= NUEVO TICKET (PANTALLA COMPLETA ORIGINAL) ================= -->
       <div class="view" id="view-nuevo-ticket">
         <header class="topbar" style="background:transparent; padding:0; margin-bottom:24px;">
           <div class="brand" style="margin:0;">
