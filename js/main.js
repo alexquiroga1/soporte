@@ -1,25 +1,47 @@
 /* =========================================================
-   SERVIX — main.js
-   Mantiene tickets.js completo.
-   Corrige compatibilidad entre ES Modules y onclick=""
-========================================================= */
+   SERVIX - main.js
+   =========================================================
+   IMPORTANTE:
+   - tickets.js permanece como UN SOLO ARCHIVO.
+   - No se divide tickets.js.
+   - Este archivo conecta los módulos ES con el HTML
+     que utiliza onclick="...".
+   ========================================================= */
 
-import { initStore, DATA } from './core/store.js';
+
+/* =========================================================
+   CORE
+   ========================================================= */
 
 import {
-  initAuth,
-  aplicarPermisosEnUI,
-  doLogin,
-  doLogout
+    initStore,
+    DATA
+} from './core/store.js';
+
+import {
+    initAuth,
+    doLogin,
+    doLogout,
+    aplicarPermisosEnUI
 } from './core/auth.js';
 
+
+/* =========================================================
+   UI
+   ========================================================= */
+
 import {
-  openModal,
-  closeModal,
-  closeDropdowns,
-  goView,
-  initUI
+    openModal,
+    closeModal,
+    closeDropdowns,
+    goView,
+    initUI
 } from './modules/ui.js';
+
+
+/* =========================================================
+   MÓDULOS
+   ========================================================= */
 
 import * as Tickets from './modules/tickets.js';
 import * as Clientes from './modules/clientes.js';
@@ -33,607 +55,954 @@ import * as Config from './modules/config.js';
 
 
 /* =========================================================
-   COMPATIBILIDAD CON HTML
-   El HTML utiliza onclick="funcion()".
-   Los módulos ES no agregan automáticamente sus exports
-   a window, por eso se publican aquí.
-========================================================= */
+   EXPONER FUNCIONES DEL PROYECTO AL HTML
+   =========================================================
+   Tu index.html utiliza muchos:
+   
+      onclick="..."
+      onsubmit="..."
+      onchange="..."
+   
+   Las funciones exportadas por un ES Module no quedan
+   automáticamente disponibles como window.funcion.
+   ========================================================= */
 
-const publicApi = {
+function exposeModule(module) {
 
-  /* UI */
-  openModal,
-  closeModal,
-  closeDropdowns,
-  goView,
-  initUI,
+    Object.entries(module).forEach(
+        ([name, value]) => {
 
-  /* AUTENTICACIÓN */
-  doLogin: () => {
-    try {
-      if (!window.auth) {
+            if (
+                typeof value === 'function' &&
+                name !== 'default'
+            ) {
+                window[name] = value;
+            }
+
+        }
+    );
+
+}
+
+
+/* UI */
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.closeDropdowns = closeDropdowns;
+window.goView = goView;
+
+
+/* Módulos */
+exposeModule(Tickets);
+exposeModule(Clientes);
+exposeModule(Productos);
+exposeModule(POS);
+exposeModule(Caja);
+exposeModule(Facturacion);
+exposeModule(CRM);
+exposeModule(Dashboard);
+exposeModule(Config);
+
+
+/* =========================================================
+   AUTENTICACIÓN
+   =========================================================
+   El HTML llama:
+
+       doLogin()
+
+   Pero auth.js necesita:
+
+       doLogin(auth)
+
+   Por eso hacemos el puente aquí.
+   ========================================================= */
+
+window.doLogin = function () {
+
+    if (!window.auth) {
+
         console.error(
-          'Firebase Auth todavía no está disponible.'
+            'SERVIX: Firebase Auth todavía no está disponible.'
         );
+
         return;
-      }
 
-      return doLogin(window.auth);
-
-    } catch (error) {
-      console.error(
-        'Error ejecutando doLogin:',
-        error
-      );
     }
-  },
 
-  doLogout: () => {
-    try {
-      if (!window.auth) {
+    return doLogin(
+        window.auth
+    );
+
+};
+
+
+window.doLogout = function () {
+
+    if (!window.auth) {
+
         console.error(
-          'Firebase Auth todavía no está disponible.'
+            'SERVIX: Firebase Auth todavía no está disponible.'
         );
-        return;
-      }
 
-      return doLogout(
+        return;
+
+    }
+
+    return doLogout(
         window.auth,
         closeDropdowns
-      );
+    );
 
-    } catch (error) {
-      console.error(
-        'Error ejecutando doLogout:',
-        error
-      );
-    }
-  },
-
-  /* TICKETS */
-  ...Tickets,
-
-  /* CLIENTES */
-  ...Clientes,
-
-  /* PRODUCTOS */
-  ...Productos,
-
-  /* POS */
-  ...POS,
-
-  /* CAJA / CRÉDITOS */
-  ...Caja,
-
-  /* FACTURACIÓN / PRESUPUESTOS */
-  ...Facturacion,
-
-  /* CRM */
-  ...CRM,
-
-  /* DASHBOARD / REPORTES */
-  ...Dashboard,
-
-  /* CONFIGURACIÓN */
-  ...Config
 };
 
 
 /* =========================================================
-   EXPONER FUNCIONES GLOBALMENTE
-========================================================= */
+   DATA GLOBAL
+   ========================================================= */
 
-Object.entries(publicApi).forEach(
-  ([name, fn]) => {
-
-    if (typeof fn === 'function') {
-      window[name] = fn;
-    }
-
-  }
-);
-
-
-/* DATA disponible globalmente */
 window.DATA = DATA;
 
 
 /* =========================================================
-   NUEVO TICKET
-========================================================= */
+   FUNCIONES QUE EL HTML UTILIZA
+   ========================================================= */
 
-window.showNuevoTicketView =
-  function showNuevoTicketView() {
+
+/*
+   Nuevo Ticket
+*/
+window.showNuevoTicketView = function () {
 
     try {
 
-      if (
-        typeof Tickets.limpiarFormularioTicket ===
-        'function'
-      ) {
-        Tickets.limpiarFormularioTicket();
-      }
+        if (
+            typeof Tickets.limpiarFormularioTicket ===
+            'function'
+        ) {
 
-      goView('nuevo-ticket');
+            Tickets.limpiarFormularioTicket();
+
+        }
+
+        goView(
+            'nuevo-ticket'
+        );
 
     } catch (error) {
 
-      console.error(
-        'Error abriendo nuevo ticket:',
-        error
-      );
+        console.error(
+            'Error al abrir Nuevo Ticket:',
+            error
+        );
 
     }
 
-  };
+};
 
 
-/* =========================================================
-   PRESUPUESTOS
-========================================================= */
-
-if (
-  typeof Facturacion.showNuevoPresupuesto ===
-  'function'
-) {
-  window.showNuevoPresupuesto =
-    Facturacion.showNuevoPresupuesto;
-}
-
-if (
-  typeof Facturacion.hideNuevoPresupuesto ===
-  'function'
-) {
-  window.hideNuevoPresupuesto =
-    Facturacion.hideNuevoPresupuesto;
-}
-
-
-/* =========================================================
-   TABS DE CRÉDITOS
-========================================================= */
-
-window.switchCreditoTab =
-  function switchCreditoTab(
+/*
+   Tabs de créditos
+*/
+window.switchCreditoTab = function (
     tabId,
     element
-  ) {
+) {
 
     try {
 
-      /* Quitar active de tabs */
-      const container =
-        element?.parentElement;
-
-      if (container) {
-
-        container
-          .querySelectorAll('.tab')
-          .forEach(tab => {
-
-            tab.classList.remove(
-              'active'
+        const tabButtons =
+            document.querySelectorAll(
+                '.tab[data-sub]'
             );
 
-          });
+        tabButtons.forEach(
+            tab => {
 
-      }
+                if (
+                    tab.dataset.sub &&
+                    tab.dataset.sub.startsWith(
+                        'cr-tab-'
+                    )
+                ) {
+                    tab.classList.remove(
+                        'active'
+                    );
+                }
 
-
-      /* Activar tab actual */
-      if (element) {
-        element.classList.add(
-          'active'
-        );
-      }
-
-
-      /* Buscar contenedor */
-      const target =
-        document.getElementById(
-          tabId
+            }
         );
 
-      if (!target) {
-        return;
-      }
+
+        if (element) {
+
+            element.classList.add(
+                'active'
+            );
+
+        }
 
 
-      const scope =
-        target.parentElement;
+        const target =
+            document.getElementById(
+                tabId
+            );
 
-      if (!scope) {
-        return;
-      }
+        if (!target) {
+
+            console.warn(
+                `SERVIX: No existe el elemento #${tabId}`
+            );
+
+            return;
+
+        }
 
 
-      /* Mostrar únicamente la subvista elegida */
-      scope
-        .querySelectorAll('.subview')
-        .forEach(view => {
+        const parent =
+            target.parentElement;
 
-          view.style.display =
-            view.id === tabId
-              ? ''
-              : 'none';
+        if (!parent) {
+            return;
+        }
 
-        });
+
+        parent
+            .querySelectorAll(
+                '.subview'
+            )
+            .forEach(
+                view => {
+
+                    view.style.display =
+                        view.id === tabId
+                            ? ''
+                            : 'none';
+
+                }
+            );
+
 
     } catch (error) {
 
-      console.error(
-        'Error cambiando pestaña de créditos:',
-        error
-      );
+        console.error(
+            'Error en switchCreditoTab:',
+            error
+        );
 
     }
 
-  };
+};
 
 
 /* =========================================================
    RENDER PRINCIPAL
-========================================================= */
+   ========================================================= */
 
 function renderApp() {
 
-  const renders = [
-
-    [
-      'Dashboard',
-      Dashboard.renderDashboard
-    ],
-
-    [
-      'Reportes',
-      Dashboard.renderReportes
-    ],
-
-    [
-      'Notificaciones',
-      Dashboard.renderNotificaciones
-    ],
-
-    [
-      'Clientes',
-      Clientes.renderClientesTable
-    ],
-
-    [
-      'Tickets',
-      Tickets.renderTicketsTable
-    ],
-
-    [
-      'Tickets Kanban',
-      Tickets.renderTicketsKanban
-    ],
-
-    [
-      'Productos',
-      Productos.renderProductosTabs
-    ],
-
-    [
-      'Productos tabla',
-      Productos.renderProductosTable
-    ],
-
-    [
-      'Promociones',
-      Productos.renderPromocionesTable
-    ],
-
-    [
-      'POS productos',
-      POS.renderPOSProducts
-    ],
-
-    [
-      'POS medios de pago',
-      POS.renderPayMethods
-    ],
-
-    [
-      'POS promociones',
-      POS.populatePOSPromos
-    ],
-
-    [
-      'Ventas historial',
-      POS.renderVentasHistorial
-    ],
-
-    [
-      'Caja',
-      Caja.renderCajaView
-    ],
-
-    [
-      'Caja pendientes',
-      Caja.renderCajaPendientes
-    ],
-
-    [
-      'Créditos',
-      Caja.renderCreditosTable
-    ],
-
-    [
-      'Facturas',
-      Facturacion.renderFacturasTable
-    ],
-
-    [
-      'Resumen facturación',
-      Facturacion.renderResumenFacturacion
-    ],
-
-    [
-      'Presupuestos',
-      Facturacion.renderPresupuestosTable
-    ],
-
-    [
-      'Clientes cuenta corriente',
-      Facturacion.cargarClientesCuentaCorriente
-    ],
-
-    [
-      'CRM',
-      CRM.renderCRMKanban
-    ],
-
-    [
-      'Configuración',
-      Config.renderConfig
-    ]
-
-  ];
-
-
-  /* Ejecutar renders sin detener toda la app
-     si uno falla */
-  for (
-    const [label, render] of renders
-  ) {
+    /*
+       Dashboard
+    */
 
     if (
-      typeof render !== 'function'
+        typeof Dashboard.renderDashboard ===
+        'function'
     ) {
-      continue;
+
+        try {
+            Dashboard.renderDashboard();
+        } catch (e) {
+            console.error(
+                'Dashboard:',
+                e
+            );
+        }
+
     }
+
+
+    /*
+       Reportes
+    */
+
+    if (
+        typeof Dashboard.renderReportes ===
+        'function'
+    ) {
+
+        try {
+            Dashboard.renderReportes();
+        } catch (e) {
+            console.error(
+                'Reportes:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Notificaciones
+    */
+
+    if (
+        typeof Dashboard.renderNotificaciones ===
+        'function'
+    ) {
+
+        try {
+            Dashboard.renderNotificaciones();
+        } catch (e) {
+            console.error(
+                'Notificaciones:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Clientes
+    */
+
+    if (
+        typeof Clientes.renderClientesTable ===
+        'function'
+    ) {
+
+        try {
+            Clientes.renderClientesTable();
+        } catch (e) {
+            console.error(
+                'Clientes:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Tickets
+    */
+
+    if (
+        typeof Tickets.renderTicketsTable ===
+        'function'
+    ) {
+
+        try {
+            Tickets.renderTicketsTable();
+        } catch (e) {
+            console.error(
+                'Tickets:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Kanban Tickets
+    */
+
+    if (
+        typeof Tickets.renderTicketsKanban ===
+        'function'
+    ) {
+
+        try {
+            Tickets.renderTicketsKanban();
+        } catch (e) {
+            console.error(
+                'Tickets Kanban:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Técnicos
+    */
+
+    if (
+        typeof Tickets.populateTecnicos ===
+        'function'
+    ) {
+
+        try {
+            Tickets.populateTecnicos();
+        } catch (e) {
+            console.error(
+                'Técnicos:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Repuestos
+    */
+
+    if (
+        typeof Tickets.populateRepuestosSelect ===
+        'function'
+    ) {
+
+        try {
+            Tickets.populateRepuestosSelect();
+        } catch (e) {
+            console.error(
+                'Repuestos:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Productos
+    */
+
+    if (
+        typeof Productos.renderProductosTabs ===
+        'function'
+    ) {
+
+        try {
+            Productos.renderProductosTabs();
+        } catch (e) {
+            console.error(
+                'Productos Tabs:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Productos.renderProductosTable ===
+        'function'
+    ) {
+
+        try {
+            Productos.renderProductosTable();
+        } catch (e) {
+            console.error(
+                'Productos:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Productos.renderPromocionesTable ===
+        'function'
+    ) {
+
+        try {
+            Productos.renderPromocionesTable();
+        } catch (e) {
+            console.error(
+                'Promociones:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       POS
+    */
+
+    if (
+        typeof POS.renderPOSProducts ===
+        'function'
+    ) {
+
+        try {
+            POS.renderPOSProducts();
+        } catch (e) {
+            console.error(
+                'POS Productos:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof POS.renderPayMethods ===
+        'function'
+    ) {
+
+        try {
+            POS.renderPayMethods();
+        } catch (e) {
+            console.error(
+                'POS Medios de Pago:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof POS.populatePOSPromos ===
+        'function'
+    ) {
+
+        try {
+            POS.populatePOSPromos();
+        } catch (e) {
+            console.error(
+                'POS Promociones:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof POS.renderVentasHistorial ===
+        'function'
+    ) {
+
+        try {
+            POS.renderVentasHistorial();
+        } catch (e) {
+            console.error(
+                'Historial Ventas:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Caja
+    */
+
+    if (
+        typeof Caja.renderCajaView ===
+        'function'
+    ) {
+
+        try {
+            Caja.renderCajaView();
+        } catch (e) {
+            console.error(
+                'Caja:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Caja.renderCajaPendientes ===
+        'function'
+    ) {
+
+        try {
+            Caja.renderCajaPendientes();
+        } catch (e) {
+            console.error(
+                'Caja Pendientes:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Caja.renderCreditosTable ===
+        'function'
+    ) {
+
+        try {
+            Caja.renderCreditosTable();
+        } catch (e) {
+            console.error(
+                'Créditos:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Facturación
+    */
+
+    if (
+        typeof Facturacion.renderFacturasTable ===
+        'function'
+    ) {
+
+        try {
+            Facturacion.renderFacturasTable();
+        } catch (e) {
+            console.error(
+                'Facturas:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Facturacion.renderResumenFacturacion ===
+        'function'
+    ) {
+
+        try {
+            Facturacion.renderResumenFacturacion();
+        } catch (e) {
+            console.error(
+                'Resumen Facturación:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Facturacion.renderPresupuestosTable ===
+        'function'
+    ) {
+
+        try {
+            Facturacion.renderPresupuestosTable();
+        } catch (e) {
+            console.error(
+                'Presupuestos:',
+                e
+            );
+        }
+
+    }
+
+
+    if (
+        typeof Facturacion.cargarClientesCuentaCorriente ===
+        'function'
+    ) {
+
+        try {
+            Facturacion.cargarClientesCuentaCorriente();
+        } catch (e) {
+            console.error(
+                'Cuenta Corriente:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       CRM
+    */
+
+    if (
+        typeof CRM.renderCRMKanban ===
+        'function'
+    ) {
+
+        try {
+            CRM.renderCRMKanban();
+        } catch (e) {
+            console.error(
+                'CRM:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Configuración
+    */
+
+    if (
+        typeof Config.renderConfig ===
+        'function'
+    ) {
+
+        try {
+            Config.renderConfig();
+        } catch (e) {
+            console.error(
+                'Configuración:',
+                e
+            );
+        }
+
+    }
+
+
+    /*
+       Permisos
+    */
 
     try {
 
-      render();
+        if (
+            typeof aplicarPermisosEnUI ===
+            'function'
+        ) {
+
+            aplicarPermisosEnUI(
+                DATA.roles || []
+            );
+
+        }
 
     } catch (error) {
 
-      console.error(
-        `Error renderizando ${label}:`,
-        error
-      );
+        console.error(
+            'Error aplicando permisos:',
+            error
+        );
 
     }
-
-  }
-
-
-  /* Técnicos */
-  try {
-
-    if (
-      typeof Tickets.populateTecnicos ===
-      'function'
-    ) {
-      Tickets.populateTecnicos();
-    }
-
-  } catch (error) {
-
-    console.error(
-      'Error poblando técnicos:',
-      error
-    );
-
-  }
-
-
-  /* Repuestos */
-  try {
-
-    if (
-      typeof Tickets.populateRepuestosSelect ===
-      'function'
-    ) {
-      Tickets.populateRepuestosSelect();
-    }
-
-  } catch (error) {
-
-    console.error(
-      'Error poblando repuestos:',
-      error
-    );
-
-  }
-
-
-  /* Permisos */
-  try {
-
-    if (
-      typeof aplicarPermisosEnUI ===
-        'function' &&
-      DATA?.roles
-    ) {
-
-      aplicarPermisosEnUI(
-        DATA.roles
-      );
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      'Error aplicando permisos:',
-      error
-    );
-
-  }
 
 }
 
 
 /* =========================================================
-   BOOT
-========================================================= */
+   CRM
+   =========================================================
+   En index.html estaba:
 
-async function boot() {
+       openModal('modal-oportunidad')
 
-  try {
+   Pero el modal existente es:
 
-    /* Inicializar UI */
-    initUI();
+       modal-nueva-oportunidad
 
+   Lo corregimos acá sin tocar todavía todo el HTML.
+   ========================================================= */
 
-    /* =====================================================
-       TICKET / PRESUPUESTO PÚBLICO
-       ?p=TK-xxxx
-    ===================================================== */
+const botonNuevaOportunidad =
+    document.querySelector(
+        '[onclick="openModal(\'modal-oportunidad\')"]'
+    );
 
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+if (botonNuevaOportunidad) {
 
-    const publicTicketId =
-      params.get('p');
+    botonNuevaOportunidad.onclick =
+        function () {
 
-
-    if (publicTicketId) {
-
-      document
-        .getElementById(
-          'splash-screen'
-        )
-        ?.remove();
-
-
-      try {
-
-        if (
-          typeof Tickets.initPublicPresupuesto ===
-          'function'
-        ) {
-
-          await Tickets
-            .initPublicPresupuesto(
-              publicTicketId
+            openModal(
+                'modal-nueva-oportunidad'
             );
 
-        }
-
-      } catch (error) {
-
-        console.error(
-          'Error inicializando presupuesto público:',
-          error
-        );
-
-      }
-
-      return;
-    }
-
-
-    /* =====================================================
-       AUTENTICACIÓN
-    ===================================================== */
-
-    initAuth(
-
-      window.auth,
-
-      window.db,
-
-      () => {
-
-        try {
-
-          initStore(
-            window.db,
-            renderApp
-          );
-
-        } catch (error) {
-
-          console.error(
-            'Error inicializando Store:',
-            error
-          );
-
-        }
-
-      }
-
-    );
-
-  } catch (error) {
-
-    console.error(
-      'Error fatal durante el inicio de Servix:',
-      error
-    );
-
-
-    /* Ocultar splash */
-    const splash =
-      document.getElementById(
-        'splash-screen'
-      );
-
-    if (splash) {
-      splash.style.display =
-        'none';
-    }
-
-
-    /* Mostrar login */
-    const login =
-      document.getElementById(
-        'login-screen'
-      );
-
-    if (login) {
-      login.style.display =
-        'flex';
-    }
-
-  }
+        };
 
 }
 
 
 /* =========================================================
    ARRANQUE
-========================================================= */
+   ========================================================= */
+
+async function boot() {
+
+    try {
+
+        /*
+           Primero UI
+        */
+
+        initUI();
+
+
+        /*
+           Detectar presupuesto público
+
+           URL:
+
+           ?p=ID_DEL_TICKET
+        */
+
+        const params =
+            new URLSearchParams(
+                window.location.search
+            );
+
+        const publicTicketId =
+            params.get('p');
+
+
+        if (publicTicketId) {
+
+            const splash =
+                document.getElementById(
+                    'splash-screen'
+                );
+
+            if (splash) {
+
+                splash.style.display =
+                    'none';
+
+            }
+
+
+            if (
+                typeof Tickets.initPublicPresupuesto ===
+                'function'
+            ) {
+
+                await Tickets
+                    .initPublicPresupuesto(
+                        publicTicketId
+                    );
+
+            }
+
+            return;
+
+        }
+
+
+        /*
+           Firebase Auth
+        */
+
+        if (!window.auth) {
+
+            console.error(
+                'SERVIX: window.auth no existe.'
+            );
+
+            return;
+
+        }
+
+
+        if (!window.db) {
+
+            console.error(
+                'SERVIX: window.db no existe.'
+            );
+
+            return;
+
+        }
+
+
+        initAuth(
+
+            window.auth,
+
+            window.db,
+
+            function () {
+
+                try {
+
+                    initStore(
+                        window.db,
+                        renderApp
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'Error inicializando Store:',
+                        error
+                    );
+
+                }
+
+            }
+
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            'SERVIX: Error fatal durante boot():',
+            error
+        );
+
+
+        const splash =
+            document.getElementById(
+                'splash-screen'
+            );
+
+        if (splash) {
+
+            splash.style.display =
+                'none';
+
+        }
+
+
+        const loginScreen =
+            document.getElementById(
+                'login-screen'
+            );
+
+        if (loginScreen) {
+
+            loginScreen.style.display =
+                'flex';
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   DOM READY
+   ========================================================= */
 
 if (
-  document.readyState ===
-  'loading'
+    document.readyState ===
+    'loading'
 ) {
 
-  document.addEventListener(
-    'DOMContentLoaded',
-    boot,
-    { once: true }
-  );
+    document.addEventListener(
+        'DOMContentLoaded',
+        boot,
+        {
+            once: true
+        }
+    );
 
 } else {
 
-  boot();
+    boot();
 
 }
