@@ -778,7 +778,7 @@ export async function createTicket(){
       if(window.goView) window.goView('tickets');
 
   } catch (error) {
-      console.error("Error al crear ticket:", error);
+      console.error("Error al crear el ticket:", error);
       toast('❌ Error al crear el ticket. Reintente.');
   } finally {
       isCreatingTicket = false;
