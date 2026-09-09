@@ -1,26 +1,50 @@
 import {
+  useEffect,
+  useRef,
+} from "react";
+
+import {
+  AnimatePresence,
+  motion,
+} from "motion/react";
+
+import {
+  sileo,
   Toaster,
 } from "sileo";
 
 import Login from "./pages/Login/Login.jsx";
-
 import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 
 import {
   useAuth,
 } from "./context/AuthContext.jsx";
 
+/* =========================================
+   PANTALLA DE CARGA
+========================================= */
+
 function LoadingScreen() {
   return (
-    <main
+    <motion.main
+      key="loading"
+      initial={{
+        opacity: 0,
+      }}
+      animate={{
+        opacity: 1,
+      }}
+      exit={{
+        opacity: 0,
+      }}
+      transition={{
+        duration: 0.2,
+      }}
       style={{
         minHeight: "100vh",
-
         display: "grid",
         placeItems: "center",
-
-        background:
-          "var(--bg)",
+        background: "var(--bg)",
       }}
     >
       <div
@@ -32,48 +56,26 @@ function LoadingScreen() {
         }}
       >
         <div
-          style={{
-            width: "38px",
-            height: "38px",
-
-            border:
-              "3px solid rgba(255, 106, 61, 0.15)",
-
-            borderTopColor:
-              "var(--copper)",
-
-            borderRadius: "50%",
-
-            animation:
-              "app-loading-spin 0.8s linear infinite",
-          }}
+          className="app-loading-spinner"
         />
 
         <span
           style={{
             fontSize: "0.9rem",
             fontWeight: 600,
-
-            color:
-              "var(--muted)",
+            color: "var(--muted)",
           }}
         >
           Cargando sistema...
         </span>
-
-        <style>
-          {`
-            @keyframes app-loading-spin {
-              to {
-                transform: rotate(360deg);
-              }
-            }
-          `}
-        </style>
       </div>
-    </main>
+    </motion.main>
   );
 }
+
+/* =========================================
+   APP
+========================================= */
 
 function App() {
   const {
@@ -82,6 +84,48 @@ function App() {
     loading,
   } = useAuth();
 
+  const welcomedUser =
+    useRef(null);
+
+  /* =======================================
+     TOAST DE BIENVENIDA
+  ======================================= */
+
+  useEffect(() => {
+    if (!user || !profile) {
+      welcomedUser.current = null;
+      return;
+    }
+
+    if (
+      welcomedUser.current ===
+      user.uid
+    ) {
+      return;
+    }
+
+    welcomedUser.current =
+      user.uid;
+
+    const userName =
+      profile?.nombre ||
+      profile?.name ||
+      "Usuario";
+
+    sileo.success({
+      title: `Bienvenido, ${userName}`,
+      description:
+        "Sesión iniciada correctamente.",
+    });
+  }, [
+    user,
+    profile,
+  ]);
+
+  /* =======================================
+     CARGANDO
+  ======================================= */
+
   if (loading) {
     return (
       <>
@@ -89,10 +133,16 @@ function App() {
           position="top-right"
         />
 
-        <LoadingScreen />
+        <AnimatePresence mode="wait">
+          <LoadingScreen />
+        </AnimatePresence>
       </>
     );
   }
+
+  /* =======================================
+     LOGIN / DASHBOARD
+  ======================================= */
 
   return (
     <>
@@ -100,11 +150,58 @@ function App() {
         position="top-right"
       />
 
-      {user && profile ? (
-        <Dashboard />
-      ) : (
-        <Login />
-      )}
+      <AnimatePresence
+        mode="wait"
+        initial={false}
+      >
+        {user && profile ? (
+          <motion.div
+            key="dashboard"
+            initial={{
+              opacity: 0,
+              y: 10,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            exit={{
+              opacity: 0,
+              y: -8,
+            }}
+            transition={{
+              duration: 0.3,
+              ease: [
+                0.22,
+                1,
+                0.36,
+                1,
+              ],
+            }}
+          >
+            <Dashboard />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="login"
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.99,
+            }}
+            transition={{
+              duration: 0.25,
+            }}
+          >
+            <Login />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
