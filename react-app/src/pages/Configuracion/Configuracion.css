@@ -1,0 +1,681 @@
+.config-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.config-shell {
+  width: min(1450px, 100%);
+  margin: 0 auto;
+}
+
+.config-loading {
+  min-height: calc(100vh - 56px);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.config-header,
+.config-panel-head,
+.config-role-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.config-header {
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.config-header h1,
+.config-panel-head h2 {
+  margin: 0;
+}
+
+.config-header h1 {
+  margin-top: 8px;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -.04em;
+}
+
+.config-header p,
+.config-panel-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.config-eyebrow,
+.config-panel-head span,
+.config-summary span,
+.config-status span,
+.config-modal header span {
+  color: var(--muted);
+  font-size: .69rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.config-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+}
+
+.config-status > svg {
+  color: var(--teal);
+}
+
+.config-status strong,
+.config-status span {
+  display: block;
+}
+
+.config-status strong {
+  margin-top: 2px;
+  font-size: .78rem;
+}
+
+.config-warning,
+.config-auth-note,
+.config-modal-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, .25);
+  border-radius: 13px;
+  background: var(--warn-bg);
+}
+
+.config-warning {
+  margin-bottom: 14px;
+}
+
+.config-warning strong,
+.config-warning span,
+.config-auth-note strong,
+.config-auth-note span {
+  display: block;
+}
+
+.config-warning span,
+.config-auth-note span,
+.config-modal-info span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+.config-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.config-summary article {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.config-summary article > svg {
+  color: var(--copper);
+}
+
+.config-summary strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.config-panel {
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.config-panel-head {
+  padding: 17px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.config-panel-head h2 {
+  margin-top: 3px;
+  font-size: 1rem;
+}
+
+.config-panel-head p {
+  font-size: .75rem;
+}
+
+.config-primary {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--graphite);
+  border-radius: 10px;
+  background: var(--graphite);
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-primary:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.config-business-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+  padding: 18px;
+}
+
+.config-business-grid .wide {
+  grid-column: span 2;
+}
+
+.config-business-grid label > span,
+.config-modal-form label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.config-business-grid input,
+.config-modal-form input,
+.config-modal-form select,
+.config-table select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.config-business-grid input:disabled,
+.config-table select:disabled {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.config-auth-note {
+  margin: 14px 18px 0;
+}
+
+.config-table-wrap {
+  overflow-x: auto;
+  padding-top: 14px;
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.config-table th {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  color: var(--muted);
+  text-align: left;
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.config-table td {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.config-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--graphite);
+  color: white;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.config-user section strong,
+.config-user section span {
+  display: block;
+}
+
+.config-user section span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .7rem;
+}
+
+.config-table select {
+  min-width: 160px;
+  min-height: 34px;
+  font-size: .74rem;
+}
+
+.config-user-status,
+.config-auth-ready,
+.config-auth-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: .66rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.config-user-status.active,
+.config-auth-ready {
+  background: var(--success-bg);
+  color: var(--teal);
+}
+
+.config-user-status.inactive {
+  background: var(--danger-bg);
+  color: var(--red);
+}
+
+.config-auth-pending {
+  border: 0;
+  background: var(--warn-bg);
+  color: var(--amber);
+  cursor: pointer;
+}
+
+.config-auth-pending:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.config-toggle {
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line);
+  cursor: pointer;
+  transition: .18s ease;
+}
+
+.config-toggle span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 5px rgba(17, 24, 39, .18);
+  transition: transform .18s ease;
+}
+
+.config-toggle.on {
+  background: var(--teal);
+}
+
+.config-toggle.on span {
+  transform: translateX(16px);
+}
+
+.config-toggle:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.config-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+}
+
+.config-role-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+}
+
+.config-role-head {
+  align-items: flex-start;
+}
+
+.config-role-head > div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.config-role-head strong,
+.config-role-head span {
+  display: block;
+}
+
+.config-role-head span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: .7rem;
+  line-height: 1.4;
+}
+
+.config-role-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+
+.config-role-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.config-role-actions button {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.config-role-actions button.danger {
+  color: var(--red);
+}
+
+.config-permission-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.config-permission-list > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: .7rem;
+  line-height: 1.4;
+}
+
+.config-permission-list > div svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--teal);
+}
+
+.config-permission-list small {
+  color: var(--muted);
+}
+
+.config-empty {
+  padding: 30px 15px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.config-empty.roles {
+  grid-column: 1 / -1;
+}
+
+.config-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(17, 24, 39, .45);
+  backdrop-filter: blur(6px);
+}
+
+.config-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-strong);
+}
+
+.config-modal.role {
+  width: min(680px, 100%);
+}
+
+.config-modal header,
+.config-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.config-modal header {
+  border-bottom: 1px solid var(--line);
+}
+
+.config-modal header h3 {
+  margin: 3px 0 0;
+}
+
+.config-modal header > button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.config-modal-form {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.config-modal-info {
+  align-items: flex-start;
+}
+
+.config-permission-picker {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.config-permission-title {
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.config-permission-picker > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-2);
+  text-align: left;
+  font: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+}
+
+.config-permission-picker > button.selected {
+  border-color: rgba(16, 185, 129, .3);
+  background: var(--success-bg);
+  color: var(--ink);
+}
+
+.config-check {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--teal);
+}
+
+.config-modal footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+
+.config-modal footer button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-modal footer .ghost {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.config-modal footer .primary {
+  border-color: var(--graphite);
+  background: var(--graphite);
+  color: white;
+}
+
+.config-modal footer button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1050px) {
+  .config-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .config-roles-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-business-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .config-business-grid .wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .config-page {
+    padding: 16px;
+  }
+
+  .config-header,
+  .config-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .config-status {
+    align-self: flex-start;
+  }
+
+  .config-primary {
+    width: 100%;
+  }
+
+  .config-summary,
+  .config-roles-grid,
+  .config-business-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-business-grid .wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .config-summary {
+    grid-template-columns: 1fr;
+  }
+}

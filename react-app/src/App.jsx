@@ -1,24 +1,102 @@
 import {
-  useEffect,
-  useRef,
-} from "react";
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
 
 import {
-  AnimatePresence,
-  motion,
-} from "motion/react";
-
-import {
-  sileo,
   Toaster,
 } from "sileo";
-
-import Login from "./pages/Login/Login.jsx";
-import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 
 import {
   useAuth,
 } from "./context/AuthContext.jsx";
+
+/* =========================================
+   AUTENTICACIÓN
+========================================= */
+
+import Login from "./pages/Login/Login.jsx";
+
+/* =========================================
+   DASHBOARD
+========================================= */
+
+import Dashboard from "./pages/Dashboard/Dashboard.jsx";
+
+/* =========================================
+   TICKETS
+========================================= */
+
+import Tickets from "./pages/Tickets/Tickets.jsx";
+
+import TicketDetail from "./pages/Tickets/TicketDetail.jsx";
+
+/* =========================================
+   POS
+========================================= */
+
+import POS from "./pages/POS/POS.jsx";
+
+/* =========================================
+   CLIENTES
+========================================= */
+
+import Clientes from "./pages/Clientes/Clientes.jsx";
+
+/* =========================================
+   CAJA
+========================================= */
+
+import Caja from "./pages/Caja/Caja.jsx";
+
+/* =========================================
+   CRÉDITOS
+========================================= */
+
+import Creditos from "./pages/Creditos/Creditos.jsx";
+
+/* =========================================
+   FACTURACIÓN
+========================================= */
+
+import Facturacion from "./pages/Facturacion/Facturacion.jsx";
+
+import Presupuestos from "./pages/Facturacion/Presupuestos.jsx";
+
+import Facturas from "./pages/Facturacion/Facturas.jsx";
+
+import NotasCredito from "./pages/Facturacion/NotasCredito.jsx";
+
+import Rectificaciones from "./pages/Facturacion/Rectificaciones.jsx";
+
+import Anulaciones from "./pages/Facturacion/Anulaciones.jsx";
+
+import HistorialFacturacion from "./pages/Facturacion/HistorialFacturacion.jsx";
+
+/* =========================================
+   PRODUCTOS
+========================================= */
+
+import Productos from "./pages/Productos/Productos.jsx";
+
+/* =========================================
+   CRM
+========================================= */
+
+import CRM from "./pages/CRM/CRM.jsx";
+
+/* =========================================
+   REPORTES
+========================================= */
+
+import Reportes from "./pages/Reportes/Reportes.jsx";
+
+/* =========================================
+   CONFIGURACIÓN
+========================================= */
+
+import Configuracion from "./pages/Configuracion/Configuracion.jsx";
 
 /* =========================================
    PANTALLA DE CARGA
@@ -26,20 +104,7 @@ import {
 
 function LoadingScreen() {
   return (
-    <motion.main
-      key="loading"
-      initial={{
-        opacity: 0,
-      }}
-      animate={{
-        opacity: 1,
-      }}
-      exit={{
-        opacity: 0,
-      }}
-      transition={{
-        duration: 0.2,
-      }}
+    <main
       style={{
         minHeight: "100vh",
         display: "grid",
@@ -52,158 +117,404 @@ function LoadingScreen() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: "14px",
+          gap: "12px",
         }}
       >
-        <div
-          className="app-loading-spinner"
-        />
+        <div className="app-loading-spinner" />
+
+        <strong>
+          Cargando sistema...
+        </strong>
 
         <span
           style={{
-            fontSize: "0.9rem",
-            fontWeight: 600,
+            fontSize: "0.82rem",
             color: "var(--muted)",
           }}
         >
-          Cargando sistema...
+          Verificando sesión
         </span>
       </div>
-    </motion.main>
+    </main>
   );
+}
+
+/* =========================================
+   RUTA PROTEGIDA
+========================================= */
+
+function ProtectedRoute({
+  children,
+}) {
+  const {
+    user,
+    loading,
+  } = useAuth();
+
+  if (loading) {
+    return (
+      <LoadingScreen />
+    );
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  return children;
+}
+
+/* =========================================
+   SOLO NO LOGUEADOS
+========================================= */
+
+function PublicOnlyRoute({
+  children,
+}) {
+  const {
+    user,
+    loading,
+  } = useAuth();
+
+  if (loading) {
+    return (
+      <LoadingScreen />
+    );
+  }
+
+  if (user) {
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
+  }
+
+  return children;
 }
 
 /* =========================================
    APP
 ========================================= */
 
-function App() {
+export default function App() {
   const {
     user,
-    profile,
     loading,
   } = useAuth();
 
-  const welcomedUser =
-    useRef(null);
-
-  /* =======================================
-     TOAST DE BIENVENIDA
-  ======================================= */
-
-  useEffect(() => {
-    if (!user || !profile) {
-      welcomedUser.current = null;
-      return;
-    }
-
-    if (
-      welcomedUser.current ===
-      user.uid
-    ) {
-      return;
-    }
-
-    welcomedUser.current =
-      user.uid;
-
-    const userName =
-      profile?.nombre ||
-      profile?.name ||
-      "Usuario";
-
-    sileo.success({
-      title: `Bienvenido, ${userName}`,
-      description:
-        "Sesión iniciada correctamente.",
-    });
-  }, [
-    user,
-    profile,
-  ]);
-
-  /* =======================================
-     CARGANDO
-  ======================================= */
-
-  if (loading) {
-    return (
-      <>
-        <Toaster
-          position="top-right"
-        />
-
-        <AnimatePresence mode="wait">
-          <LoadingScreen />
-        </AnimatePresence>
-      </>
-    );
-  }
-
-  /* =======================================
-     LOGIN / DASHBOARD
-  ======================================= */
-
   return (
     <>
+      {/* =================================
+          NOTIFICACIONES
+      ================================= */}
+
       <Toaster
         position="top-right"
       />
 
-      <AnimatePresence
-        mode="wait"
-        initial={false}
-      >
-        {user && profile ? (
-          <motion.div
-            key="dashboard"
-            initial={{
-              opacity: 0,
-              y: 10,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: -8,
-            }}
-            transition={{
-              duration: 0.3,
-              ease: [
-                0.22,
-                1,
-                0.36,
-                1,
-              ],
-            }}
-          >
-            <Dashboard />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="login"
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-              scale: 0.99,
-            }}
-            transition={{
-              duration: 0.25,
-            }}
-          >
-            <Login />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* =================================
+          ROUTER
+      ================================= */}
+
+      <Routes>
+
+        {/* =================================
+            LOGIN
+        ================================= */}
+
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          }
+        />
+
+        {/* =================================
+            DASHBOARD
+        ================================= */}
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            TICKETS
+        ================================= */}
+
+        <Route
+          path="/tickets"
+          element={
+            <ProtectedRoute>
+              <Tickets />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tickets/:id"
+          element={
+            <ProtectedRoute>
+              <TicketDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            POS
+        ================================= */}
+
+        <Route
+          path="/pos"
+          element={
+            <ProtectedRoute>
+              <POS />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CLIENTES
+        ================================= */}
+
+        <Route
+          path="/clientes"
+          element={
+            <ProtectedRoute>
+              <Clientes />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CAJA
+        ================================= */}
+
+        <Route
+          path="/caja"
+          element={
+            <ProtectedRoute>
+              <Caja />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CRÉDITOS
+        ================================= */}
+
+        <Route
+          path="/creditos"
+          element={
+            <ProtectedRoute>
+              <Creditos />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            FACTURACIÓN
+        ================================= */}
+
+        <Route
+          path="/facturacion"
+          element={
+            <ProtectedRoute>
+              <Facturacion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            PRESUPUESTOS
+        ================================= */}
+
+        <Route
+          path="/facturacion/presupuestos"
+          element={
+            <ProtectedRoute>
+              <Presupuestos />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            FACTURAS
+        ================================= */}
+
+        <Route
+          path="/facturacion/facturas"
+          element={
+            <ProtectedRoute>
+              <Facturas />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            NOTAS DE CRÉDITO
+        ================================= */}
+
+        <Route
+          path="/facturacion/notas-credito"
+          element={
+            <ProtectedRoute>
+              <NotasCredito />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            RECTIFICACIONES
+        ================================= */}
+
+        <Route
+          path="/facturacion/rectificaciones"
+          element={
+            <ProtectedRoute>
+              <Rectificaciones />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            ANULACIONES
+        ================================= */}
+
+        <Route
+          path="/facturacion/anulaciones"
+          element={
+            <ProtectedRoute>
+              <Anulaciones />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            HISTORIAL / AUDITORÍA
+        ================================= */}
+
+        <Route
+          path="/facturacion/historial"
+          element={
+            <ProtectedRoute>
+              <HistorialFacturacion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            PRODUCTOS
+        ================================= */}
+
+        <Route
+          path="/productos"
+          element={
+            <ProtectedRoute>
+              <Productos />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CRM
+        ================================= */}
+
+        <Route
+          path="/crm"
+          element={
+            <ProtectedRoute>
+              <CRM />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            REPORTES
+        ================================= */}
+
+        <Route
+          path="/reportes"
+          element={
+            <ProtectedRoute>
+              <Reportes />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            CONFIGURACIÓN
+        ================================= */}
+
+        <Route
+          path="/configuracion"
+          element={
+            <ProtectedRoute>
+              <Configuracion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =================================
+            RAÍZ
+        ================================= */}
+
+        <Route
+          path="/"
+          element={
+            loading ? (
+              <LoadingScreen />
+            ) : user ? (
+              <Navigate
+                to="/dashboard"
+                replace
+              />
+            ) : (
+              <Navigate
+                to="/login"
+                replace
+              />
+            )
+          }
+        />
+
+        {/* =================================
+            RUTA DESCONOCIDA
+        ================================= */}
+
+        <Route
+          path="*"
+          element={
+            loading ? (
+              <LoadingScreen />
+            ) : user ? (
+              <Navigate
+                to="/dashboard"
+                replace
+              />
+            ) : (
+              <Navigate
+                to="/login"
+                replace
+              />
+            )
+          }
+        />
+
+      </Routes>
     </>
   );
 }
-
-export default App;

@@ -74,3 +74,163 @@ a {
     transform: rotate(360deg);
   }
 }
+/* =========================================
+   PLACEHOLDERS DE MÓDULOS
+========================================= */
+
+.module-placeholder-page {
+  min-height: 100vh;
+
+  display: grid;
+  place-items: center;
+
+  padding: 32px;
+
+  background:
+    radial-gradient(
+      circle at 10% 15%,
+      rgba(255, 106, 61, 0.06),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      #f8fafc 0%,
+      var(--bg) 100%
+    );
+}
+
+.module-placeholder-card {
+  width: min(620px, 100%);
+
+  padding: 44px;
+
+  text-align: center;
+
+  background: var(--surface);
+
+  border: 1px solid var(--line);
+
+  border-radius: 24px;
+
+  box-shadow: var(--shadow-strong);
+}
+
+.module-placeholder-icon {
+  width: 58px;
+  height: 58px;
+
+  display: grid;
+  place-items: center;
+
+  margin:
+    0
+    auto
+    22px;
+
+  color: var(--copper);
+
+  background:
+    rgba(255, 106, 61, 0.1);
+
+  border-radius: 17px;
+}
+
+.module-placeholder-kicker {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 0.72rem;
+  font-weight: 800;
+
+  letter-spacing: 0.1em;
+
+  text-transform: uppercase;
+
+  color: var(--copper);
+}
+
+.module-placeholder-card h1 {
+  margin-bottom: 12px;
+
+  font-size:
+    clamp(
+      1.7rem,
+      4vw,
+      2.4rem
+    );
+
+  letter-spacing: -0.04em;
+
+  color: var(--ink);
+}
+
+.module-placeholder-card p {
+  max-width: 450px;
+
+  margin:
+    0
+    auto;
+
+  font-size: 0.9rem;
+  line-height: 1.6;
+
+  color: var(--muted);
+}
+
+.module-placeholder-card button {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 28px;
+
+  padding:
+    12px
+    18px;
+
+  font-weight: 750;
+
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--copper),
+      #ff815d
+    );
+
+  border: 0;
+
+  border-radius: 13px;
+
+  box-shadow:
+    0 10px 22px
+    rgba(255, 106, 61, 0.2);
+
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.module-placeholder-card button:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    0 14px 28px
+    rgba(255, 106, 61, 0.26);
+}
+
+@media (max-width: 520px) {
+  .module-placeholder-page {
+    padding: 18px;
+  }
+
+  .module-placeholder-card {
+    padding:
+      35px
+      22px;
+  }
+}
