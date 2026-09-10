@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/(default)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function isActiveUser() {
+      return isSignedIn()
+        && firestore.exists(profilePath())
+        && firestore.get(profilePath()).data.activo != false;
+    }
+
+    function canTickets() {
+      return isActiveUser()
+        && (
+          firestore.get(profilePath()).data.rol == "Administrador"
+          || (
+            firestore.get(profilePath()).data.permisos is list
+            && firestore.get(profilePath()).data.permisos.hasAny([
+              "Acceso total al sistema",
+              "Ver y actualizar tickets asignados"
+            ])
+          )
+        );
+    }
+
+    match /tickets/{ticketId}/{fileName} {
+      allow read, write: if canTickets();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

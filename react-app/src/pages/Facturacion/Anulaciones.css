@@ -1,0 +1,823 @@
+.annulments-page,
+.annulments-page * {
+  box-sizing: border-box;
+}
+
+.annulments-page {
+  min-height: 100vh;
+  font-size: 15px;
+  color: var(--ink);
+  background: #f3f5f8;
+}
+
+.annulments-page button,
+.annulments-page input {
+  font: inherit;
+}
+
+/* HEADER */
+
+.annulments-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+
+  min-height: 72px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding:
+    11px
+    clamp(18px, 4vw, 54px);
+
+  background: rgba(255,255,255,.94);
+
+  border-bottom:
+    1px solid var(--line);
+
+  backdrop-filter:
+    blur(18px);
+}
+
+.annulments-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.annulments-back {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  color: #687486;
+  background: white;
+
+  border: 1px solid var(--line);
+  border-radius: 12px;
+
+  cursor: pointer;
+}
+
+.annulments-header-icon {
+  width: 42px;
+  height: 42px;
+
+  display: grid;
+  place-items: center;
+
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      #dc3d3d,
+      #f25b5b
+    );
+
+  border-radius: 12px;
+}
+
+.annulments-header-left > div:last-child > span {
+  display: block;
+  margin-bottom: 2px;
+
+  font-size: .7rem;
+  font-weight: 850;
+
+  letter-spacing: .08em;
+  text-transform: uppercase;
+
+  color: var(--muted);
+}
+
+.annulments-header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.annulments-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.annulments-sync > span {
+  width: 8px;
+  height: 8px;
+
+  background: var(--teal);
+  border-radius: 50%;
+}
+
+.annulments-sync > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.annulments-sync strong {
+  font-size: .72rem;
+}
+
+.annulments-sync small {
+  font-size: .64rem;
+  color: var(--muted);
+}
+
+/* CONTENT */
+
+.annulments-content {
+  width:
+    min(
+      1400px,
+      calc(100% - 44px)
+    );
+
+  margin: 0 auto;
+
+  padding:
+    34px
+    0
+    60px;
+}
+
+/* INTRO */
+
+.annulments-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  margin-bottom: 18px;
+}
+
+.annulments-kicker {
+  display: block;
+  margin-bottom: 5px;
+
+  font-size: .7rem;
+  font-weight: 850;
+
+  letter-spacing: .09em;
+  text-transform: uppercase;
+
+  color: var(--red);
+}
+
+.annulments-intro h2 {
+  margin: 0 0 6px;
+  font-size: 1.8rem;
+}
+
+.annulments-intro p {
+  margin: 0;
+
+  font-size: .86rem;
+  line-height: 1.55;
+
+  color: var(--muted);
+}
+
+.annulments-info {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 10px 12px;
+
+  background: white;
+
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.annulments-info svg {
+  color: var(--red);
+}
+
+.annulments-info > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.annulments-info strong {
+  font-size: .72rem;
+}
+
+.annulments-info span {
+  font-size: .65rem;
+  color: var(--muted);
+}
+
+/* STATS */
+
+.annulments-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 10px;
+
+  margin-bottom: 16px;
+}
+
+.annulments-stats article {
+  min-height: 110px;
+
+  padding: 14px;
+
+  background: white;
+
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--graphite);
+
+  border-radius: 13px;
+
+  box-shadow: var(--shadow-soft);
+}
+
+.annulments-stats article.annulled {
+  border-top-color: var(--red);
+}
+
+.annulments-stats article.cancelled {
+  border-top-color: var(--amber);
+}
+
+.annulments-stats article.amount {
+  border-top-color: var(--purple);
+}
+
+.annulments-stats span {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: .7rem;
+  font-weight: 800;
+
+  color: #647083;
+}
+
+.annulments-stats strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  font-size: 1.42rem;
+}
+
+.annulments-stats small {
+  font-size: .66rem;
+  color: var(--muted);
+}
+
+.annulments-money {
+  font-size: 1.08rem !important;
+}
+
+/* WORKSPACE */
+
+.annulments-workspace {
+  overflow: hidden;
+
+  background: white;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+
+  box-shadow: var(--shadow);
+}
+
+.annulments-toolbar {
+  min-height: 66px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding: 12px;
+
+  border-bottom:
+    1px solid var(--line);
+}
+
+.annulments-search {
+  position: relative;
+
+  width: min(560px, 100%);
+
+  display: flex;
+  align-items: center;
+}
+
+.annulments-search > svg {
+  position: absolute;
+  left: 12px;
+
+  color: #8e99a8;
+}
+
+.annulments-search input {
+  width: 100%;
+  height: 41px;
+
+  padding: 0 38px;
+
+  font-size: .8rem;
+
+  background: var(--surface-2);
+
+  border: 1px solid transparent;
+  border-radius: 10px;
+
+  outline: none;
+}
+
+.annulments-search button {
+  position: absolute;
+  right: 7px;
+
+  width: 28px;
+  height: 28px;
+
+  display: grid;
+  place-items: center;
+
+  background: transparent;
+  border: 0;
+
+  cursor: pointer;
+}
+
+.annulments-results {
+  font-size: .68rem;
+  color: var(--muted);
+}
+
+/* LAYOUT */
+
+.annulments-layout {
+  display: grid;
+
+  grid-template-columns:
+    minmax(430px, 1.1fr)
+    minmax(390px, .9fr);
+
+  min-height: 600px;
+}
+
+.annulments-list {
+  border-right:
+    1px solid var(--line);
+}
+
+/* ROW */
+
+.annulment-row {
+  width: 100%;
+  min-height: 92px;
+
+  display: grid;
+
+  grid-template-columns:
+    1fr
+    auto
+    20px;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 12px 14px;
+
+  text-align: left;
+
+  color: inherit;
+  background: white;
+
+  border: 0;
+  border-bottom:
+    1px solid var(--line);
+
+  cursor: pointer;
+}
+
+.annulment-row:hover {
+  background: #fafbfd;
+}
+
+.annulment-row.active {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(239,68,68,.055),
+      white 60%
+    );
+
+  box-shadow:
+    inset 3px 0 0
+    var(--red);
+}
+
+.annulment-row-top {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-bottom: 5px;
+}
+
+.annulment-row-top strong {
+  font-size: .72rem;
+
+  font-family: var(--mono);
+
+  color: var(--red);
+}
+
+.annulment-row-top span,
+.annulment-detail-status {
+  padding: 4px 7px;
+
+  font-size: .6rem;
+  font-weight: 850;
+
+  border-radius: 999px;
+}
+
+.annulment-status-annulled {
+  color: #b43131;
+  background: var(--danger-bg);
+}
+
+.annulment-status-cancelled {
+  color: #97620b;
+  background: var(--warn-bg);
+}
+
+.annulment-row h3 {
+  margin: 0 0 4px;
+
+  font-size: .86rem;
+}
+
+.annulment-row small {
+  font-size: .65rem;
+  color: var(--muted);
+}
+
+.annulment-row-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  gap: 3px;
+}
+
+.annulment-row-total strong {
+  font-size: .82rem;
+}
+
+.annulment-row-total span {
+  font-size: .63rem;
+  color: var(--muted);
+}
+
+/* DETAIL */
+
+.annulments-detail {
+  padding: 18px;
+
+  background: #fbfcfe;
+}
+
+.annulments-detail-empty {
+  min-height: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  text-align: center;
+
+  color: var(--muted);
+}
+
+.annulment-detail-header {
+  display: flex;
+  justify-content: space-between;
+
+  margin-bottom: 16px;
+}
+
+.annulment-detail-header > div > span {
+  font-size: .64rem;
+  font-weight: 800;
+
+  color: var(--muted);
+
+  text-transform: uppercase;
+}
+
+.annulment-detail-header h2 {
+  margin: 3px 0 0;
+
+  font-size: 1.1rem;
+
+  font-family: var(--mono);
+}
+
+.annulment-section {
+  margin-top: 17px;
+}
+
+.annulment-label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: .66rem;
+  font-weight: 850;
+
+  color: var(--muted);
+
+  text-transform: uppercase;
+}
+
+.annulment-client {
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 10px;
+
+  background: white;
+
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.annulment-client svg {
+  color: var(--red);
+}
+
+.annulment-client > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.annulment-client strong {
+  font-size: .79rem;
+}
+
+.annulment-client span {
+  font-size: .65rem;
+  color: var(--muted);
+}
+
+.annulment-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 7px;
+
+  margin-top: 10px;
+}
+
+.annulment-summary > div {
+  display: grid;
+
+  grid-template-columns:
+    18px
+    1fr;
+
+  gap: 2px 6px;
+
+  padding: 8px;
+
+  background: white;
+
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.annulment-summary svg {
+  grid-row: 1 / span 2;
+
+  color: #9aa4b2;
+}
+
+.annulment-summary span {
+  font-size: .61rem;
+  color: var(--muted);
+}
+
+.annulment-summary strong {
+  font-size: .7rem;
+}
+
+.annulment-credit-note {
+  display: grid;
+
+  grid-template-columns:
+    20px
+    1fr
+    18px;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 10px;
+
+  background: var(--purple-bg);
+
+  border-radius: 9px;
+}
+
+.annulment-credit-note > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.annulment-credit-note strong {
+  font-size: .74rem;
+}
+
+.annulment-credit-note span {
+  font-size: .64rem;
+  color: var(--muted);
+}
+
+.annulment-open-invoice {
+  margin-top: 12px;
+
+  display: inline-flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 8px 10px;
+
+  font-size: .69rem;
+  font-weight: 800;
+
+  color: var(--blue);
+
+  background: var(--blue-bg);
+
+  border:
+    1px solid rgba(59,130,246,.13);
+
+  border-radius: 8px;
+
+  cursor: pointer;
+}
+
+/* HISTORY */
+
+.annulment-history article {
+  display: grid;
+
+  grid-template-columns:
+    12px
+    1fr;
+
+  gap: 8px;
+
+  margin-bottom: 12px;
+}
+
+.annulment-history article > div {
+  width: 7px;
+  height: 7px;
+
+  margin-top: 5px;
+
+  background: var(--red);
+
+  border-radius: 50%;
+}
+
+.annulment-history header {
+  display: flex;
+  justify-content: space-between;
+
+  gap: 8px;
+}
+
+.annulment-history strong {
+  font-size: .7rem;
+}
+
+.annulment-history header span {
+  font-size: .61rem;
+  color: var(--muted);
+}
+
+.annulment-history p {
+  margin: 4px 0 0;
+
+  font-size: .68rem;
+  line-height: 1.5;
+
+  color: #5f6b7b;
+}
+
+/* STATES */
+
+.annulments-state {
+  min-height: 300px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  text-align: center;
+
+  color: var(--muted);
+}
+
+.annulments-loader {
+  width: 27px;
+  height: 27px;
+
+  border: 3px solid #e4e8ee;
+  border-top-color: var(--red);
+
+  border-radius: 50%;
+
+  animation:
+    annulmentSpin .7s linear infinite;
+}
+
+@keyframes annulmentSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1050px) {
+  .annulments-stats {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+  .annulments-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .annulments-list {
+    border-right: 0;
+    border-bottom:
+      1px solid var(--line);
+  }
+}
+
+@media (max-width: 650px) {
+  .annulments-content {
+    width:
+      calc(100% - 24px);
+  }
+
+  .annulments-intro {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .annulments-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .annulments-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .annulments-sync {
+    display: none;
+  }
+}
