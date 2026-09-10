@@ -30,6 +30,8 @@ import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 
 import Tickets from "./pages/Tickets/Tickets.jsx";
 
+import NuevoTicket from "./pages/Tickets/NuevoTicket.jsx";
+
 import TicketDetail from "./pages/Tickets/TicketDetail.jsx";
 
 /* =========================================
@@ -64,6 +66,8 @@ import Facturacion from "./pages/Facturacion/Facturacion.jsx";
 
 import Presupuestos from "./pages/Facturacion/Presupuestos.jsx";
 
+import NuevoPresupuesto from "./pages/Facturacion/NuevoPresupuesto.jsx";
+
 import Facturas from "./pages/Facturacion/Facturas.jsx";
 
 import NotasCredito from "./pages/Facturacion/NotasCredito.jsx";
@@ -73,6 +77,12 @@ import Rectificaciones from "./pages/Facturacion/Rectificaciones.jsx";
 import Anulaciones from "./pages/Facturacion/Anulaciones.jsx";
 
 import HistorialFacturacion from "./pages/Facturacion/HistorialFacturacion.jsx";
+
+/* =========================================
+   PRESUPUESTO PÚBLICO
+========================================= */
+
+import PresupuestoPublico from "./pages/PresupuestoPublico/PresupuestoPublico.jsx";
 
 /* =========================================
    PRODUCTOS
@@ -211,19 +221,23 @@ export default function App() {
 
   return (
     <>
-      {/* =================================
-          NOTIFICACIONES
-      ================================= */}
-
       <Toaster
         position="top-right"
       />
 
-      {/* =================================
-          ROUTER
-      ================================= */}
-
       <Routes>
+
+        {/* =================================
+            PRESUPUESTO PÚBLICO
+            SIN LOGIN
+        ================================= */}
+
+        <Route
+          path="/presupuesto/:token"
+          element={
+            <PresupuestoPublico />
+          }
+        />
 
         {/* =================================
             LOGIN
@@ -260,6 +274,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Tickets />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tickets/nuevo"
+          element={
+            <ProtectedRoute>
+              <NuevoTicket />
             </ProtectedRoute>
           }
         />
@@ -351,6 +374,15 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/facturacion/presupuestos/nuevo"
+          element={
+            <ProtectedRoute>
+              <NuevoPresupuesto />
+            </ProtectedRoute>
+          }
+        />
+
         {/* =================================
             FACTURAS
         ================================= */}
@@ -404,7 +436,7 @@ export default function App() {
         />
 
         {/* =================================
-            HISTORIAL / AUDITORÍA
+            HISTORIAL
         ================================= */}
 
         <Route

@@ -5,19 +5,52 @@ import {
   runTransaction,
 } from "firebase/firestore";
 
-import {
-  db,
-} from "./firebase.js";
+import { db } from "./firebase.js";
 
 /* =========================================
    HELPERS
 ========================================= */
 
 function pad(value) {
-  return String(value).padStart(
-    2,
-    "0"
+  return String(value).padStart(2, "0");
+}
+
+function formatDateYMD(date = new Date()) {
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-");
+}
+
+function cleanText(value) {
+  return String(value ?? "").trim();
+}
+
+function toNumber(value, fallback = 0) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function roundMoney(value) {
+  return (
+    Math.round(
+      (Number(value) + Number.EPSILON) * 100
+    ) / 100
   );
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+
+  result.setDate(
+    result.getDate() + days
+  );
+
+  return result;
 }
 
 function formatHistoryDate(
@@ -38,10 +71,9 @@ function formatHistoryDate(
     "Dic",
   ];
 
-  const day =
-    pad(
-      date.getDate()
-    );
+  const day = pad(
+    date.getDate()
+  );
 
   const month =
     months[
@@ -51,28 +83,21 @@ function formatHistoryDate(
   const year =
     date.getFullYear();
 
-  const hours =
-    pad(
-      date.getHours()
-    );
-
-  const minutes =
-    pad(
-      date.getMinutes()
-    );
-
-  return (
-    `${day} ${month} ${year} ${hours}:${minutes}`
+  const hours = pad(
+    date.getHours()
   );
+
+  const minutes = pad(
+    date.getMinutes()
+  );
+
+  return `${day} ${month} ${year} ${hours}:${minutes}`;
 }
 
-function cleanAuthor(
-  author
-) {
+function cleanAuthor(author) {
   const value =
     String(
-      author ||
-        ""
+      author || ""
     ).trim();
 
   return (
@@ -100,11 +125,14 @@ function createHistoryEntry({
 
     detalle:
       String(
-        detail ||
-          ""
+        detail || ""
       ).trim(),
   };
 }
+
+/* =========================================
+   VENCIMIENTO
+========================================= */
 
 function isBudgetExpired(
   budget
@@ -134,12 +162,14 @@ function isBudgetExpired(
   );
 }
 
+/* =========================================
+   VALIDAR PRESUPUESTO PENDIENTE
+========================================= */
+
 function assertBudgetPending(
   budget
 ) {
-  if (
-    !budget
-  ) {
+  if (!budget) {
     throw new Error(
       "BUDGET_NOT_FOUND"
     );
@@ -174,8 +204,6 @@ function assertBudgetPending(
   }
 
   if (
-    budget.estado ===
-      "Facturado" ||
     budget.facturaId
   ) {
     throw new Error(
@@ -201,14 +229,10 @@ export function subscribeToBudgets(
   return onSnapshot(
     budgetsRef,
 
-    (
-      snapshot
-    ) => {
+    (snapshot) => {
       const budgets =
         snapshot.docs.map(
-          (
-            document
-          ) => ({
+          (document) => ({
             id:
               document.id,
 
@@ -217,10 +241,7 @@ export function subscribeToBudgets(
         );
 
       budgets.sort(
-        (
-          a,
-          b
-        ) => {
+        (a, b) => {
           const dateA =
             new Date(
               a.actualizadoEn ||
@@ -255,26 +276,20 @@ export function subscribeToBudgets(
         }
       );
 
-      if (
-        onData
-      ) {
+      if (onData) {
         onData(
           budgets
         );
       }
     },
 
-    (
-      error
-    ) => {
+    (error) => {
       console.error(
         "Error escuchando presupuestos:",
         error
       );
 
-      if (
-        onError
-      ) {
+      if (onError) {
         onError(
           error
         );
@@ -292,9 +307,7 @@ export function subscribeToBudget(
   onData,
   onError
 ) {
-  if (
-    !budgetId
-  ) {
+  if (!budgetId) {
     return () => {};
   }
 
@@ -310,15 +323,11 @@ export function subscribeToBudget(
   return onSnapshot(
     budgetRef,
 
-    (
-      snapshot
-    ) => {
+    (snapshot) => {
       if (
         !snapshot.exists()
       ) {
-        if (
-          onData
-        ) {
+        if (onData) {
           onData(
             null
           );
@@ -327,9 +336,7 @@ export function subscribeToBudget(
         return;
       }
 
-      if (
-        onData
-      ) {
+      if (onData) {
         onData({
           id:
             snapshot.id,
@@ -339,17 +346,13 @@ export function subscribeToBudget(
       }
     },
 
-    (
-      error
-    ) => {
+    (error) => {
       console.error(
         `Error escuchando presupuesto ${budgetId}:`,
         error
       );
 
-      if (
-        onError
-      ) {
+      if (onError) {
         onError(
           error
         );
@@ -366,9 +369,7 @@ export async function acceptBudget(
   budgetId,
   author
 ) {
-  if (
-    !budgetId
-  ) {
+  if (!budgetId) {
     throw new Error(
       "BUDGET_REQUIRED"
     );
@@ -419,7 +420,7 @@ export async function acceptBudget(
       );
 
       /* =================================
-         SI TIENE TICKET, LEERLO
+         TICKET ASOCIADO
       ================================= */
 
       const ticketId =
@@ -435,9 +436,7 @@ export async function acceptBudget(
       let ticketData =
         null;
 
-      if (
-        ticketId
-      ) {
+      if (ticketId) {
         ticketRef =
           doc(
             db,
@@ -486,15 +485,14 @@ export async function acceptBudget(
           ? budget.historial
           : [];
 
-      /* =================================
-         ACTUALIZAR PRESUPUESTO
-      ================================= */
-
       transaction.update(
         budgetRef,
         {
           estado:
             "Aceptado",
+
+          presupuestoAprobado:
+            true,
 
           actualizadoEn:
             nowISO,
@@ -547,6 +545,9 @@ export async function acceptBudget(
             stage:
               "reparacion",
 
+            actualizadoEn:
+              nowISO,
+
             historial: [
               ...ticketHistory,
               ticketHistoryEntry,
@@ -584,9 +585,7 @@ export async function rejectBudget(
   reason = "",
   author
 ) {
-  if (
-    !budgetId
-  ) {
+  if (!budgetId) {
     throw new Error(
       "BUDGET_REQUIRED"
     );
@@ -599,8 +598,7 @@ export async function rejectBudget(
 
   const cleanReason =
     String(
-      reason ||
-        ""
+      reason || ""
     ).trim();
 
   const budgetRef =
@@ -659,9 +657,7 @@ export async function rejectBudget(
       let ticketData =
         null;
 
-      if (
-        ticketId
-      ) {
+      if (ticketId) {
         ticketRef =
           doc(
             db,
@@ -718,6 +714,9 @@ export async function rejectBudget(
           estado:
             "Rechazado",
 
+          presupuestoAprobado:
+            false,
+
           actualizadoEn:
             nowISO,
 
@@ -729,7 +728,7 @@ export async function rejectBudget(
       );
 
       /* =================================
-         HISTORIAL TICKET
+         ACTUALIZAR TICKET
       ================================= */
 
       if (
@@ -768,8 +767,19 @@ export async function rejectBudget(
             presupuestoId:
               cleanBudgetId,
 
+            /*
+             * Conservamos por ahora
+             * el comportamiento anterior.
+             *
+             * Más adelante podemos crear un
+             * estado específico para
+             * "Presupuesto rechazado".
+             */
             stage:
               "noreparable",
+
+            actualizadoEn:
+              nowISO,
 
             historial: [
               ...ticketHistory,
@@ -799,9 +809,449 @@ export async function rejectBudget(
   return result;
 }
 
+/* =========================================
+   CREAR PRESUPUESTO MANUAL
+========================================= */
+
+export async function createManualBudget({
+  client,
+  items = [],
+  discountPercent = 0,
+  validityDays = 15,
+  observations = "",
+  author = "Sistema",
+} = {}) {
+  /* =======================================
+     VALIDAR CLIENTE
+  ======================================= */
+
+  if (!client?.id) {
+    throw new Error(
+      "BUDGET_CLIENT_REQUIRED"
+    );
+  }
+
+  if (
+    client.archivado ===
+    true
+  ) {
+    throw new Error(
+      "BUDGET_CLIENT_ARCHIVED"
+    );
+  }
+
+  /* =======================================
+     VALIDAR ITEMS
+  ======================================= */
+
+  if (
+    !Array.isArray(
+      items
+    ) ||
+    items.length === 0
+  ) {
+    throw new Error(
+      "BUDGET_ITEMS_REQUIRED"
+    );
+  }
+
+  const normalizedItems =
+    items.map(
+      (item) => {
+        const description =
+          cleanText(
+            item?.descripcion
+          );
+
+        const quantity =
+          toNumber(
+            item?.cantidad,
+            0
+          );
+
+        const price =
+          toNumber(
+            item?.precio,
+            -1
+          );
+
+        if (
+          !description ||
+          quantity <= 0 ||
+          price < 0
+        ) {
+          throw new Error(
+            "BUDGET_ITEM_INVALID"
+          );
+        }
+
+        return {
+          descripcion:
+            description,
+
+          cantidad:
+            quantity,
+
+          precio:
+            roundMoney(
+              price
+            ),
+
+          subtotal:
+            roundMoney(
+              quantity *
+                price
+            ),
+
+          sku:
+            cleanText(
+              item?.sku
+            ),
+
+          tipo:
+            cleanText(
+              item?.tipo
+            ) ||
+            "Concepto manual",
+        };
+      }
+    );
+
+  /* =======================================
+     TOTALES
+  ======================================= */
+
+  const subtotal =
+    roundMoney(
+      normalizedItems.reduce(
+        (
+          sum,
+          item
+        ) =>
+          sum +
+          item.subtotal,
+        0
+      )
+    );
+
+  const cleanDiscount =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        toNumber(
+          discountPercent,
+          0
+        )
+      )
+    );
+
+  const discountAmount =
+    roundMoney(
+      subtotal *
+        (
+          cleanDiscount /
+          100
+        )
+    );
+
+  const total =
+    roundMoney(
+      Math.max(
+        0,
+        subtotal -
+          discountAmount
+      )
+    );
+
+  if (
+    total <= 0
+  ) {
+    throw new Error(
+      "BUDGET_TOTAL_INVALID"
+    );
+  }
+
+  /* =======================================
+     VIGENCIA
+  ======================================= */
+
+  const cleanValidityDays =
+    Math.max(
+      1,
+      Math.trunc(
+        toNumber(
+          validityDays,
+          15
+        )
+      )
+    );
+
+  const now =
+    new Date();
+
+  const nowISO =
+    now.toISOString();
+
+  const date =
+    formatDateYMD(
+      now
+    );
+
+  const expirationDate =
+    formatDateYMD(
+      addDays(
+        now,
+        cleanValidityDays
+      )
+    );
+
+  /* =======================================
+     CONTADOR
+  ======================================= */
+
+  const counterRef =
+    doc(
+      db,
+      "negocio",
+      "contadores"
+    );
+
+  let result =
+    null;
+
+  await runTransaction(
+    db,
+
+    async (
+      transaction
+    ) => {
+      const counterSnapshot =
+        await transaction.get(
+          counterRef
+        );
+
+      const currentCounter =
+        counterSnapshot.exists()
+          ? toNumber(
+              counterSnapshot
+                .data()
+                ?.presupuestos,
+              0
+            )
+          : 0;
+
+      const nextCounter =
+        currentCounter + 1;
+
+      const budgetId =
+        `PRE-${String(
+          nextCounter
+        ).padStart(
+          6,
+          "0"
+        )}`;
+
+      const budgetRef =
+        doc(
+          db,
+          "presupuestos",
+          budgetId
+        );
+
+      /* =================================
+         CLIENTE
+      ================================= */
+
+      const clientName =
+        cleanText(
+          client.razonSocial
+        ) ||
+        cleanText(
+          `${
+            client.nombre ||
+            ""
+          } ${
+            client.apellido ||
+            ""
+          }`
+        ) ||
+        cleanText(
+          client.name
+        ) ||
+        "Cliente";
+
+      const documentNumber =
+        cleanText(
+          client.cuit
+        ) ||
+        cleanText(
+          client.dni
+        ) ||
+        cleanText(
+          client.documento
+        ) ||
+        "C.F.";
+
+      const cleanAuthorValue =
+        cleanAuthor(
+          author
+        );
+
+      /* =================================
+         HISTORIAL
+      ================================= */
+
+      const historyEntry =
+        createHistoryEntry({
+          author:
+            cleanAuthorValue,
+
+          action:
+            "Presupuesto manual creado",
+
+          detail:
+            `Presupuesto ${budgetId} creado manualmente. Total: ${total}.`,
+        });
+
+      /* =================================
+         DOCUMENTO
+      ================================= */
+
+      const budget = {
+        id:
+          budgetId,
+
+        numero:
+          budgetId,
+
+        fecha:
+          date,
+
+        hora:
+          now.toLocaleTimeString(
+            "es-AR",
+            {
+              hour:
+                "2-digit",
+
+              minute:
+                "2-digit",
+            }
+          ),
+
+        fechaVencimiento:
+          expirationDate,
+
+        validezDias:
+          cleanValidityDays,
+
+        vigencia:
+          expirationDate,
+
+        clienteId:
+          client.id,
+
+        cliente:
+          clientName,
+
+        doc:
+          documentNumber,
+
+        origen:
+          "Manual",
+
+        ticketId:
+          null,
+
+        ticketNumero:
+          null,
+
+        estado:
+          "Pendiente",
+
+        presupuestoFijado:
+          true,
+
+        presupuestoAprobado:
+          false,
+
+        items:
+          normalizedItems,
+
+        subtotal,
+
+        descuento:
+          discountAmount,
+
+        descuentoImporte:
+          discountAmount,
+
+        descuentoPorcentaje:
+          cleanDiscount,
+
+        total,
+
+        observaciones:
+          cleanText(
+            observations
+          ),
+
+        usuario:
+          cleanAuthorValue,
+
+        creadoEn:
+          nowISO,
+
+        actualizadoEn:
+          nowISO,
+
+        historial: [
+          historyEntry,
+        ],
+      };
+
+      /* =================================
+         ACTUALIZAR CONTADOR
+      ================================= */
+
+      transaction.set(
+        counterRef,
+        {
+          presupuestos:
+            nextCounter,
+        },
+        {
+          merge:
+            true,
+        }
+      );
+
+      /* =================================
+         CREAR PRESUPUESTO
+      ================================= */
+
+      transaction.set(
+        budgetRef,
+        budget
+      );
+
+      result =
+        budget;
+    }
+  );
+
+  return result;
+}
+
+/* =========================================
+   EXPORT DEFAULT
+========================================= */
+
 export default {
   subscribeToBudgets,
   subscribeToBudget,
+  createManualBudget,
   acceptBudget,
   rejectBudget,
 };

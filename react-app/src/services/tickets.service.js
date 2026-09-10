@@ -8,91 +8,63 @@ import {
   onSnapshot,
   query,
   runTransaction,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
 
 import {
   db,
+  storage,
 } from "./firebase.js";
+
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 
 /* =========================================
    ESTADOS DE TICKET
 ========================================= */
 
 const TICKET_STAGE_LABELS = {
-  pendiente:
-    "Recibido",
-
-  diagnostico:
-    "En diagnóstico",
-
-  presupuesto:
-    "Esperando aprobación",
-
-  reparacion:
-    "En reparación",
-
-  repuesto:
-    "Esperando repuesto",
-
-  listo:
-    "Listo para entrega",
-
-  entregado:
-    "Entregado",
-
-  noreparable:
-    "No reparable",
-
-  cancelado:
-    "Cancelado / Retirado",
-
-  garantia:
-    "Garantía",
+  pendiente: "Recibido",
+  diagnostico: "En diagnóstico",
+  presupuesto: "Esperando aprobación",
+  reparacion: "En reparación",
+  repuesto: "Esperando repuesto",
+  listo: "Listo para entrega",
+  entregado: "Entregado",
+  noreparable: "No reparable",
+  cancelado: "Cancelado / Retirado",
+  garantia: "Garantía",
 };
 
 /* =========================================
    HELPERS
 ========================================= */
 
-function getStageLabel(
-  stage
-) {
+function getStageLabel(stage) {
   return (
-    TICKET_STAGE_LABELS[
-      stage
-    ] ||
+    TICKET_STAGE_LABELS[stage] ||
     stage ||
     "Sin estado"
   );
 }
 
-function pad(
-  value
-) {
-  return String(
-    value
-  ).padStart(
+function pad(value) {
+  return String(value).padStart(
     2,
     "0"
   );
 }
 
-function formatDateYMD(
-  date
-) {
+function formatDateYMD(date) {
   return [
     date.getFullYear(),
-
-    pad(
-      date.getMonth() +
-        1
-    ),
-
-    pad(
-      date.getDate()
-    ),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
   ].join("-");
 }
 
@@ -102,11 +74,8 @@ function formatTimeAR(
   return date.toLocaleTimeString(
     "es-AR",
     {
-      hour:
-        "2-digit",
-
-      minute:
-        "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     }
   );
 }
@@ -129,50 +98,36 @@ function formatHistoryDate(
     "Dic",
   ];
 
-  const day =
-    pad(
-      date.getDate()
-    );
+  const day = pad(
+    date.getDate()
+  );
 
   const month =
-    months[
-      date.getMonth()
-    ];
+    months[date.getMonth()];
 
   const year =
     date.getFullYear();
 
-  const hours =
-    pad(
-      date.getHours()
-    );
-
-  const minutes =
-    pad(
-      date.getMinutes()
-    );
-
-  return (
-    `${day} ${month} ${year} ${hours}:${minutes}`
+  const hours = pad(
+    date.getHours()
   );
+
+  const minutes = pad(
+    date.getMinutes()
+  );
+
+  return `${day} ${month} ${year} ${hours}:${minutes}`;
 }
 
-function formatDisplayYMD(
-  value
-) {
+function formatDisplayYMD(value) {
   if (!value) {
     return "";
   }
 
   const parts =
-    String(
-      value
-    ).split("-");
+    String(value).split("-");
 
-  if (
-    parts.length !==
-    3
-  ) {
+  if (parts.length !== 3) {
     return value;
   }
 
@@ -198,17 +153,11 @@ function formatDisplayYMD(
   ];
 
   const monthIndex =
-    Number(
-      month
-    ) - 1;
+    Number(month) - 1;
 
-  return (
-    `${day} ${
-      months[
-        monthIndex
-      ] || month
-    } ${year}`
-  );
+  return `${day} ${
+    months[monthIndex] || month
+  } ${year}`;
 }
 
 function addDays(
@@ -216,30 +165,61 @@ function addDays(
   days
 ) {
   const result =
-    new Date(
-      date
-    );
+    new Date(date);
 
   result.setDate(
-    result.getDate() +
-      days
+    result.getDate() + days
   );
 
   return result;
 }
 
-function cleanAuthor(
-  author
-) {
+function cleanAuthor(author) {
   const value =
     String(
-      author ||
-        ""
+      author || ""
     ).trim();
 
+  return value || "Sistema";
+}
+
+function cleanText(value) {
+  return String(
+    value ?? ""
+  ).trim();
+}
+
+function normalizeNumber(
+  value,
+  fallback = 0
+) {
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function clamp(
+  value,
+  min,
+  max
+) {
+  return Math.min(
+    max,
+    Math.max(min, value)
+  );
+}
+
+function roundMoney(value) {
   return (
-    value ||
-    "Sistema"
+    Math.round(
+      (
+        Number(value) +
+        Number.EPSILON
+      ) * 100
+    ) / 100
   );
 }
 
@@ -253,17 +233,14 @@ function createHistoryEntry({
       formatHistoryDate(),
 
     autor:
-      cleanAuthor(
-        author
-      ),
+      cleanAuthor(author),
 
     accion:
       action,
 
     detalle:
       String(
-        detail ||
-          ""
+        detail || ""
       ).trim(),
   };
 }
@@ -278,76 +255,22 @@ function createBudgetHistoryEntry({
       formatHistoryDate(),
 
     autor:
-      cleanAuthor(
-        author
-      ),
+      cleanAuthor(author),
 
     accion:
       action,
 
     detalle:
       String(
-        detail ||
-          ""
+        detail || ""
       ).trim(),
   };
-}
-
-function normalizeNumber(
-  value,
-  fallback = 0
-) {
-  const number =
-    Number(
-      value
-    );
-
-  return Number.isFinite(
-    number
-  )
-    ? number
-    : fallback;
-}
-
-function clamp(
-  value,
-  min,
-  max
-) {
-  return Math.min(
-    max,
-    Math.max(
-      min,
-      value
-    )
-  );
-}
-
-function roundMoney(
-  value
-) {
-  return (
-    Math.round(
-      (
-        Number(
-          value
-        ) +
-        Number.EPSILON
-      ) *
-        100
-    ) /
-    100
-  );
 }
 
 function calculatePiecesTotal(
   pieces
 ) {
-  if (
-    !Array.isArray(
-      pieces
-    )
-  ) {
+  if (!Array.isArray(pieces)) {
     return 0;
   }
 
@@ -377,8 +300,7 @@ function calculatePiecesTotal(
 
         return (
           total +
-          quantity *
-            price
+          quantity * price
         );
       },
       0
@@ -387,8 +309,7 @@ function calculatePiecesTotal(
 }
 
 /* =========================================
-   CONVERTIR PIEZAS DEL TICKET
-   A ITEMS DE PRESUPUESTO
+   ITEMS PRESUPUESTO
 ========================================= */
 
 function buildBudgetItems(
@@ -397,15 +318,9 @@ function buildBudgetItems(
 ) {
   const items = [];
 
-  if (
-    Array.isArray(
-      pieces
-    )
-  ) {
+  if (Array.isArray(pieces)) {
     pieces.forEach(
-      (
-        piece
-      ) => {
+      (piece) => {
         const description =
           String(
             piece?.nombre ||
@@ -459,16 +374,12 @@ function buildBudgetItems(
     );
   }
 
-  if (
-    labor >
-    0
-  ) {
+  if (labor > 0) {
     items.push({
       descripcion:
         "Mano de obra",
 
-      cantidad:
-        1,
+      cantidad: 1,
 
       precio:
         labor,
@@ -476,8 +387,7 @@ function buildBudgetItems(
       subtotal:
         labor,
 
-      sku:
-        "",
+      sku: "",
 
       tipo:
         "Mano de obra",
@@ -488,20 +398,13 @@ function buildBudgetItems(
 }
 
 /* =========================================
-   PRESUPUESTO YA EXISTENTE PARA TICKET
-
-   Esto también nos sirve para migración:
-   si ya había un presupuesto asociado al
-   ticket pero el ticket todavía no tenía
-   presupuestoId, lo reutilizamos.
+   BUSCAR PRESUPUESTO POR TICKET
 ========================================= */
 
 async function findBudgetIdByTicket(
   ticketId
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     return null;
   }
 
@@ -511,15 +414,11 @@ async function findBudgetIdByTicket(
         db,
         "presupuestos"
       ),
-
       where(
         "ticketId",
         "==",
-        String(
-          ticketId
-        )
+        String(ticketId)
       ),
-
       limit(1)
     );
 
@@ -528,20 +427,15 @@ async function findBudgetIdByTicket(
       presupuestoQuery
     );
 
-  if (
-    snapshot.empty
-  ) {
+  if (snapshot.empty) {
     return null;
   }
 
-  return (
-    snapshot.docs[0].id
-  );
+  return snapshot.docs[0].id;
 }
 
 /* =========================================
-   VALIDAR QUE EL PRESUPUESTO
-   NO HAYA PASADO YA A CAJA/FACTURACIÓN
+   VALIDAR PRESUPUESTO
 ========================================= */
 
 function assertBudgetCanBeModified(
@@ -574,6 +468,546 @@ function assertBudgetCanBeModified(
       "BUDGET_ALREADY_IN_CASH"
     );
   }
+}
+
+/* =========================================
+   FOTOS
+========================================= */
+
+function sanitizePhotoName(
+  name
+) {
+  return (
+    cleanText(name)
+      .replace(
+        /[^a-zA-Z0-9._-]+/g,
+        "-"
+      )
+      .replace(
+        /-+/g,
+        "-"
+      )
+      .slice(
+        0,
+        100
+      ) ||
+    "foto"
+  );
+}
+
+async function uploadTicketPhotos(
+  ticketId,
+  files = []
+) {
+  const source =
+    Array.from(
+      files || []
+    ).filter(Boolean);
+
+  if (!source.length) {
+    return [];
+  }
+
+  const urls = [];
+
+  for (
+    const file of source
+  ) {
+    if (
+      !file?.type?.startsWith(
+        "image/"
+      )
+    ) {
+      throw new Error(
+        "TICKET_PHOTO_INVALID"
+      );
+    }
+
+    if (
+      Number(
+        file.size || 0
+      ) >
+      8 * 1024 * 1024
+    ) {
+      throw new Error(
+        "TICKET_PHOTO_TOO_LARGE"
+      );
+    }
+
+    const path =
+      `tickets/${ticketId}/${Date.now()}_${sanitizePhotoName(
+        file.name
+      )}`;
+
+    const fileRef =
+      storageRef(
+        storage,
+        path
+      );
+
+    await uploadBytes(
+      fileRef,
+      file,
+      {
+        contentType:
+          file.type ||
+          "image/jpeg",
+      }
+    );
+
+    const url =
+      await getDownloadURL(
+        fileRef
+      );
+
+    urls.push(url);
+  }
+
+  return urls;
+}
+
+/* =========================================
+   PRÓXIMO NÚMERO DE TICKET
+========================================= */
+
+async function getNextTicketId() {
+  const counterRef =
+    doc(
+      db,
+      "negocio",
+      "contadores"
+    );
+
+  let ticketNumber = 1000;
+
+  await runTransaction(
+    db,
+
+    async (
+      transaction
+    ) => {
+      const snapshot =
+        await transaction.get(
+          counterRef
+        );
+
+      if (
+        !snapshot.exists()
+      ) {
+        ticketNumber = 1000;
+
+        transaction.set(
+          counterRef,
+
+          {
+            tickets: 1001,
+          },
+
+          {
+            merge: true,
+          }
+        );
+
+        return;
+      }
+
+      const current =
+        Number(
+          snapshot
+            .data()
+            ?.tickets
+        );
+
+      ticketNumber =
+        Number.isFinite(
+          current
+        ) &&
+        current >= 1000
+          ? current
+          : 1000;
+
+      transaction.update(
+        counterRef,
+
+        {
+          tickets:
+            ticketNumber + 1,
+        }
+      );
+    }
+  );
+
+  return `TK-${ticketNumber}`;
+}
+
+/* =========================================
+   CREAR TICKET
+========================================= */
+
+export async function createTicket({
+  client = null,
+  clientName = "",
+  serviceType = "Taller",
+
+  priority = "P2",
+
+  technician =
+    "Sin asignar",
+
+  equipment = "Otro",
+
+  brand = "",
+  model = "",
+  serial = "",
+  pin = "",
+  specs = "",
+
+  physicalState = {},
+
+  accessories = {},
+
+  condition = "",
+
+  issue = "",
+
+  homeService = {},
+
+  remoteService = {},
+
+  photos = [],
+
+  warrantyDays = 30,
+
+  author = "Sistema",
+} = {}) {
+  const normalizedIssue =
+    cleanText(issue);
+
+  if (!normalizedIssue) {
+    throw new Error(
+      "TICKET_ISSUE_REQUIRED"
+    );
+  }
+
+  if (
+    client?.archivado ===
+    true
+  ) {
+    throw new Error(
+      "TICKET_CLIENT_ARCHIVED"
+    );
+  }
+
+  const allowedServiceTypes =
+    [
+      "Taller",
+      "Domicilio",
+      "Remoto",
+    ];
+
+  const normalizedServiceType =
+    allowedServiceTypes.includes(
+      serviceType
+    )
+      ? serviceType
+      : "Taller";
+
+  const allowedPriorities =
+    [
+      "P1",
+      "P2",
+      "P3",
+    ];
+
+  const normalizedPriority =
+    allowedPriorities.includes(
+      priority
+    )
+      ? priority
+      : "P2";
+
+  if (
+    normalizedServiceType ===
+      "Domicilio" &&
+    !cleanText(
+      homeService?.direccion
+    )
+  ) {
+    throw new Error(
+      "TICKET_HOME_ADDRESS_REQUIRED"
+    );
+  }
+
+  if (
+    normalizedServiceType ===
+      "Remoto" &&
+    !cleanText(
+      remoteService?.idConexion
+    )
+  ) {
+    throw new Error(
+      "TICKET_REMOTE_ID_REQUIRED"
+    );
+  }
+
+  const id =
+    await getNextTicketId();
+
+  const now =
+    new Date();
+
+  const createdAt =
+    now.toISOString();
+
+  const ingreso =
+    formatDisplayYMD(
+      formatDateYMD(now)
+    );
+
+  const resolvedClientName =
+    cleanText(
+      clientName
+    ) ||
+    cleanText(
+      client?.razonSocial
+    ) ||
+    cleanText(
+      `${
+        client?.nombre ||
+        ""
+      } ${
+        client?.apellido ||
+        ""
+      }`
+    ) ||
+    cleanText(
+      client?.name
+    ) ||
+    "Mostrador";
+
+  const photoUrls =
+    await uploadTicketPhotos(
+      id,
+      photos
+    );
+
+  const ticket = {
+    id,
+
+    clienteId:
+      client?.id ||
+      null,
+
+    cliente:
+      resolvedClientName,
+
+    tipoServicio:
+      normalizedServiceType,
+
+    estadoPago:
+      "Pendiente",
+
+    estadoFacturacion:
+      "No facturado",
+
+    estadoCaja:
+      "No enviado",
+
+    equipo:
+      cleanText(
+        equipment
+      ) ||
+      "Otro",
+
+    marca:
+      cleanText(brand),
+
+    modelo:
+      cleanText(model),
+
+    serie:
+      cleanText(serial),
+
+    pin:
+      cleanText(pin),
+
+    specs:
+      cleanText(specs),
+
+    estadoFisico: {
+      pantalla:
+        Boolean(
+          physicalState?.pantalla
+        ),
+
+      carcasa:
+        Boolean(
+          physicalState?.carcasa
+        ),
+
+      teclado:
+        Boolean(
+          physicalState?.teclado
+        ),
+
+      cargador:
+        Boolean(
+          physicalState?.cargador
+        ),
+
+      bateria:
+        Boolean(
+          physicalState?.bateria
+        ),
+
+      puertos:
+        Boolean(
+          physicalState?.puertos
+        ),
+    },
+
+    accesoriosObj: {
+      cargador:
+        Boolean(
+          accessories?.cargador
+        ),
+
+      funda:
+        Boolean(
+          accessories?.funda
+        ),
+
+      cable:
+        Boolean(
+          accessories?.cable
+        ),
+    },
+
+    condicion:
+      cleanText(condition),
+
+    falla:
+      normalizedIssue,
+
+    fotos:
+      photoUrls,
+
+    datosDomicilio: {
+      direccion:
+        cleanText(
+          homeService?.direccion
+        ),
+
+      fecha:
+        cleanText(
+          homeService?.fecha
+        ),
+
+      hora:
+        cleanText(
+          homeService?.hora
+        ),
+
+      contacto:
+        cleanText(
+          homeService?.contacto
+        ),
+    },
+
+    datosRemoto: {
+      plataforma:
+        cleanText(
+          remoteService
+            ?.plataforma
+        ) ||
+        "AnyDesk",
+
+      idConexion:
+        cleanText(
+          remoteService
+            ?.idConexion
+        ),
+
+      clave:
+        cleanText(
+          remoteService?.clave
+        ),
+    },
+
+    presupuestoFijado:
+      false,
+
+    presupuestoEstimado:
+      0,
+
+    presupuestoAprobado:
+      false,
+
+    presupuestoEstado:
+      "Pendiente",
+
+    prioridad:
+      normalizedPriority,
+
+    stage:
+      "pendiente",
+
+    tecnico:
+      cleanText(
+        technician
+      ) ||
+      "Sin asignar",
+
+    ingreso,
+
+    creadoEn:
+      createdAt,
+
+    actualizadoEn:
+      createdAt,
+
+    garantiaDias:
+      Math.max(
+        0,
+        Math.trunc(
+          normalizeNumber(
+            warrantyDays,
+            30
+          )
+        )
+      ),
+
+    diagnostico:
+      "Pendiente de revisión inicial.",
+
+    piezas: [],
+
+    historial: [
+      createHistoryEntry({
+        author,
+
+        action:
+          "Ticket creado",
+
+        detail:
+          `Check-in inicial. Servicio: ${normalizedServiceType}`,
+      }),
+    ],
+
+    notas: [],
+  };
+
+  await setDoc(
+    doc(
+      db,
+      "tickets",
+      id
+    ),
+
+    ticket
+  );
+
+  return ticket;
 }
 
 /* =========================================
@@ -614,14 +1048,28 @@ export function subscribeToTickets(
             a,
             b
           ) => {
+            const matchA =
+              String(
+                a.id || ""
+              ).match(
+                /(\d+)$/
+              );
+
+            const matchB =
+              String(
+                b.id || ""
+              ).match(
+                /(\d+)$/
+              );
+
             const numberA =
               Number(
-                a.id
+                matchA?.[1]
               );
 
             const numberB =
               Number(
-                b.id
+                matchB?.[1]
               );
 
             if (
@@ -641,20 +1089,14 @@ export function subscribeToTickets(
             return String(
               b.id
             ).localeCompare(
-              String(
-                a.id
-              )
+              String(a.id)
             );
           }
         );
 
-        if (
-          onData
-        ) {
-          onData(
-            tickets
-          );
-        }
+        onData?.(
+          tickets
+        );
       },
 
       (
@@ -665,13 +1107,9 @@ export function subscribeToTickets(
           error
         );
 
-        if (
-          onError
-        ) {
-          onError(
-            error
-          );
-        }
+        onError?.(
+          error
+        );
       }
     );
 
@@ -687,9 +1125,7 @@ export function subscribeToTicket(
   onData,
   onError
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     return () => {};
   }
 
@@ -697,67 +1133,46 @@ export function subscribeToTicket(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
+      String(ticketId)
     );
 
-  const unsubscribe =
-    onSnapshot(
-      ticketRef,
+  return onSnapshot(
+    ticketRef,
 
-      (
-        snapshot
-      ) => {
-        if (
-          !snapshot.exists()
-        ) {
-          if (
-            onData
-          ) {
-            onData(
-              null
-            );
-          }
-
-          return;
-        }
-
-        const ticket = {
-          id:
-            snapshot.id,
-
-          ...snapshot.data(),
-        };
-
-        if (
-          onData
-        ) {
-          onData(
-            ticket
-          );
-        }
-      },
-
-      (
-        error
-      ) => {
-        console.error(
-          `Error escuchando ticket ${ticketId}:`,
-          error
+    (
+      snapshot
+    ) => {
+      if (
+        !snapshot.exists()
+      ) {
+        onData?.(
+          null
         );
 
-        if (
-          onError
-        ) {
-          onError(
-            error
-          );
-        }
+        return;
       }
-    );
 
-  return unsubscribe;
+      onData?.({
+        id:
+          snapshot.id,
+
+        ...snapshot.data(),
+      });
+    },
+
+    (
+      error
+    ) => {
+      console.error(
+        `Error escuchando ticket ${ticketId}:`,
+        error
+      );
+
+      onError?.(
+        error
+      );
+    }
+  );
 }
 
 /* =========================================
@@ -769,17 +1184,13 @@ export async function updateTicketStage(
   newStage,
   author
 ) {
-  if (
-    !ticket?.id
-  ) {
+  if (!ticket?.id) {
     throw new Error(
       "TICKET_REQUIRED"
     );
   }
 
-  if (
-    !newStage
-  ) {
+  if (!newStage) {
     throw new Error(
       "STAGE_REQUIRED"
     );
@@ -794,11 +1205,8 @@ export async function updateTicketStage(
     newStage
   ) {
     return {
-      changed:
-        false,
-
-      stage:
-        newStage,
+      changed: false,
+      stage: newStage,
     };
   }
 
@@ -815,23 +1223,22 @@ export async function updateTicketStage(
   const updates = {
     stage:
       newStage,
+
+    actualizadoEn:
+      new Date()
+        .toISOString(),
   };
 
   let logDetail =
     `${oldStageLabel} → ${newStageLabel}`;
 
-  /* LISTO */
-
   if (
-    newStage ===
-    "listo"
+    newStage === "listo"
   ) {
     updates.fechaListo =
       new Date()
         .toISOString();
   }
-
-  /* ENTREGADO */
 
   if (
     newStage ===
@@ -841,7 +1248,8 @@ export async function updateTicketStage(
       Math.max(
         0,
         normalizeNumber(
-          ticket.garantiaDias,
+          ticket
+            .garantiaDias,
           30
         )
       );
@@ -867,7 +1275,9 @@ export async function updateTicketStage(
 
     logDetail +=
       ` | Garantía activada por ${warrantyDays} días` +
-      ` (hasta ${formatDisplayYMD(expirationYMD)}).`;
+      ` (hasta ${formatDisplayYMD(
+        expirationYMD
+      )}).`;
   }
 
   const historyEntry =
@@ -886,23 +1296,20 @@ export async function updateTicketStage(
       historyEntry
     );
 
-  const ticketRef =
+  await updateDoc(
     doc(
       db,
       "tickets",
       String(
         ticket.id
       )
-    );
+    ),
 
-  await updateDoc(
-    ticketRef,
     updates
   );
 
   return {
-    changed:
-      true,
+    changed: true,
 
     stage:
       newStage,
@@ -923,9 +1330,7 @@ export async function updateTicketDiagnosis(
   diagnosis,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
@@ -933,13 +1338,10 @@ export async function updateTicketDiagnosis(
 
   const cleanDiagnosis =
     String(
-      diagnosis ||
-        ""
+      diagnosis || ""
     ).trim();
 
-  if (
-    !cleanDiagnosis
-  ) {
+  if (!cleanDiagnosis) {
     throw new Error(
       "DIAGNOSIS_REQUIRED"
     );
@@ -956,20 +1358,20 @@ export async function updateTicketDiagnosis(
         cleanDiagnosis,
     });
 
-  const ticketRef =
+  await updateDoc(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
-    );
+      String(ticketId)
+    ),
 
-  await updateDoc(
-    ticketRef,
     {
       diagnostico:
         cleanDiagnosis,
+
+      actualizadoEn:
+        new Date()
+          .toISOString(),
 
       historial:
         arrayUnion(
@@ -995,9 +1397,7 @@ export async function addTicketNote(
   note,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
@@ -1005,13 +1405,10 @@ export async function addTicketNote(
 
   const cleanNote =
     String(
-      note ||
-        ""
+      note || ""
     ).trim();
 
-  if (
-    !cleanNote
-  ) {
+  if (!cleanNote) {
     throw new Error(
       "NOTE_REQUIRED"
     );
@@ -1028,22 +1425,22 @@ export async function addTicketNote(
         cleanNote,
     });
 
-  const ticketRef =
+  await updateDoc(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
-    );
+      String(ticketId)
+    ),
 
-  await updateDoc(
-    ticketRef,
     {
       historial:
         arrayUnion(
           historyEntry
         ),
+
+      actualizadoEn:
+        new Date()
+          .toISOString(),
     }
   );
 
@@ -1064,9 +1461,7 @@ export async function addTicketPiece(
   piece,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
@@ -1074,13 +1469,10 @@ export async function addTicketPiece(
 
   const name =
     String(
-      piece?.nombre ||
-        ""
+      piece?.nombre || ""
     ).trim();
 
-  if (
-    !name
-  ) {
+  if (!name) {
     throw new Error(
       "PIECE_NAME_REQUIRED"
     );
@@ -1106,8 +1498,7 @@ export async function addTicketPiece(
 
   const sku =
     String(
-      piece?.sku ||
-        ""
+      piece?.sku || ""
     ).trim();
 
   const newPiece = {
@@ -1127,9 +1518,7 @@ export async function addTicketPiece(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
+      String(ticketId)
     );
 
   await runTransaction(
@@ -1170,10 +1559,11 @@ export async function addTicketPiece(
           ? data.piezas
           : [];
 
-      const updatedPieces = [
-        ...currentPieces,
-        newPiece,
-      ];
+      const updatedPieces =
+        [
+          ...currentPieces,
+          newPiece,
+        ];
 
       const subtotal =
         roundMoney(
@@ -1201,9 +1591,14 @@ export async function addTicketPiece(
 
       transaction.update(
         ticketRef,
+
         {
           piezas:
             updatedPieces,
+
+          actualizadoEn:
+            new Date()
+              .toISOString(),
 
           historial: [
             ...currentHistory,
@@ -1227,9 +1622,7 @@ export async function updateTicketPiece(
   changes,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
@@ -1250,9 +1643,7 @@ export async function updateTicketPiece(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
+      String(ticketId)
     );
 
   await runTransaction(
@@ -1366,9 +1757,7 @@ export async function updateTicketPiece(
               ),
       };
 
-      if (
-        !updated.nombre
-      ) {
+      if (!updated.nombre) {
         throw new Error(
           "PIECE_NAME_REQUIRED"
         );
@@ -1398,9 +1787,13 @@ export async function updateTicketPiece(
 
       transaction.update(
         ticketRef,
+
         {
-          piezas:
-            pieces,
+          piezas,
+
+          actualizadoEn:
+            new Date()
+              .toISOString(),
 
           historial: [
             ...currentHistory,
@@ -1421,9 +1814,7 @@ export async function removeTicketPiece(
   pieceIndex,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
@@ -1444,9 +1835,7 @@ export async function removeTicketPiece(
     doc(
       db,
       "tickets",
-      String(
-        ticketId
-      )
+      String(ticketId)
     );
 
   await runTransaction(
@@ -1494,9 +1883,7 @@ export async function removeTicketPiece(
           pieceIndex
         ];
 
-      if (
-        !removed
-      ) {
+      if (!removed) {
         throw new Error(
           "PIECE_NOT_FOUND"
         );
@@ -1515,7 +1902,10 @@ export async function removeTicketPiece(
             "Repuesto / servicio eliminado",
 
           detail:
-            `${removed.nombre || "Ítem"} eliminado del ticket.`,
+            `${
+              removed.nombre ||
+              "Ítem"
+            } eliminado del ticket.`,
         });
 
       const currentHistory =
@@ -1527,9 +1917,13 @@ export async function removeTicketPiece(
 
       transaction.update(
         ticketRef,
+
         {
-          piezas:
-            pieces,
+          piezas,
+
+          actualizadoEn:
+            new Date()
+              .toISOString(),
 
           historial: [
             ...currentHistory,
@@ -1543,9 +1937,6 @@ export async function removeTicketPiece(
 
 /* =========================================
    FIJAR PRESUPUESTO
-
-   TICKET + PRESUPUESTO + CONTADOR
-   EN UNA MISMA TRANSACCIÓN
 ========================================= */
 
 export async function fixTicketBudget(
@@ -1556,23 +1947,17 @@ export async function fixTicketBudget(
   },
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
   }
 
   const cleanTicketId =
-    String(
-      ticketId
-    );
+    String(ticketId);
 
   const cleanAuthorValue =
-    cleanAuthor(
-      author
-    );
+    cleanAuthor(author);
 
   const cleanLabor =
     Math.max(
@@ -1593,12 +1978,6 @@ export async function fixTicketBudget(
       100
     );
 
-  /*
-   * Si un presupuesto proveniente del
-   * sistema anterior ya está asociado
-   * al ticket, lo reutilizamos.
-   */
-
   const linkedBudgetId =
     await findBudgetIdByTicket(
       cleanTicketId
@@ -1618,8 +1997,7 @@ export async function fixTicketBudget(
       "contadores"
     );
 
-  let result =
-    null;
+  let result = null;
 
   await runTransaction(
     db,
@@ -1627,10 +2005,6 @@ export async function fixTicketBudget(
     async (
       transaction
     ) => {
-      /* =================================
-         LEER TICKET
-      ================================= */
-
       const ticketSnapshot =
         await transaction.get(
           ticketRef
@@ -1656,24 +2030,17 @@ export async function fixTicketBudget(
         );
       }
 
-      /* =================================
-         DETERMINAR PRESUPUESTO EXISTENTE
-      ================================= */
-
       let presupuestoId =
-        ticketData.presupuestoId ||
+        ticketData
+          .presupuestoId ||
         linkedBudgetId ||
         null;
 
-      let budgetRef =
-        null;
-
+      let budgetRef = null;
       let existingBudget =
         null;
 
-      if (
-        presupuestoId
-      ) {
+      if (presupuestoId) {
         budgetRef =
           doc(
             db,
@@ -1698,16 +2065,10 @@ export async function fixTicketBudget(
         }
       }
 
-      /* =================================
-         SI NO EXISTE, OBTENER CONTADOR
-      ================================= */
-
       let nextCounter =
         null;
 
-      if (
-        !presupuestoId
-      ) {
+      if (!presupuestoId) {
         const counterSnapshot =
           await transaction.get(
             counterRef
@@ -1724,11 +2085,15 @@ export async function fixTicketBudget(
             : 0;
 
         nextCounter =
-          currentCounter +
-          1;
+          currentCounter + 1;
 
         presupuestoId =
-          `PRE-${String(nextCounter).padStart(6, "0")}`;
+          `PRE-${String(
+            nextCounter
+          ).padStart(
+            6,
+            "0"
+          )}`;
 
         budgetRef =
           doc(
@@ -1737,10 +2102,6 @@ export async function fixTicketBudget(
             presupuestoId
           );
       }
-
-      /* =================================
-         CÁLCULOS
-      ================================= */
 
       const pieces =
         Array.isArray(
@@ -1760,10 +2121,7 @@ export async function fixTicketBudget(
             cleanLabor
         );
 
-      if (
-        subtotal <=
-        0
-      ) {
+      if (subtotal <= 0) {
         throw new Error(
           "BUDGET_EMPTY"
         );
@@ -1793,10 +2151,6 @@ export async function fixTicketBudget(
           cleanLabor
         );
 
-      /* =================================
-         FECHAS
-      ================================= */
-
       const now =
         new Date();
 
@@ -1804,35 +2158,32 @@ export async function fixTicketBudget(
         now.toISOString();
 
       const today =
-        formatDateYMD(
-          now
-        );
+        formatDateYMD(now);
 
       const validityDays =
         Math.max(
           1,
           normalizeNumber(
-            existingBudget?.validezDias,
+            existingBudget
+              ?.validezDias,
             7
           )
         );
 
       const budgetDate =
-        existingBudget?.fecha ||
+        existingBudget
+          ?.fecha ||
         today;
 
       const expiryDate =
-        existingBudget?.fechaVencimiento ||
+        existingBudget
+          ?.fechaVencimiento ||
         formatDateYMD(
           addDays(
             now,
             validityDays
           )
         );
-
-      /* =================================
-         HISTORIAL PRESUPUESTO
-      ================================= */
 
       const isNewBudget =
         !existingBudget;
@@ -1855,133 +2206,118 @@ export async function fixTicketBudget(
 
       const previousBudgetHistory =
         Array.isArray(
-          existingBudget?.historial
+          existingBudget
+            ?.historial
         )
-          ? existingBudget.historial
+          ? existingBudget
+              .historial
           : [];
 
-      /* =================================
-         DOCUMENTO PRESUPUESTO
-      ================================= */
+      const presupuestoData =
+        {
+          id:
+            presupuestoId,
 
-      const presupuestoData = {
-        id:
-          presupuestoId,
+          numero:
+            presupuestoId,
 
-        numero:
-          presupuestoId,
+          fecha:
+            budgetDate,
 
-        fecha:
-          budgetDate,
+          hora:
+            existingBudget
+              ?.hora ||
+            formatTimeAR(now),
 
-        hora:
-          existingBudget?.hora ||
-          formatTimeAR(
-            now
-          ),
+          fechaVencimiento:
+            expiryDate,
 
-        fechaVencimiento:
-          expiryDate,
+          validezDias:
+            validityDays,
 
-        validezDias:
-          validityDays,
+          clienteId:
+            ticketData
+              .clienteId ||
+            existingBudget
+              ?.clienteId ||
+            null,
 
-        clienteId:
-          ticketData.clienteId ||
-          existingBudget?.clienteId ||
-          null,
+          cliente:
+            ticketData
+              .cliente ||
+            existingBudget
+              ?.cliente ||
+            "Consumidor Final",
 
-        cliente:
-          ticketData.cliente ||
-          existingBudget?.cliente ||
-          "Consumidor Final",
+          doc:
+            ticketData.dni ||
+            ticketData.documento ||
+            existingBudget
+              ?.doc ||
+            "C.F.",
 
-        doc:
-          ticketData.dni ||
-          ticketData.documento ||
-          existingBudget?.doc ||
-          "C.F.",
+          ticketId:
+            cleanTicketId,
 
-        ticketId:
-          cleanTicketId,
+          origen:
+            "Ticket",
 
-        origen:
-          "Ticket",
+          estado:
+            "Pendiente",
 
-        /*
-         * Al fijarlo nuevamente,
-         * vuelve a quedar pendiente
-         * de aprobación.
-         */
+          presupuestoFijado:
+            true,
 
-        estado:
-          "Pendiente",
+          items,
 
-        presupuestoFijado:
-          true,
+          subtotal,
 
-        items,
+          descuento:
+            discountAmount,
 
-        /*
-         * Para mantener compatibilidad
-         * con el módulo anterior.
-         */
+          descuentoPorcentaje:
+            cleanDiscount,
 
-        subtotal,
+          descuentoImporte:
+            discountAmount,
 
-        /*
-         * `descuento` representa el
-         * importe monetario descontado.
-         */
+          manoObra:
+            cleanLabor,
 
-        descuento:
-          discountAmount,
+          total,
 
-        descuentoPorcentaje:
-          cleanDiscount,
+          observaciones:
+            existingBudget
+              ?.observaciones ||
+            "",
 
-        descuentoImporte:
-          discountAmount,
+          usuario:
+            cleanAuthorValue,
 
-        manoObra:
-          cleanLabor,
+          creadoEn:
+            existingBudget
+              ?.creadoEn ||
+            nowISO,
 
-        total,
+          actualizadoEn:
+            nowISO,
 
-        observaciones:
-          existingBudget?.observaciones ||
-          "",
+          historial: [
+            ...previousBudgetHistory,
+            budgetHistoryEntry,
+          ],
+        };
 
-        usuario:
-          cleanAuthorValue,
-
-        creadoEn:
-          existingBudget?.creadoEn ||
-          nowISO,
-
-        actualizadoEn:
-          nowISO,
-
-        historial: [
-          ...previousBudgetHistory,
-          budgetHistoryEntry,
-        ],
-      };
-
-      /* =================================
-         HISTORIAL TICKET
-      ================================= */
-
-      const detailParts = [
-        `Presupuesto ${presupuestoId}`,
-        `Repuestos/servicios: ${piecesTotal}`,
-        `Mano de obra: ${cleanLabor}`,
-        `Subtotal: ${subtotal}`,
-      ];
+      const detailParts =
+        [
+          `Presupuesto ${presupuestoId}`,
+          `Repuestos/servicios: ${piecesTotal}`,
+          `Mano de obra: ${cleanLabor}`,
+          `Subtotal: ${subtotal}`,
+        ];
 
       if (
-        cleanDiscount >
-        0
+        cleanDiscount > 0
       ) {
         detailParts.push(
           `Descuento: ${cleanDiscount}% (-${discountAmount})`
@@ -2015,10 +2351,6 @@ export async function fixTicketBudget(
           ? ticketData.historial
           : [];
 
-      /* =================================
-         CONTADOR
-      ================================= */
-
       if (
         nextCounter !==
         null
@@ -2032,15 +2364,10 @@ export async function fixTicketBudget(
           },
 
           {
-            merge:
-              true,
+            merge: true,
           }
         );
       }
-
-      /* =================================
-         GUARDAR PRESUPUESTO
-      ================================= */
 
       transaction.set(
         budgetRef,
@@ -2048,14 +2375,9 @@ export async function fixTicketBudget(
         presupuestoData,
 
         {
-          merge:
-            true,
+          merge: true,
         }
       );
-
-      /* =================================
-         ACTUALIZAR TICKET
-      ================================= */
 
       transaction.update(
         ticketRef,
@@ -2087,6 +2409,9 @@ export async function fixTicketBudget(
           presupuestoAprobado:
             deleteField(),
 
+          actualizadoEn:
+            nowISO,
+
           historial: [
             ...previousTicketHistory,
             ticketHistoryEntry,
@@ -2115,8 +2440,7 @@ export async function fixTicketBudget(
 
         total,
 
-        fixed:
-          true,
+        fixed: true,
       };
     }
   );
@@ -2126,27 +2450,20 @@ export async function fixTicketBudget(
 
 /* =========================================
    DESBLOQUEAR PRESUPUESTO
-
-   También marca el documento del módulo
-   como "En edición".
 ========================================= */
 
 export async function unlockTicketBudget(
   ticketId,
   author
 ) {
-  if (
-    !ticketId
-  ) {
+  if (!ticketId) {
     throw new Error(
       "TICKET_REQUIRED"
     );
   }
 
   const cleanTicketId =
-    String(
-      ticketId
-    );
+    String(ticketId);
 
   const linkedBudgetId =
     await findBudgetIdByTicket(
@@ -2161,11 +2478,8 @@ export async function unlockTicketBudget(
     );
 
   let result = {
-    changed:
-      false,
-
-    budgetId:
-      null,
+    changed: false,
+    budgetId: null,
   };
 
   await runTransaction(
@@ -2191,19 +2505,15 @@ export async function unlockTicketBudget(
         ticketSnapshot.data();
 
       const presupuestoId =
-        ticketData.presupuestoId ||
+        ticketData
+          .presupuestoId ||
         linkedBudgetId ||
         null;
 
-      let budgetRef =
-        null;
+      let budgetRef = null;
+      let budgetData = null;
 
-      let budgetData =
-        null;
-
-      if (
-        presupuestoId
-      ) {
+      if (presupuestoId) {
         budgetRef =
           doc(
             db,
@@ -2229,7 +2539,8 @@ export async function unlockTicketBudget(
       }
 
       if (
-        ticketData.presupuestoFijado !==
+        ticketData
+          .presupuestoFijado !==
           true &&
         !budgetData
       ) {
@@ -2239,10 +2550,6 @@ export async function unlockTicketBudget(
       const nowISO =
         new Date()
           .toISOString();
-
-      /* =================================
-         HISTORIAL TICKET
-      ================================= */
 
       const ticketHistoryEntry =
         createHistoryEntry({
@@ -2277,16 +2584,15 @@ export async function unlockTicketBudget(
           presupuestoAprobado:
             deleteField(),
 
+          actualizadoEn:
+            nowISO,
+
           historial: [
             ...ticketHistory,
             ticketHistoryEntry,
           ],
         }
       );
-
-      /* =================================
-         PRESUPUESTO DEL MÓDULO
-      ================================= */
 
       if (
         budgetRef &&
@@ -2332,8 +2638,7 @@ export async function unlockTicketBudget(
       }
 
       result = {
-        changed:
-          true,
+        changed: true,
 
         budgetId:
           presupuestoId,
