@@ -106,13 +106,6 @@ service cloud.firestore {
       return token.matches('^[a-fA-F0-9]{48}$');
     }
 
-    /* =====================================
-       PRESUPUESTOS PÚBLICOS
-       - lectura pública por token
-       - respuesta pública de un solo uso
-       - gestión interna autenticada
-    ===================================== */
-
     match /presupuestos_publicos/{token} {
       allow get: if isValidPublicToken(token);
 
@@ -148,15 +141,8 @@ service cloud.firestore {
       }
     }
 
-    /* =====================================
-       USUARIOS Y ROLES
-    ===================================== */
-
     match /usuarios/{userId} {
-      // El propio usuario puede leer su perfil incluso si fue desactivado,
-      // para que la app pueda cerrar la sesión con un mensaje correcto.
       allow get: if isSignedIn() && request.auth.uid == userId;
-
       allow get, list: if canSecurity();
       allow create, update, delete: if canSecurity();
     }
@@ -165,10 +151,6 @@ service cloud.firestore {
       allow read: if isActiveUser();
       allow write: if canSecurity();
     }
-
-    /* =====================================
-       OPERACIÓN TÉCNICA / COMERCIAL
-    ===================================== */
 
     match /tickets/{ticketId} {
       allow read: if canTickets() || canReports();
@@ -182,7 +164,6 @@ service cloud.firestore {
         "Registrar ventas y cobros",
         "Ver reportes financieros"
       ]);
-
       allow write: if hasAnyPermission([
         "Ver y actualizar tickets asignados",
         "Aprobar créditos y descuentos",
@@ -196,7 +177,6 @@ service cloud.firestore {
         "Registrar ventas y cobros",
         "Ver reportes financieros"
       ]);
-
       allow write: if hasAnyPermission([
         "Ver y actualizar tickets asignados",
         "Registrar ventas y cobros"
@@ -222,10 +202,6 @@ service cloud.firestore {
       allow read, write: if canSales();
     }
 
-    /* =====================================
-       CAJA / FACTURACIÓN
-    ===================================== */
-
     match /ventas/{saleId} {
       allow read: if canSales() || canReports();
       allow write: if canSales();
@@ -243,7 +219,6 @@ service cloud.firestore {
         "Abrir y cerrar corte de caja",
         "Ver reportes financieros"
       ]);
-
       allow write: if hasAnyPermission([
         "Ver y actualizar tickets asignados",
         "Registrar ventas y cobros",
@@ -260,10 +235,6 @@ service cloud.firestore {
       allow read: if canSales() || canCredits() || canReports();
       allow write: if canSales() || canCredits();
     }
-
-    /* =====================================
-       NEGOCIO / CONTADORES / CAJA ACTIVA
-    ===================================== */
 
     match /negocio/configuracion {
       allow read: if isActiveUser();
@@ -286,7 +257,6 @@ service cloud.firestore {
         "Aprobar créditos y descuentos",
         "Ver reportes financieros"
       ]);
-
       allow write: if hasAnyPermission([
         "Registrar ventas y cobros",
         "Abrir y cerrar corte de caja",
@@ -298,10 +268,6 @@ service cloud.firestore {
       allow read: if isActiveUser();
       allow write: if isAdmin();
     }
-
-    /* =====================================
-       TODO LO NO DECLARADO: DENEGADO
-    ===================================== */
 
     match /{document=**} {
       allow read, write: if false;
