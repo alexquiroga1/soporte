@@ -1899,11 +1899,11 @@ export default function NewTicketModal({
                 <div>
 
                   <strong>
-                    Seleccionar imágenes
+                    Fotografías no disponibles
                   </strong>
 
                   <span>
-                    Hasta 3 fotos · máximo 8 MB cada una
+                    Carga desactivada · sin Firebase Storage
                   </span>
 
                 </div>
@@ -1915,13 +1915,9 @@ export default function NewTicketModal({
 
                   multiple
 
-                  disabled={
-                    saving
-                  }
+                  disabled
 
-                  onChange={
-                    handlePhotos
-                  }
+                  aria-disabled="true"
                 />
 
               </label>

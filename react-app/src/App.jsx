@@ -1,116 +1,89 @@
 import {
+  Suspense,
+  lazy,
+} from "react";
+
+import {
   Navigate,
   Route,
   Routes,
 } from "react-router-dom";
 
-import {
-  Toaster,
-} from "sileo";
+import { Toaster } from "sileo";
 
-import {
-  useAuth,
-} from "./context/AuthContext.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
+import { MODULE_ACCESS } from "./security/permissions.js";
 
 /* =========================================
-   AUTENTICACIÓN
+   CARGA DIFERIDA POR MÓDULO
 ========================================= */
 
-import Login from "./pages/Login/Login.jsx";
-
-/* =========================================
-   DASHBOARD
-========================================= */
-
-import Dashboard from "./pages/Dashboard/Dashboard.jsx";
-
-/* =========================================
-   TICKETS
-========================================= */
-
-import Tickets from "./pages/Tickets/Tickets.jsx";
-
-import NuevoTicket from "./pages/Tickets/NuevoTicket.jsx";
-
-import TicketDetail from "./pages/Tickets/TicketDetail.jsx";
-
-/* =========================================
-   POS
-========================================= */
-
-import POS from "./pages/POS/POS.jsx";
-
-/* =========================================
-   CLIENTES
-========================================= */
-
-import Clientes from "./pages/Clientes/Clientes.jsx";
-
-/* =========================================
-   CAJA
-========================================= */
-
-import Caja from "./pages/Caja/Caja.jsx";
-
-/* =========================================
-   CRÉDITOS
-========================================= */
-
-import Creditos from "./pages/Creditos/Creditos.jsx";
-
-/* =========================================
-   FACTURACIÓN
-========================================= */
-
-import Facturacion from "./pages/Facturacion/Facturacion.jsx";
-
-import Presupuestos from "./pages/Facturacion/Presupuestos.jsx";
-
-import NuevoPresupuesto from "./pages/Facturacion/NuevoPresupuesto.jsx";
-
-import Facturas from "./pages/Facturacion/Facturas.jsx";
-
-import NotasCredito from "./pages/Facturacion/NotasCredito.jsx";
-
-import Rectificaciones from "./pages/Facturacion/Rectificaciones.jsx";
-
-import Anulaciones from "./pages/Facturacion/Anulaciones.jsx";
-
-import HistorialFacturacion from "./pages/Facturacion/HistorialFacturacion.jsx";
-
-/* =========================================
-   PRESUPUESTO PÚBLICO
-========================================= */
-
-import PresupuestoPublico from "./pages/PresupuestoPublico/PresupuestoPublico.jsx";
-
-/* =========================================
-   PRODUCTOS
-========================================= */
-
-import Productos from "./pages/Productos/Productos.jsx";
-
-/* =========================================
-   CRM
-========================================= */
-
-import CRM from "./pages/CRM/CRM.jsx";
-
-/* =========================================
-   REPORTES
-========================================= */
-
-import Reportes from "./pages/Reportes/Reportes.jsx";
-
-/* =========================================
-   CONFIGURACIÓN
-========================================= */
-
-import Configuracion from "./pages/Configuracion/Configuracion.jsx";
-
-/* =========================================
-   PANTALLA DE CARGA
-========================================= */
+const Login = lazy(() =>
+  import("./pages/Login/Login.jsx")
+);
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard/Dashboard.jsx")
+);
+const Tickets = lazy(() =>
+  import("./pages/Tickets/Tickets.jsx")
+);
+const NuevoTicket = lazy(() =>
+  import("./pages/Tickets/NuevoTicket.jsx")
+);
+const TicketDetail = lazy(() =>
+  import("./pages/Tickets/TicketDetail.jsx")
+);
+const POS = lazy(() =>
+  import("./pages/POS/POS.jsx")
+);
+const Clientes = lazy(() =>
+  import("./pages/Clientes/Clientes.jsx")
+);
+const Caja = lazy(() =>
+  import("./pages/Caja/Caja.jsx")
+);
+const Creditos = lazy(() =>
+  import("./pages/Creditos/Creditos.jsx")
+);
+const Facturacion = lazy(() =>
+  import("./pages/Facturacion/Facturacion.jsx")
+);
+const Presupuestos = lazy(() =>
+  import("./pages/Facturacion/Presupuestos.jsx")
+);
+const NuevoPresupuesto = lazy(() =>
+  import("./pages/Facturacion/NuevoPresupuesto.jsx")
+);
+const Facturas = lazy(() =>
+  import("./pages/Facturacion/Facturas.jsx")
+);
+const NotasCredito = lazy(() =>
+  import("./pages/Facturacion/NotasCredito.jsx")
+);
+const Rectificaciones = lazy(() =>
+  import("./pages/Facturacion/Rectificaciones.jsx")
+);
+const Anulaciones = lazy(() =>
+  import("./pages/Facturacion/Anulaciones.jsx")
+);
+const HistorialFacturacion = lazy(() =>
+  import("./pages/Facturacion/HistorialFacturacion.jsx")
+);
+const PresupuestoPublico = lazy(() =>
+  import("./pages/PresupuestoPublico/PresupuestoPublico.jsx")
+);
+const Productos = lazy(() =>
+  import("./pages/Productos/Productos.jsx")
+);
+const CRM = lazy(() =>
+  import("./pages/CRM/CRM.jsx")
+);
+const Reportes = lazy(() =>
+  import("./pages/Reportes/Reportes.jsx")
+);
+const Configuracion = lazy(() =>
+  import("./pages/Configuracion/Configuracion.jsx")
+);
 
 function LoadingScreen() {
   return (
@@ -131,422 +104,294 @@ function LoadingScreen() {
         }}
       >
         <div className="app-loading-spinner" />
-
-        <strong>
-          Cargando sistema...
-        </strong>
-
+        <strong>Cargando sistema...</strong>
         <span
           style={{
             fontSize: "0.82rem",
             color: "var(--muted)",
           }}
         >
-          Verificando sesión
+          Verificando sesión y permisos
         </span>
       </div>
     </main>
   );
 }
 
-/* =========================================
-   RUTA PROTEGIDA
-========================================= */
-
 function ProtectedRoute({
   children,
+  permissions = [],
 }) {
   const {
     user,
+    profile,
     loading,
+    hasAnyPermission,
   } = useAuth();
 
   if (loading) {
-    return (
-      <LoadingScreen />
-    );
+    return <LoadingScreen />;
   }
 
-  if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
+  if (!user || !profile) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (
+    permissions.length &&
+    !hasAnyPermission(permissions)
+  ) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
 }
 
-/* =========================================
-   SOLO NO LOGUEADOS
-========================================= */
-
-function PublicOnlyRoute({
-  children,
-}) {
-  const {
-    user,
-    loading,
-  } = useAuth();
+function PublicOnlyRoute({ children }) {
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <LoadingScreen />
-    );
+    return <LoadingScreen />;
   }
 
   if (user) {
-    return (
-      <Navigate
-        to="/dashboard"
-        replace
-      />
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
 }
 
-/* =========================================
-   APP
-========================================= */
+function Secured({ module, children }) {
+  return (
+    <ProtectedRoute
+      permissions={MODULE_ACCESS[module] || []}
+    >
+      {children}
+    </ProtectedRoute>
+  );
+}
 
 export default function App() {
-  const {
-    user,
-    loading,
-  } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <>
-      <Toaster
-        position="top-right"
-      />
+      <Toaster position="top-right" />
 
-      <Routes>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route
+            path="/presupuesto/:token"
+            element={<PresupuestoPublico />}
+          />
 
-        {/* =================================
-            PRESUPUESTO PÚBLICO
-            SIN LOGIN
-        ================================= */}
+          <Route
+            path="/login"
+            element={
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            }
+          />
 
-        <Route
-          path="/presupuesto/:token"
-          element={
-            <PresupuestoPublico />
-          }
-        />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* =================================
-            LOGIN
-        ================================= */}
+          <Route
+            path="/tickets"
+            element={
+              <Secured module="tickets">
+                <Tickets />
+              </Secured>
+            }
+          />
+          <Route
+            path="/tickets/nuevo"
+            element={
+              <Secured module="tickets">
+                <NuevoTicket />
+              </Secured>
+            }
+          />
+          <Route
+            path="/tickets/:id"
+            element={
+              <Secured module="tickets">
+                <TicketDetail />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          }
-        />
+          <Route
+            path="/pos"
+            element={
+              <Secured module="pos">
+                <POS />
+              </Secured>
+            }
+          />
 
-        {/* =================================
-            DASHBOARD
-        ================================= */}
+          <Route
+            path="/clientes"
+            element={
+              <Secured module="clientes">
+                <Clientes />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/caja"
+            element={
+              <Secured module="caja">
+                <Caja />
+              </Secured>
+            }
+          />
 
-        {/* =================================
-            TICKETS
-        ================================= */}
+          <Route
+            path="/creditos"
+            element={
+              <Secured module="creditos">
+                <Creditos />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/tickets"
-          element={
-            <ProtectedRoute>
-              <Tickets />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/facturacion"
+            element={
+              <Secured module="facturacion">
+                <Facturacion />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/presupuestos"
+            element={
+              <Secured module="facturacion">
+                <Presupuestos />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/presupuestos/nuevo"
+            element={
+              <Secured module="facturacion">
+                <NuevoPresupuesto />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/facturas"
+            element={
+              <Secured module="facturacion">
+                <Facturas />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/notas-credito"
+            element={
+              <Secured module="facturacion">
+                <NotasCredito />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/rectificaciones"
+            element={
+              <Secured module="facturacion">
+                <Rectificaciones />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/anulaciones"
+            element={
+              <Secured module="facturacion">
+                <Anulaciones />
+              </Secured>
+            }
+          />
+          <Route
+            path="/facturacion/historial"
+            element={
+              <Secured module="facturacion">
+                <HistorialFacturacion />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/tickets/nuevo"
-          element={
-            <ProtectedRoute>
-              <NuevoTicket />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/productos"
+            element={
+              <Secured module="productos">
+                <Productos />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/tickets/:id"
-          element={
-            <ProtectedRoute>
-              <TicketDetail />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/crm"
+            element={
+              <Secured module="crm">
+                <CRM />
+              </Secured>
+            }
+          />
 
-        {/* =================================
-            POS
-        ================================= */}
+          <Route
+            path="/reportes"
+            element={
+              <Secured module="reportes">
+                <Reportes />
+              </Secured>
+            }
+          />
 
-        <Route
-          path="/pos"
-          element={
-            <ProtectedRoute>
-              <POS />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/configuracion"
+            element={
+              <Secured module="configuracion">
+                <Configuracion />
+              </Secured>
+            }
+          />
 
-        {/* =================================
-            CLIENTES
-        ================================= */}
+          <Route
+            path="/"
+            element={
+              loading ? (
+                <LoadingScreen />
+              ) : user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
 
-        <Route
-          path="/clientes"
-          element={
-            <ProtectedRoute>
-              <Clientes />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            CAJA
-        ================================= */}
-
-        <Route
-          path="/caja"
-          element={
-            <ProtectedRoute>
-              <Caja />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            CRÉDITOS
-        ================================= */}
-
-        <Route
-          path="/creditos"
-          element={
-            <ProtectedRoute>
-              <Creditos />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            FACTURACIÓN
-        ================================= */}
-
-        <Route
-          path="/facturacion"
-          element={
-            <ProtectedRoute>
-              <Facturacion />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            PRESUPUESTOS
-        ================================= */}
-
-        <Route
-          path="/facturacion/presupuestos"
-          element={
-            <ProtectedRoute>
-              <Presupuestos />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/facturacion/presupuestos/nuevo"
-          element={
-            <ProtectedRoute>
-              <NuevoPresupuesto />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            FACTURAS
-        ================================= */}
-
-        <Route
-          path="/facturacion/facturas"
-          element={
-            <ProtectedRoute>
-              <Facturas />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            NOTAS DE CRÉDITO
-        ================================= */}
-
-        <Route
-          path="/facturacion/notas-credito"
-          element={
-            <ProtectedRoute>
-              <NotasCredito />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            RECTIFICACIONES
-        ================================= */}
-
-        <Route
-          path="/facturacion/rectificaciones"
-          element={
-            <ProtectedRoute>
-              <Rectificaciones />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            ANULACIONES
-        ================================= */}
-
-        <Route
-          path="/facturacion/anulaciones"
-          element={
-            <ProtectedRoute>
-              <Anulaciones />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            HISTORIAL
-        ================================= */}
-
-        <Route
-          path="/facturacion/historial"
-          element={
-            <ProtectedRoute>
-              <HistorialFacturacion />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            PRODUCTOS
-        ================================= */}
-
-        <Route
-          path="/productos"
-          element={
-            <ProtectedRoute>
-              <Productos />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            CRM
-        ================================= */}
-
-        <Route
-          path="/crm"
-          element={
-            <ProtectedRoute>
-              <CRM />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            REPORTES
-        ================================= */}
-
-        <Route
-          path="/reportes"
-          element={
-            <ProtectedRoute>
-              <Reportes />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            CONFIGURACIÓN
-        ================================= */}
-
-        <Route
-          path="/configuracion"
-          element={
-            <ProtectedRoute>
-              <Configuracion />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* =================================
-            RAÍZ
-        ================================= */}
-
-        <Route
-          path="/"
-          element={
-            loading ? (
-              <LoadingScreen />
-            ) : user ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <Navigate
-                to="/login"
-                replace
-              />
-            )
-          }
-        />
-
-        {/* =================================
-            RUTA DESCONOCIDA
-        ================================= */}
-
-        <Route
-          path="*"
-          element={
-            loading ? (
-              <LoadingScreen />
-            ) : user ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <Navigate
-                to="/login"
-                replace
-              />
-            )
-          }
-        />
-
-      </Routes>
+          <Route
+            path="*"
+            element={
+              loading ? (
+                <LoadingScreen />
+              ) : user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+        </Routes>
+      </Suspense>
     </>
   );
 }

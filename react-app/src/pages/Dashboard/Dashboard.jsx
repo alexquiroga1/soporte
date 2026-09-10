@@ -38,6 +38,11 @@ import {
 } from "../../context/AuthContext.jsx";
 
 import {
+  MODULE_ACCESS,
+  PERMISSIONS,
+} from "../../security/permissions.js";
+
+import {
   notify,
 } from "../../services/notifications.js";
 
@@ -281,6 +286,7 @@ export default function Dashboard() {
     profile,
     user,
     logout,
+    hasAnyPermission,
   } =
     useAuth();
 
@@ -343,6 +349,36 @@ export default function Dashboard() {
       .toUpperCase() ||
     "US";
 
+  const visibleModules =
+    modules.filter(
+      (module) =>
+        hasAnyPermission(
+          MODULE_ACCESS[module.id] || []
+        )
+    );
+
+  const canTickets =
+    hasAnyPermission([
+      PERMISSIONS.TICKETS,
+    ]);
+
+  const canCredits =
+    hasAnyPermission([
+      PERMISSIONS.CREDITS,
+    ]);
+
+  const canCash =
+    hasAnyPermission([
+      PERMISSIONS.SALES,
+      PERMISSIONS.CASH,
+    ]);
+
+  const canBudgets =
+    hasAnyPermission([
+      PERMISSIONS.TICKETS,
+      PERMISSIONS.SALES,
+    ]);
+
   /* =======================================
      NOTIFICACIONES REALTIME
   ======================================= */
@@ -359,6 +395,14 @@ export default function Dashboard() {
             "Error cargando notificaciones:",
             error
           );
+        },
+
+        {
+          credits: canCredits,
+          tickets: canTickets,
+          cashPendings: canCash,
+          budgets: canBudgets,
+          settings: true,
         }
       );
 
@@ -370,7 +414,12 @@ export default function Dashboard() {
         unsubscribe();
       }
     };
-  }, []);
+  }, [
+    canCredits,
+    canTickets,
+    canCash,
+    canBudgets,
+  ]);
 
   const unreadNotifications =
     notifications.filter(
@@ -874,7 +923,7 @@ export default function Dashboard() {
           initial="hidden"
           animate="visible"
         >
-          {modules.map(
+          {visibleModules.map(
             (module) => {
               const Icon =
                 module.icon;

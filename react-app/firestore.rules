@@ -1,0 +1,310 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function hasUserProfile() {
+      return isSignedIn() && exists(userPath());
+    }
+
+    function userProfile() {
+      return get(userPath()).data;
+    }
+
+    function isActiveUser() {
+      return hasUserProfile()
+        && userProfile().activo != false
+        && userProfile().enabled != false;
+    }
+
+    function isAdmin() {
+      return isActiveUser()
+        && (
+          userProfile().rol == "Administrador"
+          || (
+            userProfile().permisos is list
+            && userProfile().permisos.hasAny([
+              "Acceso total al sistema"
+            ])
+          )
+        );
+    }
+
+    function hasPermission(permission) {
+      return isActiveUser()
+        && (
+          isAdmin()
+          || (
+            userProfile().permisos is list
+            && userProfile().permisos.hasAny([permission])
+          )
+        );
+    }
+
+    function hasAnyPermission(permissions) {
+      return isActiveUser()
+        && (
+          isAdmin()
+          || (
+            userProfile().permisos is list
+            && userProfile().permisos.hasAny(permissions)
+          )
+        );
+    }
+
+    function canTickets() {
+      return hasAnyPermission([
+        "Ver y actualizar tickets asignados"
+      ]);
+    }
+
+    function canSales() {
+      return hasAnyPermission([
+        "Registrar ventas y cobros"
+      ]);
+    }
+
+    function canCash() {
+      return hasAnyPermission([
+        "Abrir y cerrar corte de caja"
+      ]);
+    }
+
+    function canCredits() {
+      return hasAnyPermission([
+        "Aprobar créditos y descuentos"
+      ]);
+    }
+
+    function canProducts() {
+      return hasAnyPermission([
+        "Editar catálogo de productos"
+      ]);
+    }
+
+    function canReports() {
+      return hasAnyPermission([
+        "Ver reportes financieros"
+      ]);
+    }
+
+    function canSecurity() {
+      return hasAnyPermission([
+        "Gestionar usuarios y roles"
+      ]);
+    }
+
+    function isValidPublicToken(token) {
+      return token.matches('^[a-fA-F0-9]{48}$');
+    }
+
+    /* =====================================
+       PRESUPUESTOS PÚBLICOS
+       - lectura pública por token
+       - respuesta pública de un solo uso
+       - gestión interna autenticada
+    ===================================== */
+
+    match /presupuestos_publicos/{token} {
+      allow get: if isValidPublicToken(token);
+
+      allow list, create, delete: if
+        hasAnyPermission([
+          "Registrar ventas y cobros",
+          "Ver y actualizar tickets asignados"
+        ]);
+
+      allow update: if
+        hasAnyPermission([
+          "Registrar ventas y cobros",
+          "Ver y actualizar tickets asignados"
+        ])
+        || isValidPublicResponse();
+
+      function isValidPublicResponse() {
+        return isValidPublicToken(token)
+          && resource.data.activo == true
+          && resource.data.respuesta == null
+          && resource.data.venceEn is timestamp
+          && request.time <= resource.data.venceEn
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "respuesta",
+            "estado",
+            "respondidoEn",
+            "actualizadoEn"
+          ])
+          && request.resource.data.respuesta in ["Aceptado", "Rechazado"]
+          && request.resource.data.estado == request.resource.data.respuesta
+          && request.resource.data.respondidoEn is string
+          && request.resource.data.actualizadoEn is string;
+      }
+    }
+
+    /* =====================================
+       USUARIOS Y ROLES
+    ===================================== */
+
+    match /usuarios/{userId} {
+      // El propio usuario puede leer su perfil incluso si fue desactivado,
+      // para que la app pueda cerrar la sesión con un mensaje correcto.
+      allow get: if isSignedIn() && request.auth.uid == userId;
+
+      allow get, list: if canSecurity();
+      allow create, update, delete: if canSecurity();
+    }
+
+    match /roles/{roleId} {
+      allow read: if isActiveUser();
+      allow write: if canSecurity();
+    }
+
+    /* =====================================
+       OPERACIÓN TÉCNICA / COMERCIAL
+    ===================================== */
+
+    match /tickets/{ticketId} {
+      allow read: if canTickets() || canReports();
+      allow write: if canTickets();
+    }
+
+    match /clientes/{clientId} {
+      allow read: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Aprobar créditos y descuentos",
+        "Registrar ventas y cobros",
+        "Ver reportes financieros"
+      ]);
+
+      allow write: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Aprobar créditos y descuentos",
+        "Registrar ventas y cobros"
+      ]);
+    }
+
+    match /presupuestos/{budgetId} {
+      allow read: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Registrar ventas y cobros",
+        "Ver reportes financieros"
+      ]);
+
+      allow write: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Registrar ventas y cobros"
+      ]);
+    }
+
+    match /creditos/{creditId} {
+      allow read: if canCredits() || canReports();
+      allow write: if canCredits();
+    }
+
+    match /productos/{productId} {
+      allow read: if isActiveUser();
+      allow write: if canProducts() || canSales();
+    }
+
+    match /promociones/{promotionId} {
+      allow read: if isActiveUser();
+      allow write: if canProducts() || canSales();
+    }
+
+    match /crm/{opportunityId} {
+      allow read, write: if canSales();
+    }
+
+    /* =====================================
+       CAJA / FACTURACIÓN
+    ===================================== */
+
+    match /ventas/{saleId} {
+      allow read: if canSales() || canReports();
+      allow write: if canSales();
+    }
+
+    match /facturas/{invoiceId} {
+      allow read: if canSales() || canReports();
+      allow write: if canSales();
+    }
+
+    match /caja_pendientes/{pendingId} {
+      allow read: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Registrar ventas y cobros",
+        "Abrir y cerrar corte de caja",
+        "Ver reportes financieros"
+      ]);
+
+      allow write: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Registrar ventas y cobros",
+        "Abrir y cerrar corte de caja"
+      ]);
+    }
+
+    match /caja_cortes/{cutId} {
+      allow read: if canCash() || canSales() || canReports();
+      allow write: if canCash() || canSales();
+    }
+
+    match /cuenta_corriente/{movementId} {
+      allow read: if canSales() || canCredits() || canReports();
+      allow write: if canSales() || canCredits();
+    }
+
+    /* =====================================
+       NEGOCIO / CONTADORES / CAJA ACTIVA
+    ===================================== */
+
+    match /negocio/configuracion {
+      allow read: if isActiveUser();
+      allow write: if canSecurity();
+    }
+
+    match /negocio/contadores {
+      allow read: if isActiveUser();
+      allow write: if hasAnyPermission([
+        "Ver y actualizar tickets asignados",
+        "Registrar ventas y cobros",
+        "Aprobar créditos y descuentos"
+      ]);
+    }
+
+    match /negocio/caja_activa {
+      allow read: if hasAnyPermission([
+        "Registrar ventas y cobros",
+        "Abrir y cerrar corte de caja",
+        "Aprobar créditos y descuentos",
+        "Ver reportes financieros"
+      ]);
+
+      allow write: if hasAnyPermission([
+        "Registrar ventas y cobros",
+        "Abrir y cerrar corte de caja",
+        "Aprobar créditos y descuentos"
+      ]);
+    }
+
+    match /negocio/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    /* =====================================
+       TODO LO NO DECLARADO: DENEGADO
+    ===================================== */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

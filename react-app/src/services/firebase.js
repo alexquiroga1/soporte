@@ -1,58 +1,70 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 
 /* =========================================
-   CONFIGURACIÓN FIREBASE
+   VARIABLES DE ENTORNO
 ========================================= */
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+function cleanEnv(value) {
+  let text = String(value ?? "").trim();
 
-  authDomain:
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  // Tolera .env heredados con comillas y/o coma final.
+  if (text.endsWith(",")) {
+    text = text.slice(0, -1).trim();
+  }
 
-  projectId:
-    import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    text = text.slice(1, -1).trim();
+  }
 
-  storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  return text;
+}
 
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+export const firebaseConfig = Object.freeze({
+  apiKey: cleanEnv(import.meta.env.VITE_FIREBASE_API_KEY),
+  authDomain: cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID
+  ),
+  appId: cleanEnv(import.meta.env.VITE_FIREBASE_APP_ID),
+});
 
-  appId:
-    import.meta.env.VITE_FIREBASE_APP_ID,
-};
+const requiredKeys = [
+  "apiKey",
+  "authDomain",
+  "projectId",
+  "messagingSenderId",
+  "appId",
+];
 
-/* =========================================
-   INICIALIZAR FIREBASE
-========================================= */
-
-const app = initializeApp(
-  firebaseConfig
+const missingKeys = requiredKeys.filter(
+  (key) => !firebaseConfig[key]
 );
 
+if (missingKeys.length) {
+  throw new Error(
+    `FIREBASE_CONFIG_MISSING: ${missingKeys.join(", ")}`
+  );
+}
+
 /* =========================================
-   SERVICIOS
+   INICIALIZACIÓN
 ========================================= */
 
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-
 const db = getFirestore(app);
-
-const storage = getStorage(app);
-
-/* =========================================
-   EXPORTS
-========================================= */
 
 export {
   app,
   auth,
   db,
-  storage,
 };
 
 export default app;

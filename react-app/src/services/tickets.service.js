@@ -13,16 +13,8 @@ import {
   where,
 } from "firebase/firestore";
 
-import {
-  db,
-  storage,
-} from "./firebase.js";
+import { db } from "./firebase.js";
 
-import {
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
 
 /* =========================================
    ESTADOS DE TICKET
@@ -475,96 +467,16 @@ function assertBudgetCanBeModified(
    FOTOS
 ========================================= */
 
-function sanitizePhotoName(
-  name
-) {
-  return (
-    cleanText(name)
-      .replace(
-        /[^a-zA-Z0-9._-]+/g,
-        "-"
-      )
-      .replace(
-        /-+/g,
-        "-"
-      )
-      .slice(
-        0,
-        100
-      ) ||
-    "foto"
-  );
-}
-
 async function uploadTicketPhotos(
-  ticketId,
-  files = []
+  _ticketId,
+  _files = []
 ) {
-  const source =
-    Array.from(
-      files || []
-    ).filter(Boolean);
-
-  if (!source.length) {
-    return [];
-  }
-
-  const urls = [];
-
-  for (
-    const file of source
-  ) {
-    if (
-      !file?.type?.startsWith(
-        "image/"
-      )
-    ) {
-      throw new Error(
-        "TICKET_PHOTO_INVALID"
-      );
-    }
-
-    if (
-      Number(
-        file.size || 0
-      ) >
-      8 * 1024 * 1024
-    ) {
-      throw new Error(
-        "TICKET_PHOTO_TOO_LARGE"
-      );
-    }
-
-    const path =
-      `tickets/${ticketId}/${Date.now()}_${sanitizePhotoName(
-        file.name
-      )}`;
-
-    const fileRef =
-      storageRef(
-        storage,
-        path
-      );
-
-    await uploadBytes(
-      fileRef,
-      file,
-      {
-        contentType:
-          file.type ||
-          "image/jpeg",
-      }
-    );
-
-    const url =
-      await getDownloadURL(
-        fileRef
-      );
-
-    urls.push(url);
-  }
-
-  return urls;
+  /*
+   * Firebase Storage queda desactivado de forma intencional.
+   * Se conserva el campo fotos en los documentos para mantener
+   * compatibilidad con datos existentes, pero no se suben nuevas.
+   */
+  return [];
 }
 
 /* =========================================

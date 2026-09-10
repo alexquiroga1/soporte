@@ -11,20 +11,30 @@ import {
 } from "firebase/firestore";
 
 import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  getAuth,
+  signOut,
+} from "firebase/auth";
+
+import {
+  deleteApp,
+  initializeApp,
+} from "firebase/app";
+
+import {
   auth,
   db,
+  firebaseConfig,
 } from "./firebase.js";
 
-export const SYSTEM_PERMISSIONS = [
-  "Acceso total al sistema",
-  "Gestionar usuarios y roles",
-  "Ver reportes financieros",
-  "Editar catálogo de productos",
-  "Aprobar créditos y descuentos",
-  "Ver y actualizar tickets asignados",
-  "Registrar ventas y cobros",
-  "Abrir y cerrar corte de caja",
-];
+import {
+  PERMISSIONS,
+  SYSTEM_PERMISSIONS,
+  normalizePermissions,
+} from "../security/permissions.js";
+
+export { SYSTEM_PERMISSIONS };
 
 function cleanText(value) {
   return String(value ?? "").trim();
@@ -36,10 +46,7 @@ function normalizeEmail(value) {
 
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
-
-  return Number.isFinite(parsed)
-    ? parsed
-    : fallback;
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function validateEmail(value) {
@@ -48,175 +55,127 @@ function validateEmail(value) {
   );
 }
 
+function isAdminRole(roleName) {
+  return cleanText(roleName).toLowerCase() === "administrador";
+}
+
+async function getRoleByName(roleName) {
+  const cleanRole = cleanText(roleName);
+
+  if (!cleanRole) return null;
+
+  const snapshot = await getDocs(
+    collection(db, "roles")
+  );
+
+  const roleDocument = snapshot.docs.find(
+    (snapshotDoc) =>
+      cleanText(snapshotDoc.data()?.nombre).toLowerCase() ===
+      cleanRole.toLowerCase()
+  );
+
+  if (!roleDocument) return null;
+
+  return {
+    id: roleDocument.id,
+    ...roleDocument.data(),
+    permisos: normalizePermissions(
+      roleDocument.data()?.permisos
+    ),
+  };
+}
+
+async function getPermissionsForRole(roleName) {
+  if (isAdminRole(roleName)) {
+    return [PERMISSIONS.ALL];
+  }
+
+  const role = await getRoleByName(roleName);
+
+  if (!role) {
+    throw new Error("USER_ROLE_NOT_FOUND");
+  }
+
+  return normalizePermissions(role.permisos);
+}
+
 /* =========================================
    SUSCRIPCIONES
 ========================================= */
 
-export function subscribeToBusinessConfig(
-  onData,
-  onError
-) {
+export function subscribeToBusinessConfig(onData, onError) {
   return onSnapshot(
-    doc(
-      db,
-      "negocio",
-      "configuracion"
-    ),
-
+    doc(db, "negocio", "configuracion"),
     (snapshot) => {
-      const data =
-        snapshot.exists()
-          ? snapshot.data()
-          : {};
+      const data = snapshot.exists() ? snapshot.data() : {};
 
       onData({
-        nombre:
-          cleanText(
-            data.nombre
-          ),
-
-        cuit:
-          cleanText(
-            data.cuit ||
-              data.rfc
-          ),
-
-        telefono:
-          cleanText(
-            data.telefono
-          ),
-
-        correo:
-          cleanText(
-            data.correo
-          ),
-
-        direccion:
-          cleanText(
-            data.direccion
-          ),
-
-        impuesto:
-          toNumber(
-            data.impuesto,
-            21
-          ),
-
-        presupuestoValidezDias:
-          Math.max(
-            1,
-            Math.trunc(
-              toNumber(
-                data.presupuestoValidezDias,
-                15
-              )
-            )
-          ),
-
-        garantiaDias:
-          Math.max(
-            0,
-            Math.trunc(
-              toNumber(
-                data.garantiaDias,
-                30
-              )
-            )
-          ),
-
+        nombre: cleanText(data.nombre),
+        cuit: cleanText(data.cuit || data.rfc),
+        telefono: cleanText(data.telefono),
+        correo: cleanText(data.correo),
+        direccion: cleanText(data.direccion),
+        impuesto: toNumber(data.impuesto, 21),
+        presupuestoValidezDias: Math.max(
+          1,
+          Math.trunc(
+            toNumber(data.presupuestoValidezDias, 15)
+          )
+        ),
+        garantiaDias: Math.max(
+          0,
+          Math.trunc(toNumber(data.garantiaDias, 30))
+        ),
         ...data,
       });
     },
-
     onError
   );
 }
 
-export function subscribeToSystemUsers(
-  onData,
-  onError
-) {
+export function subscribeToSystemUsers(onData, onError) {
   return onSnapshot(
-    collection(
-      db,
-      "usuarios"
-    ),
-
+    collection(db, "usuarios"),
     (snapshot) => {
-      const rows =
-        snapshot.docs.map(
-          (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
-            ...snapshotDoc.data(),
-          })
-        );
-
-      rows.sort(
-        (a, b) =>
-          cleanText(
-            a.nombre
-          ).localeCompare(
-            cleanText(
-              b.nombre
-            ),
+      const rows = snapshot.docs
+        .map((snapshotDoc) => ({
+          id: snapshotDoc.id,
+          ...snapshotDoc.data(),
+        }))
+        .sort((a, b) =>
+          cleanText(a.nombre).localeCompare(
+            cleanText(b.nombre),
             "es"
           )
-      );
+        );
 
       onData(rows);
     },
-
     onError
   );
 }
 
-export function subscribeToRoles(
-  onData,
-  onError
-) {
+export function subscribeToRoles(onData, onError) {
   return onSnapshot(
-    collection(
-      db,
-      "roles"
-    ),
-
+    collection(db, "roles"),
     (snapshot) => {
-      const rows =
-        snapshot.docs.map(
-          (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
-            ...snapshotDoc.data(),
-
-            permisos:
-              Array.isArray(
-                snapshotDoc.data()
-                  ?.permisos
-              )
-                ? snapshotDoc.data()
-                    .permisos
-                : [],
-          })
-        );
-
-      rows.sort(
-        (a, b) =>
-          cleanText(
-            a.nombre
-          ).localeCompare(
-            cleanText(
-              b.nombre
-            ),
+      const rows = snapshot.docs
+        .map((snapshotDoc) => ({
+          id: snapshotDoc.id,
+          ...snapshotDoc.data(),
+          permisos: normalizePermissions(
+            snapshotDoc.data()?.permisos
+          ),
+        }))
+        .sort((a, b) =>
+          cleanText(a.nombre).localeCompare(
+            cleanText(b.nombre),
             "es"
           )
-      );
+        );
 
       onData(rows);
     },
-
     onError
   );
 }
@@ -236,558 +195,321 @@ export async function saveBusinessConfig({
   garantiaDias = 30,
   author = "Sistema",
 }) {
-  const cleanName =
-    cleanText(nombre);
-
-  const cleanCuit =
-    cleanText(cuit);
-
-  const cleanEmail =
-    normalizeEmail(correo);
+  const cleanName = cleanText(nombre);
+  const cleanCuit = cleanText(cuit);
+  const cleanEmail = normalizeEmail(correo);
 
   if (!cleanName) {
-    throw new Error(
-      "BUSINESS_NAME_REQUIRED"
-    );
+    throw new Error("BUSINESS_NAME_REQUIRED");
   }
 
-  if (
-    cleanEmail &&
-    !validateEmail(
-      cleanEmail
-    )
-  ) {
-    throw new Error(
-      "BUSINESS_EMAIL_INVALID"
-    );
+  if (cleanEmail && !validateEmail(cleanEmail)) {
+    throw new Error("BUSINESS_EMAIL_INVALID");
   }
-
-  const numericTax =
-    Math.max(
-      0,
-      toNumber(
-        impuesto,
-        21
-      )
-    );
-
-  const budgetDays =
-    Math.max(
-      1,
-      Math.trunc(
-        toNumber(
-          presupuestoValidezDias,
-          15
-        )
-      )
-    );
-
-  const warrantyDays =
-    Math.max(
-      0,
-      Math.trunc(
-        toNumber(
-          garantiaDias,
-          30
-        )
-      )
-    );
-
-  const nowISO =
-    new Date()
-      .toISOString();
 
   const data = {
-    nombre:
-      cleanName,
-
-    /*
-     * Argentina:
-     * cuit es el campo actual.
-     * rfc se conserva por compatibilidad
-     * con documentos anteriores.
-     */
-    cuit:
-      cleanCuit,
-
-    rfc:
-      cleanCuit,
-
-    telefono:
-      cleanText(
-        telefono
-      ),
-
-    correo:
-      cleanEmail,
-
-    direccion:
-      cleanText(
-        direccion
-      ),
-
-    impuesto:
-      numericTax,
-
-    presupuestoValidezDias:
-      budgetDays,
-
-    garantiaDias:
-      warrantyDays,
-
-    actualizadoEn:
-      nowISO,
-
-    actualizadoPor:
-      cleanText(
-        author
-      ) ||
-      "Sistema",
+    nombre: cleanName,
+    cuit: cleanCuit,
+    rfc: cleanCuit,
+    telefono: cleanText(telefono),
+    correo: cleanEmail,
+    direccion: cleanText(direccion),
+    impuesto: Math.max(0, toNumber(impuesto, 21)),
+    presupuestoValidezDias: Math.max(
+      1,
+      Math.trunc(toNumber(presupuestoValidezDias, 15))
+    ),
+    garantiaDias: Math.max(
+      0,
+      Math.trunc(toNumber(garantiaDias, 30))
+    ),
+    actualizadoEn: new Date().toISOString(),
+    actualizadoPor: cleanText(author) || "Sistema",
   };
 
   await setDoc(
-    doc(
-      db,
-      "negocio",
-      "configuracion"
-    ),
-
+    doc(db, "negocio", "configuracion"),
     data,
-
-    {
-      merge: true,
-    }
+    { merge: true }
   );
 
   return data;
 }
 
 /* =========================================
-   USUARIOS / PERFILES LOCALES
+   USUARIOS + FIREBASE AUTHENTICATION
 ========================================= */
 
 export async function createSystemUser({
   nombre,
   email,
   rol,
+  password,
   author = "Sistema",
 }) {
-  const cleanName =
-    cleanText(nombre);
-
-  const cleanEmail =
-    normalizeEmail(email);
-
-  const cleanRole =
-    cleanText(rol);
+  const cleanName = cleanText(nombre);
+  const cleanEmail = normalizeEmail(email);
+  const cleanRole = cleanText(rol);
+  const cleanPassword = String(password ?? "");
 
   if (!cleanName) {
-    throw new Error(
-      "USER_NAME_REQUIRED"
-    );
+    throw new Error("USER_NAME_REQUIRED");
   }
 
-  if (
-    !validateEmail(
-      cleanEmail
-    )
-  ) {
-    throw new Error(
-      "USER_EMAIL_INVALID"
-    );
+  if (!validateEmail(cleanEmail)) {
+    throw new Error("USER_EMAIL_INVALID");
   }
 
   if (!cleanRole) {
-    throw new Error(
-      "USER_ROLE_REQUIRED"
-    );
+    throw new Error("USER_ROLE_REQUIRED");
   }
 
-  const [
-    usersSnapshot,
-    rolesSnapshot,
-  ] =
-    await Promise.all([
-      getDocs(
-        collection(
-          db,
-          "usuarios"
-        )
-      ),
+  if (cleanPassword.length < 6) {
+    throw new Error("USER_PASSWORD_TOO_SHORT");
+  }
 
-      getDocs(
-        collection(
-          db,
-          "roles"
-        )
-      ),
-    ]);
+  const usersSnapshot = await getDocs(
+    collection(db, "usuarios")
+  );
 
-  const duplicate =
-    usersSnapshot.docs.find(
-      (snapshotDoc) =>
-        normalizeEmail(
-          snapshotDoc.data()
-            ?.email
-        ) === cleanEmail
-    );
+  const duplicate = usersSnapshot.docs.find(
+    (snapshotDoc) =>
+      normalizeEmail(snapshotDoc.data()?.email) ===
+      cleanEmail
+  );
 
   if (duplicate) {
-    const error =
-      new Error(
-        "USER_EMAIL_EXISTS"
-      );
-
-    error.userId =
-      duplicate.id;
-
+    const error = new Error("USER_EMAIL_EXISTS");
+    error.userId = duplicate.id;
     throw error;
   }
 
-  const roleExists =
-    rolesSnapshot.docs.some(
-      (snapshotDoc) =>
-        cleanText(
-          snapshotDoc.data()
-            ?.nombre
-        ) === cleanRole
-    );
-
-  if (
-    !roleExists &&
-    cleanRole !==
-      "Administrador"
-  ) {
-    throw new Error(
-      "USER_ROLE_NOT_FOUND"
-    );
-  }
-
-  const userRef =
-    doc(
-      collection(
-        db,
-        "usuarios"
-      )
-    );
-
-  const nowISO =
-    new Date()
-      .toISOString();
-
-  const profile = {
-    id:
-      userRef.id,
-
-    nombre:
-      cleanName,
-
-    email:
-      cleanEmail,
-
-    rol:
-      cleanRole,
-
-    activo:
-      true,
-
-    /*
-     * Este documento es el perfil
-     * interno de la aplicación.
-     *
-     * NO crea una cuenta
-     * de Firebase Authentication.
-     */
-    authPendiente:
-      true,
-
-    creadoEn:
-      nowISO,
-
-    actualizadoEn:
-      nowISO,
-
-    usuario:
-      cleanText(
-        author
-      ) ||
-      "Sistema",
-  };
-
-  await setDoc(
-    userRef,
-    profile
+  const permissions = await getPermissionsForRole(
+    cleanRole
   );
 
-  return profile;
-}
+  const provisioningName =
+    `provisioning-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
 
-/* =========================================
-   ACTIVAR / DESACTIVAR USUARIO
-========================================= */
+  const secondaryApp = initializeApp(
+    firebaseConfig,
+    provisioningName
+  );
+
+  const secondaryAuth = getAuth(secondaryApp);
+  let createdAuthUser = null;
+
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      cleanEmail,
+      cleanPassword
+    );
+
+    createdAuthUser = credential.user;
+
+    const nowISO = new Date().toISOString();
+
+    const profile = {
+      id: createdAuthUser.uid,
+      uid: createdAuthUser.uid,
+      authUid: createdAuthUser.uid,
+      nombre: cleanName,
+      email: cleanEmail,
+      rol: cleanRole,
+      permisos: permissions,
+      activo: true,
+      authPendiente: false,
+      creadoEn: nowISO,
+      actualizadoEn: nowISO,
+      usuario: cleanText(author) || "Sistema",
+    };
+
+    try {
+      await setDoc(
+        doc(db, "usuarios", createdAuthUser.uid),
+        profile
+      );
+    } catch (firestoreError) {
+      try {
+        await deleteUser(createdAuthUser);
+      } catch (rollbackError) {
+        console.error(
+          "No se pudo revertir la cuenta Authentication:",
+          rollbackError
+        );
+      }
+
+      throw firestoreError;
+    }
+
+    return profile;
+  } catch (error) {
+    if (error?.code === "auth/email-already-in-use") {
+      throw new Error("USER_AUTH_EMAIL_EXISTS");
+    }
+
+    if (error?.code === "auth/weak-password") {
+      throw new Error("USER_PASSWORD_TOO_SHORT");
+    }
+
+    if (error?.code === "auth/invalid-email") {
+      throw new Error("USER_EMAIL_INVALID");
+    }
+
+    throw error;
+  } finally {
+    try {
+      await signOut(secondaryAuth);
+    } catch {
+      // La cuenta puede haberse eliminado durante rollback.
+    }
+
+    try {
+      await deleteApp(secondaryApp);
+    } catch (error) {
+      console.warn(
+        "No se pudo cerrar la app secundaria de Firebase:",
+        error
+      );
+    }
+  }
+}
 
 export async function toggleSystemUser(
   user,
   author = "Sistema"
 ) {
   if (!user?.id) {
-    throw new Error(
-      "USER_ID_REQUIRED"
-    );
+    throw new Error("USER_ID_REQUIRED");
   }
 
-  const nextState =
-    !Boolean(
-      user.activo
-    );
+  const nextState = !Boolean(user.activo);
+  const currentAuthUser = auth.currentUser;
 
-  /*
-   * Evitamos que el usuario autenticado
-   * se desactive a sí mismo por accidente.
-   */
-  const currentAuthUser =
-    auth.currentUser;
-
-  const isCurrentUser =
-    Boolean(
-      currentAuthUser &&
+  const isCurrentUser = Boolean(
+    currentAuthUser &&
       (
-        user.id ===
-          currentAuthUser.uid ||
+        user.id === currentAuthUser.uid ||
         (
           currentAuthUser.email &&
-          normalizeEmail(
-            user.email
-          ) ===
-            normalizeEmail(
-              currentAuthUser.email
-            )
+          normalizeEmail(user.email) ===
+            normalizeEmail(currentAuthUser.email)
         )
       )
-    );
+  );
 
-  if (
-    !nextState &&
-    isCurrentUser
-  ) {
-    throw new Error(
-      "USER_SELF_DEACTIVATE"
-    );
+  if (!nextState && isCurrentUser) {
+    throw new Error("USER_SELF_DEACTIVATE");
   }
 
   await updateDoc(
-    doc(
-      db,
-      "usuarios",
-      user.id
-    ),
-
+    doc(db, "usuarios", user.id),
     {
-      activo:
-        nextState,
-
-      actualizadoEn:
-        new Date()
-          .toISOString(),
-
-      actualizadoPor:
-        cleanText(
-          author
-        ) ||
-        "Sistema",
+      activo: nextState,
+      actualizadoEn: new Date().toISOString(),
+      actualizadoPor: cleanText(author) || "Sistema",
     }
   );
 
   return nextState;
 }
 
-/* =========================================
-   CAMBIAR ROL DE USUARIO
-========================================= */
-
 export async function updateSystemUserRole(
   userId,
   roleName,
   author = "Sistema"
 ) {
-  const id =
-    cleanText(userId);
-
-  const role =
-    cleanText(roleName);
+  const id = cleanText(userId);
+  const role = cleanText(roleName);
 
   if (!id) {
-    throw new Error(
-      "USER_ID_REQUIRED"
-    );
+    throw new Error("USER_ID_REQUIRED");
   }
 
   if (!role) {
-    throw new Error(
-      "USER_ROLE_REQUIRED"
-    );
+    throw new Error("USER_ROLE_REQUIRED");
   }
 
-  const [
-    rolesSnapshot,
-    userSnapshot,
-  ] =
-    await Promise.all([
-      getDocs(
-        collection(
-          db,
-          "roles"
-        )
-      ),
+  const userRef = doc(db, "usuarios", id);
+  const userSnapshot = await getDoc(userRef);
 
-      getDoc(
-        doc(
-          db,
-          "usuarios",
-          id
-        )
-      ),
-    ]);
-
-  if (
-    !userSnapshot.exists()
-  ) {
-    throw new Error(
-      "USER_NOT_FOUND"
-    );
+  if (!userSnapshot.exists()) {
+    throw new Error("USER_NOT_FOUND");
   }
 
-  const roleExists =
-    rolesSnapshot.docs.some(
-      (snapshotDoc) =>
-        cleanText(
-          snapshotDoc.data()
-            ?.nombre
-        )
-          .toLowerCase() ===
-        role.toLowerCase()
-    );
+  const permissions = await getPermissionsForRole(role);
 
-  if (
-    !roleExists &&
-    role.toLowerCase() !==
-      "administrador"
-  ) {
-    throw new Error(
-      "USER_ROLE_NOT_FOUND"
-    );
-  }
-
-  const currentAuthUser =
-    auth.currentUser;
-
+  const currentAuthUser = auth.currentUser;
   const targetUser = {
-    id:
-      userSnapshot.id,
-
+    id: userSnapshot.id,
     ...userSnapshot.data(),
   };
 
-  const isCurrentUser =
-    Boolean(
-      currentAuthUser &&
+  const isCurrentUser = Boolean(
+    currentAuthUser &&
       (
-        targetUser.id ===
-          currentAuthUser.uid ||
+        targetUser.id === currentAuthUser.uid ||
         (
           currentAuthUser.email &&
-          normalizeEmail(
-            targetUser.email
-          ) ===
-            normalizeEmail(
-              currentAuthUser.email
-            )
+          normalizeEmail(targetUser.email) ===
+            normalizeEmail(currentAuthUser.email)
         )
       )
-    );
+  );
 
-  /*
-   * No permitimos que el usuario actual
-   * se quite su propio rol Administrador.
-   */
   if (
     isCurrentUser &&
-    cleanText(
-      targetUser.rol
-    )
-      .toLowerCase() ===
-      "administrador" &&
-    role.toLowerCase() !==
-      "administrador"
+    isAdminRole(targetUser.rol) &&
+    !isAdminRole(role)
   ) {
-    throw new Error(
-      "USER_SELF_ROLE_CHANGE"
-    );
+    throw new Error("USER_SELF_ROLE_CHANGE");
   }
 
-  await updateDoc(
-    doc(
-      db,
-      "usuarios",
-      id
-    ),
-
-    {
-      rol:
-        role,
-
-      actualizadoEn:
-        new Date()
-          .toISOString(),
-
-      actualizadoPor:
-        cleanText(
-          author
-        ) ||
-        "Sistema",
-    }
-  );
+  await updateDoc(userRef, {
+    rol: role,
+    permisos: permissions,
+    actualizadoEn: new Date().toISOString(),
+    actualizadoPor: cleanText(author) || "Sistema",
+  });
 
   return role;
 }
 
-/* =========================================
-   MARCAR AUTH COMO VINCULADO
-========================================= */
-
+/*
+ * Compatibilidad temporal con perfiles antiguos.
+ * Los perfiles nuevos ya se crean vinculados por UID.
+ */
 export async function markSystemUserAuthReady(
   userId,
   author = "Sistema"
 ) {
-  const id =
-    cleanText(userId);
+  const id = cleanText(userId);
 
   if (!id) {
-    throw new Error(
-      "USER_ID_REQUIRED"
-    );
+    throw new Error("USER_ID_REQUIRED");
+  }
+
+  const snapshot = await getDoc(
+    doc(db, "usuarios", id)
+  );
+
+  if (!snapshot.exists()) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  if (!snapshot.data()?.uid && !snapshot.data()?.authUid) {
+    throw new Error("USER_AUTH_UID_REQUIRED");
   }
 
   await updateDoc(
-    doc(
-      db,
-      "usuarios",
-      id
-    ),
-
+    doc(db, "usuarios", id),
     {
-      authPendiente:
-        false,
-
-      actualizadoEn:
-        new Date()
-          .toISOString(),
-
-      actualizadoPor:
-        cleanText(
-          author
-        ) ||
-        "Sistema",
+      authPendiente: false,
+      actualizadoEn: new Date().toISOString(),
+      actualizadoPor: cleanText(author) || "Sistema",
     }
   );
 
@@ -804,121 +526,53 @@ export async function createRole({
   permisos = [],
   author = "Sistema",
 }) {
-  const cleanName =
-    cleanText(nombre);
-
-  const cleanDescription =
-    cleanText(desc);
-
-  const normalizedPermissions =
-    Array.from(
-      new Set(
-        (
-          Array.isArray(
-            permisos
-          )
-            ? permisos
-            : []
-        )
-          .map(cleanText)
-          .filter(
-            (permission) =>
-              SYSTEM_PERMISSIONS.includes(
-                permission
-              )
-          )
-      )
-    );
-
-  if (!cleanName) {
-    throw new Error(
-      "ROLE_NAME_REQUIRED"
-    );
-  }
-
-  if (
-    !normalizedPermissions.length
-  ) {
-    throw new Error(
-      "ROLE_PERMISSION_REQUIRED"
-    );
-  }
-
-  const rolesSnapshot =
-    await getDocs(
-      collection(
-        db,
-        "roles"
-      )
-    );
-
-  const duplicate =
-    rolesSnapshot.docs.find(
-      (snapshotDoc) =>
-        cleanText(
-          snapshotDoc.data()
-            ?.nombre
-        )
-          .toLowerCase() ===
-        cleanName
-          .toLowerCase()
-    );
-
-  if (duplicate) {
-    throw new Error(
-      "ROLE_NAME_EXISTS"
-    );
-  }
-
-  const roleRef =
-    doc(
-      collection(
-        db,
-        "roles"
-      )
-    );
-
-  const nowISO =
-    new Date()
-      .toISOString();
-
-  const role = {
-    id:
-      roleRef.id,
-
-    nombre:
-      cleanName,
-
-    desc:
-      cleanDescription,
-
-    permisos:
-      normalizedPermissions,
-
-    creadoEn:
-      nowISO,
-
-    actualizadoEn:
-      nowISO,
-
-    usuario:
-      cleanText(
-        author
-      ) ||
-      "Sistema",
-  };
-
-  await setDoc(
-    roleRef,
-    role
+  const cleanName = cleanText(nombre);
+  let normalizedPermissions = normalizePermissions(
+    permisos
   );
 
+  if (!cleanName) {
+    throw new Error("ROLE_NAME_REQUIRED");
+  }
+
+  if (isAdminRole(cleanName)) {
+    normalizedPermissions = [PERMISSIONS.ALL];
+  }
+
+  if (!normalizedPermissions.length) {
+    throw new Error("ROLE_PERMISSION_REQUIRED");
+  }
+
+  const rolesSnapshot = await getDocs(
+    collection(db, "roles")
+  );
+
+  const duplicate = rolesSnapshot.docs.find(
+    (snapshotDoc) =>
+      cleanText(snapshotDoc.data()?.nombre).toLowerCase() ===
+      cleanName.toLowerCase()
+  );
+
+  if (duplicate) {
+    throw new Error("ROLE_NAME_EXISTS");
+  }
+
+  const roleRef = doc(collection(db, "roles"));
+  const nowISO = new Date().toISOString();
+
+  const role = {
+    id: roleRef.id,
+    nombre: cleanName,
+    desc: cleanText(desc),
+    permisos: normalizedPermissions,
+    creadoEn: nowISO,
+    actualizadoEn: nowISO,
+    usuario: cleanText(author) || "Sistema",
+  };
+
+  await setDoc(roleRef, role);
   return role;
 }
-
-/* =========================================
-   EDITAR ROL
-========================================= */
 
 export async function updateRole(
   roleId,
@@ -929,322 +583,140 @@ export async function updateRole(
     author = "Sistema",
   }
 ) {
-  const id =
-    cleanText(roleId);
-
-  const cleanName =
-    cleanText(nombre);
-
-  const normalizedPermissions =
-    Array.from(
-      new Set(
-        (
-          Array.isArray(
-            permisos
-          )
-            ? permisos
-            : []
-        )
-          .map(cleanText)
-          .filter(
-            (permission) =>
-              SYSTEM_PERMISSIONS.includes(
-                permission
-              )
-          )
-      )
-    );
+  const id = cleanText(roleId);
+  const cleanName = cleanText(nombre);
+  let normalizedPermissions = normalizePermissions(
+    permisos
+  );
 
   if (!id) {
-    throw new Error(
-      "ROLE_ID_REQUIRED"
-    );
+    throw new Error("ROLE_ID_REQUIRED");
   }
 
   if (!cleanName) {
-    throw new Error(
-      "ROLE_NAME_REQUIRED"
-    );
+    throw new Error("ROLE_NAME_REQUIRED");
   }
 
-  if (
-    !normalizedPermissions.length
-  ) {
-    throw new Error(
-      "ROLE_PERMISSION_REQUIRED"
-    );
-  }
-
-  const [
-    roleSnapshot,
-    rolesSnapshot,
-    usersSnapshot,
-  ] =
+  const [roleSnapshot, rolesSnapshot, usersSnapshot] =
     await Promise.all([
-      getDoc(
-        doc(
-          db,
-          "roles",
-          id
-        )
-      ),
-
-      getDocs(
-        collection(
-          db,
-          "roles"
-        )
-      ),
-
-      getDocs(
-        collection(
-          db,
-          "usuarios"
-        )
-      ),
+      getDoc(doc(db, "roles", id)),
+      getDocs(collection(db, "roles")),
+      getDocs(collection(db, "usuarios")),
     ]);
 
-  if (
-    !roleSnapshot.exists()
-  ) {
-    throw new Error(
-      "ROLE_NOT_FOUND"
-    );
+  if (!roleSnapshot.exists()) {
+    throw new Error("ROLE_NOT_FOUND");
   }
 
   const previousRole = {
-    id:
-      roleSnapshot.id,
-
+    id: roleSnapshot.id,
     ...roleSnapshot.data(),
   };
 
-  const previousName =
-    cleanText(
-      previousRole.nombre
-    );
-
-  const isAdministrator =
-    previousName
-      .toLowerCase() ===
-    "administrador";
+  const previousName = cleanText(previousRole.nombre);
+  const isAdministrator = isAdminRole(previousName);
 
   if (
     isAdministrator &&
-    cleanName.toLowerCase() !==
-      "administrador"
+    !isAdminRole(cleanName)
   ) {
-    throw new Error(
-      "ROLE_ADMIN_RENAME_PROTECTED"
-    );
+    throw new Error("ROLE_ADMIN_RENAME_PROTECTED");
   }
 
-  if (
-    isAdministrator &&
-    !normalizedPermissions.includes(
-      "Acceso total al sistema"
-    )
-  ) {
-    throw new Error(
-      "ROLE_ADMIN_PERMISSION_PROTECTED"
-    );
+  if (isAdministrator) {
+    normalizedPermissions = [PERMISSIONS.ALL];
   }
 
-  const duplicate =
-    rolesSnapshot.docs.find(
-      (snapshotDoc) =>
-        snapshotDoc.id !==
-          id &&
-        cleanText(
-          snapshotDoc.data()
-            ?.nombre
-        )
-          .toLowerCase() ===
-          cleanName
-            .toLowerCase()
-    );
+  if (!normalizedPermissions.length) {
+    throw new Error("ROLE_PERMISSION_REQUIRED");
+  }
+
+  const duplicate = rolesSnapshot.docs.find(
+    (snapshotDoc) =>
+      snapshotDoc.id !== id &&
+      cleanText(snapshotDoc.data()?.nombre).toLowerCase() ===
+        cleanName.toLowerCase()
+  );
 
   if (duplicate) {
-    throw new Error(
-      "ROLE_NAME_EXISTS"
-    );
+    throw new Error("ROLE_NAME_EXISTS");
   }
 
-  const nowISO =
-    new Date()
-      .toISOString();
-
-  const authorName =
-    cleanText(
-      author
-    ) ||
-    "Sistema";
+  const nowISO = new Date().toISOString();
+  const authorName = cleanText(author) || "Sistema";
 
   const updates = {
-    nombre:
-      cleanName,
-
-    desc:
-      cleanText(
-        desc
-      ),
-
-    permisos:
-      normalizedPermissions,
-
-    actualizadoEn:
-      nowISO,
-
-    actualizadoPor:
-      authorName,
+    nombre: cleanName,
+    desc: cleanText(desc),
+    permisos: normalizedPermissions,
+    actualizadoEn: nowISO,
+    actualizadoPor: authorName,
   };
 
-  const batch =
-    writeBatch(db);
+  const batch = writeBatch(db);
 
   batch.update(
-    doc(
-      db,
-      "roles",
-      id
-    ),
-
+    doc(db, "roles", id),
     updates
   );
 
-  /*
-   * Si cambia el nombre de un rol normal,
-   * migramos automáticamente los perfiles
-   * que todavía guardan el nombre anterior.
-   */
-  if (
-    previousName &&
-    previousName.toLowerCase() !==
-      cleanName.toLowerCase()
-  ) {
-    usersSnapshot.docs
-      .filter(
-        (snapshotDoc) =>
-          cleanText(
-            snapshotDoc.data()
-              ?.rol
-          )
-            .toLowerCase() ===
-          previousName
-            .toLowerCase()
-      )
-      .forEach(
-        (snapshotDoc) => {
-          batch.update(
-            snapshotDoc.ref,
-
-            {
-              rol:
-                cleanName,
-
-              actualizadoEn:
-                nowISO,
-
-              actualizadoPor:
-                authorName,
-            }
-          );
-        }
-      );
-  }
+  usersSnapshot.docs
+    .filter(
+      (snapshotDoc) =>
+        cleanText(snapshotDoc.data()?.rol).toLowerCase() ===
+        previousName.toLowerCase()
+    )
+    .forEach((snapshotDoc) => {
+      batch.update(snapshotDoc.ref, {
+        rol: cleanName,
+        permisos: normalizedPermissions,
+        actualizadoEn: nowISO,
+        actualizadoPor: authorName,
+      });
+    });
 
   await batch.commit();
 
   return {
     ...updates,
-
-    nombreAnterior:
-      previousName,
+    nombreAnterior: previousName,
   };
 }
-
-/* =========================================
-   ELIMINAR ROL
-========================================= */
 
 export async function deleteRole(
   role,
   author = "Sistema"
 ) {
   if (!role?.id) {
-    throw new Error(
-      "ROLE_ID_REQUIRED"
-    );
+    throw new Error("ROLE_ID_REQUIRED");
   }
 
-  /*
-   * Evitamos eliminar accidentalmente
-   * el rol administrador.
-   */
-  if (
-    cleanText(
-      role.nombre
-    )
-      .toLowerCase() ===
-    "administrador"
-  ) {
-    throw new Error(
-      "ROLE_ADMIN_PROTECTED"
-    );
+  if (isAdminRole(role.nombre)) {
+    throw new Error("ROLE_ADMIN_PROTECTED");
   }
 
-  const usersSnapshot =
-    await getDocs(
-      collection(
-        db,
-        "usuarios"
-      )
-    );
+  const usersSnapshot = await getDocs(
+    collection(db, "usuarios")
+  );
 
-  const assignedUsers =
-    usersSnapshot.docs.filter(
-      (snapshotDoc) =>
-        cleanText(
-          snapshotDoc.data()
-            ?.rol
-        )
-          .toLowerCase() ===
-        cleanText(
-          role.nombre
-        )
-          .toLowerCase()
-    );
+  const assignedUsers = usersSnapshot.docs.filter(
+    (snapshotDoc) =>
+      cleanText(snapshotDoc.data()?.rol).toLowerCase() ===
+      cleanText(role.nombre).toLowerCase()
+  );
 
-  if (
-    assignedUsers.length
-  ) {
-    const error =
-      new Error(
-        "ROLE_IN_USE"
-      );
-
-    error.assignedUsers =
-      assignedUsers.length;
-
+  if (assignedUsers.length) {
+    const error = new Error("ROLE_IN_USE");
+    error.assignedUsers = assignedUsers.length;
     throw error;
   }
 
   await deleteDoc(
-    doc(
-      db,
-      "roles",
-      role.id
-    )
+    doc(db, "roles", role.id)
   );
 
   return {
-    id:
-      role.id,
-
-    deletedBy:
-      cleanText(
-        author
-      ) ||
-      "Sistema",
+    id: role.id,
+    deletedBy: cleanText(author) || "Sistema",
   };
 }

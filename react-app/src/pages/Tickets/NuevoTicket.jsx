@@ -2738,7 +2738,7 @@ export default function NuevoTicket() {
             </div>
 
             <small>
-              Máximo 8 imágenes · 8 MB cada una
+              Carga desactivada · sin Firebase Storage
             </small>
           </div>
 
@@ -2747,12 +2747,8 @@ export default function NuevoTicket() {
               type="file"
               accept="image/*"
               multiple
-              disabled={
-                saving
-              }
-              onChange={
-                handlePhotos
-              }
+              disabled
+              aria-disabled="true"
             />
 
             <div>
@@ -2763,12 +2759,11 @@ export default function NuevoTicket() {
               />
 
               <strong>
-                Agregar fotografías
+                Fotografías no disponibles
               </strong>
 
               <span>
-                Seleccioná imágenes del equipo y su estado al
-                momento del ingreso.
+                La carga queda desactivada para mantener el proyecto sin servicios pagos.
               </span>
             </div>
           </label>

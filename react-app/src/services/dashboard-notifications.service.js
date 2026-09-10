@@ -831,186 +831,125 @@ function buildNotifications(
 
 export function subscribeToDashboardNotifications(
   onData,
-  onError
+  onError,
+  sources = {}
 ) {
-  const state = {
-    credits:
-      [],
-
-    tickets:
-      [],
-
-    cashPendings:
-      [],
-
-    budgets:
-      [],
-
-    settings:
-      DEFAULT_CREDIT_SETTINGS,
+  const enabled = {
+    credits: sources.credits !== false,
+    tickets: sources.tickets !== false,
+    cashPendings: sources.cashPendings !== false,
+    budgets: sources.budgets !== false,
+    settings: sources.settings !== false,
   };
 
-  const emit =
-    () => {
-      onData(
-        buildNotifications(
-          state
-        )
-      );
-    };
+  const state = {
+    credits: [],
+    tickets: [],
+    cashPendings: [],
+    budgets: [],
+    settings: DEFAULT_CREDIT_SETTINGS,
+  };
 
-  const mapSnapshot =
-    (
-      snapshot
-    ) =>
-      snapshot.docs.map(
-        (
-          snapshotDoc
-        ) => ({
-          id:
-            snapshotDoc.id,
+  const emit = () => {
+    onData(buildNotifications(state));
+  };
 
-          ...snapshotDoc.data(),
-        })
-      );
+  const mapSnapshot = (snapshot) =>
+    snapshot.docs.map((snapshotDoc) => ({
+      id: snapshotDoc.id,
+      ...snapshotDoc.data(),
+    }));
 
-  const safeError =
-    (
+  const safeError = (error) => {
+    console.error(
+      "Dashboard notifications:",
       error
-    ) => {
-      console.error(
-        "Dashboard notifications:",
-        error
-      );
+    );
 
-      if (
-        typeof onError ===
-        "function"
-      ) {
-        onError(
-          error
-        );
-      }
-    };
+    if (typeof onError === "function") {
+      onError(error);
+    }
+  };
 
-  const unsubscribers = [
-    onSnapshot(
-      collection(
-        db,
-        "creditos"
-      ),
+  const unsubscribers = [];
 
-      (
-        snapshot
-      ) => {
-        state.credits =
-          mapSnapshot(
-            snapshot
-          );
+  if (enabled.credits) {
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, "creditos"),
+        (snapshot) => {
+          state.credits = mapSnapshot(snapshot);
+          emit();
+        },
+        safeError
+      )
+    );
+  }
 
-        emit();
-      },
+  if (enabled.tickets) {
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, "tickets"),
+        (snapshot) => {
+          state.tickets = mapSnapshot(snapshot);
+          emit();
+        },
+        safeError
+      )
+    );
+  }
 
-      safeError
-    ),
+  if (enabled.cashPendings) {
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, "caja_pendientes"),
+        (snapshot) => {
+          state.cashPendings = mapSnapshot(snapshot);
+          emit();
+        },
+        safeError
+      )
+    );
+  }
 
-    onSnapshot(
-      collection(
-        db,
-        "tickets"
-      ),
+  if (enabled.budgets) {
+    unsubscribers.push(
+      onSnapshot(
+        collection(db, "presupuestos"),
+        (snapshot) => {
+          state.budgets = mapSnapshot(snapshot);
+          emit();
+        },
+        safeError
+      )
+    );
+  }
 
-      (
-        snapshot
-      ) => {
-        state.tickets =
-          mapSnapshot(
-            snapshot
-          );
-
-        emit();
-      },
-
-      safeError
-    ),
-
-    onSnapshot(
-      collection(
-        db,
-        "caja_pendientes"
-      ),
-
-      (
-        snapshot
-      ) => {
-        state.cashPendings =
-          mapSnapshot(
-            snapshot
-          );
-
-        emit();
-      },
-
-      safeError
-    ),
-
-    onSnapshot(
-      collection(
-        db,
-        "presupuestos"
-      ),
-
-      (
-        snapshot
-      ) => {
-        state.budgets =
-          mapSnapshot(
-            snapshot
-          );
-
-        emit();
-      },
-
-      safeError
-    ),
-
-    onSnapshot(
-      doc(
-        db,
-        "negocio",
-        "configuracion"
-      ),
-
-      (
-        snapshot
-      ) => {
-        state.settings =
-          normalizeSettings(
+  if (enabled.settings) {
+    unsubscribers.push(
+      onSnapshot(
+        doc(db, "negocio", "configuracion"),
+        (snapshot) => {
+          state.settings = normalizeSettings(
             snapshot.exists()
               ? snapshot.data()
               : {}
           );
+          emit();
+        },
+        safeError
+      )
+    );
+  }
 
-        emit();
-      },
-
-      safeError
-    ),
-  ];
+  emit();
 
   return () => {
-    unsubscribers.forEach(
-      (
-        unsubscribe
-      ) => {
-        if (
-          typeof unsubscribe ===
-          "function"
-        ) {
-          unsubscribe();
-        }
+    unsubscribers.forEach((unsubscribe) => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
       }
-    );
+    });
   };
 }
 

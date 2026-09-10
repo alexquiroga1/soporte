@@ -39,7 +39,6 @@ import {
   createRole,
   createSystemUser,
   deleteRole,
-  markSystemUserAuthReady,
   saveBusinessConfig,
   subscribeToBusinessConfig,
   subscribeToRoles,
@@ -70,6 +69,8 @@ const EMPTY_USER = {
   nombre: "",
   email: "",
   rol: "",
+  password: "",
+  confirmPassword: "",
 };
 
 const EMPTY_ROLE = {
@@ -103,6 +104,18 @@ function errorMessage(error) {
 
     USER_ROLE_REQUIRED:
       "Seleccioná un rol.",
+
+    USER_PASSWORD_TOO_SHORT:
+      "La contraseña temporal debe tener al menos 6 caracteres.",
+
+    USER_PASSWORD_MISMATCH:
+      "Las contraseñas no coinciden.",
+
+    USER_AUTH_EMAIL_EXISTS:
+      "Ese correo ya existe en Firebase Authentication. Si ya era un usuario anterior, hacé que inicie sesión una vez para vincular su perfil por UID.",
+
+    USER_AUTH_UID_REQUIRED:
+      "El perfil todavía no está vinculado a un UID de Firebase Authentication.",
 
     USER_EMAIL_EXISTS:
       "Ya existe un perfil interno con ese correo.",
@@ -163,6 +176,7 @@ export default function Configuracion() {
   const {
     profile,
     user,
+    hasPermission,
   } = useAuth();
 
   const author =
@@ -322,26 +336,8 @@ export default function Configuracion() {
     profile?.role ||
     "";
 
-  const currentRole =
-    useMemo(
-      () =>
-        roles.find(
-          (role) =>
-            role.nombre ===
-            currentRoleName
-        ) || null,
-      [
-        roles,
-        currentRoleName,
-      ]
-    );
-
   const canManageSecurity =
-    currentRoleName === "Administrador" ||
-    currentRole?.permisos?.includes(
-      "Acceso total al sistema"
-    ) ||
-    currentRole?.permisos?.includes(
+    hasPermission(
       "Gestionar usuarios y roles"
     );
 
@@ -436,9 +432,21 @@ export default function Configuracion() {
       try {
         setSavingUser(true);
 
+        if (
+          userForm.password !==
+          userForm.confirmPassword
+        ) {
+          throw new Error(
+            "USER_PASSWORD_MISMATCH"
+          );
+        }
+
         const created =
           await createSystemUser({
-            ...userForm,
+            nombre: userForm.nombre,
+            email: userForm.email,
+            rol: userForm.rol,
+            password: userForm.password,
             author,
           });
 
@@ -446,8 +454,8 @@ export default function Configuracion() {
         setUserForm(EMPTY_USER);
 
         notify.success(
-          "Perfil creado",
-          `${created.nombre} fue agregado. Falta crear o vincular su cuenta en Firebase Authentication.`
+          "Usuario creado",
+          `${created.nombre} ya puede iniciar sesión con su correo y la contraseña temporal.`
         );
       } catch (error) {
         console.error(error);
@@ -513,32 +521,6 @@ export default function Configuracion() {
 
         notify.error(
           "No se pudo cambiar el rol",
-          errorMessage(error)
-        );
-      } finally {
-        setProcessingUserId(null);
-      }
-    };
-
-  const handleAuthReady =
-    async (systemUser) => {
-      try {
-        setProcessingUserId(systemUser.id);
-
-        await markSystemUserAuthReady(
-          systemUser.id,
-          author
-        );
-
-        notify.success(
-          "Perfil vinculado",
-          "Se marcó el perfil como preparado para Authentication."
-        );
-      } catch (error) {
-        console.error(error);
-
-        notify.error(
-          "No se pudo actualizar",
           errorMessage(error)
         );
       } finally {
@@ -983,10 +965,10 @@ export default function Configuracion() {
             <CircleAlert size={18} />
             <div>
               <strong>
-                Perfil interno ≠ cuenta de inicio de sesión
+                Perfil + Authentication vinculados por UID
               </strong>
               <span>
-                Crear un usuario acá guarda su perfil en Firestore. Para que pueda iniciar sesión también debe existir una cuenta con el mismo correo en Firebase Authentication.
+                Los usuarios nuevos se crean en Firebase Authentication y en Firestore al mismo tiempo. Los perfiles antiguos se migran automáticamente al UID cuando inician sesión.
               </span>
             </div>
           </div>
@@ -1088,28 +1070,21 @@ export default function Configuracion() {
                         </td>
 
                         <td>
-                          {systemUser.authPendiente === true ? (
-                            <button
-                              type="button"
-                              className="config-auth-pending"
-                              disabled={
-                                !canManageSecurity ||
-                                isProcessing
-                              }
-                              onClick={() =>
-                                handleAuthReady(
-                                  systemUser
-                                )
-                              }
-                              title="Usalo después de crear o verificar la cuenta en Firebase Authentication"
-                            >
-                              <CircleAlert size={14} />
-                              Pendiente
-                            </button>
-                          ) : (
+                          {
+                            systemUser.uid ||
+                            systemUser.authUid
+                          ? (
                             <span className="config-auth-ready">
                               <Check size={14} />
                               Vinculado
+                            </span>
+                          ) : (
+                            <span
+                              className="config-auth-pending"
+                              title="El usuario debe iniciar sesión una vez para migrar el perfil al UID"
+                            >
+                              <CircleAlert size={14} />
+                              Pendiente login
                             </span>
                           )}
                         </td>
@@ -1338,7 +1313,7 @@ export default function Configuracion() {
             <header>
               <div>
                 <span>Usuarios</span>
-                <h3>Nuevo perfil interno</h3>
+                <h3>Nuevo usuario</h3>
               </div>
 
               <button
@@ -1414,10 +1389,46 @@ export default function Configuracion() {
                 </select>
               </label>
 
+              <label>
+                <span>Contraseña temporal *</span>
+                <input
+                  type="password"
+                  minLength="6"
+                  autoComplete="new-password"
+                  value={userForm.password}
+                  onChange={(event) =>
+                    setUserForm(
+                      (current) => ({
+                        ...current,
+                        password: event.target.value,
+                      })
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Repetir contraseña *</span>
+                <input
+                  type="password"
+                  minLength="6"
+                  autoComplete="new-password"
+                  value={userForm.confirmPassword}
+                  onChange={(event) =>
+                    setUserForm(
+                      (current) => ({
+                        ...current,
+                        confirmPassword: event.target.value,
+                      })
+                    )
+                  }
+                />
+              </label>
+
               <div className="config-modal-info">
                 <CircleAlert size={16} />
                 <span>
-                  Después creá la cuenta con este mismo correo en Firebase Authentication. Esta pantalla no guarda contraseñas.
+                  La contraseña se usa solo para crear la cuenta en Firebase Authentication y no se guarda en Firestore. El usuario puede cambiarla después con “Olvidé mi contraseña”.
                 </span>
               </div>
             </div>
@@ -1442,7 +1453,7 @@ export default function Configuracion() {
               >
                 {savingUser
                   ? "Guardando..."
-                  : "Crear perfil"}
+                  : "Crear usuario"}
               </button>
             </footer>
           </motion.div>

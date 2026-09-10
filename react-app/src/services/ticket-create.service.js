@@ -6,16 +6,8 @@ import {
   setDoc,
 } from "firebase/firestore";
 
-import {
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
 
-import {
-  db,
-  storage,
-} from "./firebase.js";
+import { db } from "./firebase.js";
 
 /* =========================================
    HELPERS
@@ -442,109 +434,15 @@ async function reserveTicketId() {
 ========================================= */
 
 async function uploadTicketPhotos(
-  files,
-  ticketId
+  _files,
+  _ticketId
 ) {
-  const source =
-    Array.from(
-      files ||
-      []
-    ).slice(
-      0,
-      3
-    );
-
-  if (
-    source.length ===
-    0
-  ) {
-    return [];
-  }
-
-  const urls = [];
-
-  for (
-    let index =
-      0;
-
-    index <
-    source.length;
-
-    index +=
-      1
-  ) {
-    const file =
-      source[index];
-
-    /* =====================================
-       VALIDAR TIPO
-    ===================================== */
-
-    if (
-      !file.type?.startsWith(
-        "image/"
-      )
-    ) {
-      throw new Error(
-        "PHOTO_INVALID_TYPE"
-      );
-    }
-
-    /* =====================================
-       MÁXIMO 8 MB
-    ===================================== */
-
-    const maxBytes =
-      8 *
-      1024 *
-      1024;
-
-    if (
-      file.size >
-      maxBytes
-    ) {
-      throw new Error(
-        "PHOTO_TOO_LARGE"
-      );
-    }
-
-    /* =====================================
-       NOMBRE SEGURO
-    ===================================== */
-
-    const safeName =
-      file.name
-        .replace(
-          /[^a-zA-Z0-9._-]/g,
-          "_"
-        )
-        .slice(
-          0,
-          100
-        );
-
-    const fileRef =
-      ref(
-        storage,
-        `tickets/${ticketId}/${Date.now()}_${index}_${safeName}`
-      );
-
-    await uploadBytes(
-      fileRef,
-      file
-    );
-
-    const url =
-      await getDownloadURL(
-        fileRef
-      );
-
-    urls.push(
-      url
-    );
-  }
-
-  return urls;
+  /*
+   * Firebase Storage queda desactivado de forma intencional.
+   * Los tickets continúan creándose normalmente, pero no se
+   * intentan subir fotografías ni se requiere un bucket.
+   */
+  return [];
 }
 
 /* =========================================
