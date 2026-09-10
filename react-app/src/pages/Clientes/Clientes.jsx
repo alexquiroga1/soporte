@@ -92,6 +92,7 @@ const STAGES = {
   pendiente: "Recibido",
   diagnostico: "Diagnóstico",
   presupuesto: "Presupuesto",
+  presupuesto_rechazado: "Presupuesto rechazado",
   reparacion: "Reparación",
   repuesto: "Esperando repuesto",
   listo: "Listo",

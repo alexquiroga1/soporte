@@ -5,15 +5,21 @@ import {
   runTransaction,
 } from "firebase/firestore";
 
-import { db } from "./firebase.js";
+import {
+  db,
+} from "./firebase.js";
 
 /* =========================================
    HELPERS
 ========================================= */
 
 function pad(value) {
-  return String(value).padStart(2, "0");
+  return String(value).padStart(
+    2,
+    "0"
+  );
 }
+
 
 function formatDateYMD(date = new Date()) {
   return [
@@ -29,27 +35,16 @@ function cleanText(value) {
 
 function toNumber(value, fallback = 0) {
   const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function roundMoney(value) {
-  return (
-    Math.round(
-      (Number(value) + Number.EPSILON) * 100
-    ) / 100
-  );
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
 
 function addDays(date, days) {
   const result = new Date(date);
-
-  result.setDate(
-    result.getDate() + days
-  );
-
+  result.setDate(result.getDate() + days);
   return result;
 }
 
@@ -71,9 +66,10 @@ function formatHistoryDate(
     "Dic",
   ];
 
-  const day = pad(
-    date.getDate()
-  );
+  const day =
+    pad(
+      date.getDate()
+    );
 
   const month =
     months[
@@ -83,21 +79,28 @@ function formatHistoryDate(
   const year =
     date.getFullYear();
 
-  const hours = pad(
-    date.getHours()
-  );
+  const hours =
+    pad(
+      date.getHours()
+    );
 
-  const minutes = pad(
-    date.getMinutes()
-  );
+  const minutes =
+    pad(
+      date.getMinutes()
+    );
 
-  return `${day} ${month} ${year} ${hours}:${minutes}`;
+  return (
+    `${day} ${month} ${year} ${hours}:${minutes}`
+  );
 }
 
-function cleanAuthor(author) {
+function cleanAuthor(
+  author
+) {
   const value =
     String(
-      author || ""
+      author ||
+        ""
     ).trim();
 
   return (
@@ -125,14 +128,11 @@ function createHistoryEntry({
 
     detalle:
       String(
-        detail || ""
+        detail ||
+          ""
       ).trim(),
   };
 }
-
-/* =========================================
-   VENCIMIENTO
-========================================= */
 
 function isBudgetExpired(
   budget
@@ -162,14 +162,12 @@ function isBudgetExpired(
   );
 }
 
-/* =========================================
-   VALIDAR PRESUPUESTO PENDIENTE
-========================================= */
-
 function assertBudgetPending(
   budget
 ) {
-  if (!budget) {
+  if (
+    !budget
+  ) {
     throw new Error(
       "BUDGET_NOT_FOUND"
     );
@@ -204,6 +202,8 @@ function assertBudgetPending(
   }
 
   if (
+    budget.estado ===
+      "Facturado" ||
     budget.facturaId
   ) {
     throw new Error(
@@ -229,10 +229,14 @@ export function subscribeToBudgets(
   return onSnapshot(
     budgetsRef,
 
-    (snapshot) => {
+    (
+      snapshot
+    ) => {
       const budgets =
         snapshot.docs.map(
-          (document) => ({
+          (
+            document
+          ) => ({
             id:
               document.id,
 
@@ -241,7 +245,10 @@ export function subscribeToBudgets(
         );
 
       budgets.sort(
-        (a, b) => {
+        (
+          a,
+          b
+        ) => {
           const dateA =
             new Date(
               a.actualizadoEn ||
@@ -276,20 +283,26 @@ export function subscribeToBudgets(
         }
       );
 
-      if (onData) {
+      if (
+        onData
+      ) {
         onData(
           budgets
         );
       }
     },
 
-    (error) => {
+    (
+      error
+    ) => {
       console.error(
         "Error escuchando presupuestos:",
         error
       );
 
-      if (onError) {
+      if (
+        onError
+      ) {
         onError(
           error
         );
@@ -307,7 +320,9 @@ export function subscribeToBudget(
   onData,
   onError
 ) {
-  if (!budgetId) {
+  if (
+    !budgetId
+  ) {
     return () => {};
   }
 
@@ -323,11 +338,15 @@ export function subscribeToBudget(
   return onSnapshot(
     budgetRef,
 
-    (snapshot) => {
+    (
+      snapshot
+    ) => {
       if (
         !snapshot.exists()
       ) {
-        if (onData) {
+        if (
+          onData
+        ) {
           onData(
             null
           );
@@ -336,7 +355,9 @@ export function subscribeToBudget(
         return;
       }
 
-      if (onData) {
+      if (
+        onData
+      ) {
         onData({
           id:
             snapshot.id,
@@ -346,13 +367,17 @@ export function subscribeToBudget(
       }
     },
 
-    (error) => {
+    (
+      error
+    ) => {
       console.error(
         `Error escuchando presupuesto ${budgetId}:`,
         error
       );
 
-      if (onError) {
+      if (
+        onError
+      ) {
         onError(
           error
         );
@@ -369,7 +394,9 @@ export async function acceptBudget(
   budgetId,
   author
 ) {
-  if (!budgetId) {
+  if (
+    !budgetId
+  ) {
     throw new Error(
       "BUDGET_REQUIRED"
     );
@@ -420,7 +447,7 @@ export async function acceptBudget(
       );
 
       /* =================================
-         TICKET ASOCIADO
+         SI TIENE TICKET, LEERLO
       ================================= */
 
       const ticketId =
@@ -436,7 +463,9 @@ export async function acceptBudget(
       let ticketData =
         null;
 
-      if (ticketId) {
+      if (
+        ticketId
+      ) {
         ticketRef =
           doc(
             db,
@@ -485,14 +514,15 @@ export async function acceptBudget(
           ? budget.historial
           : [];
 
+      /* =================================
+         ACTUALIZAR PRESUPUESTO
+      ================================= */
+
       transaction.update(
         budgetRef,
         {
           estado:
             "Aceptado",
-
-          presupuestoAprobado:
-            true,
 
           actualizadoEn:
             nowISO,
@@ -545,9 +575,6 @@ export async function acceptBudget(
             stage:
               "reparacion",
 
-            actualizadoEn:
-              nowISO,
-
             historial: [
               ...ticketHistory,
               ticketHistoryEntry,
@@ -585,7 +612,9 @@ export async function rejectBudget(
   reason = "",
   author
 ) {
-  if (!budgetId) {
+  if (
+    !budgetId
+  ) {
     throw new Error(
       "BUDGET_REQUIRED"
     );
@@ -598,7 +627,8 @@ export async function rejectBudget(
 
   const cleanReason =
     String(
-      reason || ""
+      reason ||
+        ""
     ).trim();
 
   const budgetRef =
@@ -657,7 +687,9 @@ export async function rejectBudget(
       let ticketData =
         null;
 
-      if (ticketId) {
+      if (
+        ticketId
+      ) {
         ticketRef =
           doc(
             db,
@@ -728,7 +760,7 @@ export async function rejectBudget(
       );
 
       /* =================================
-         ACTUALIZAR TICKET
+         HISTORIAL TICKET
       ================================= */
 
       if (
@@ -767,16 +799,8 @@ export async function rejectBudget(
             presupuestoId:
               cleanBudgetId,
 
-            /*
-             * Conservamos por ahora
-             * el comportamiento anterior.
-             *
-             * Más adelante podemos crear un
-             * estado específico para
-             * "Presupuesto rechazado".
-             */
             stage:
-              "noreparable",
+              "presupuesto_rechazado",
 
             actualizadoEn:
               nowISO,
@@ -809,6 +833,7 @@ export async function rejectBudget(
   return result;
 }
 
+
 /* =========================================
    CREAR PRESUPUESTO MANUAL
 ========================================= */
@@ -821,10 +846,6 @@ export async function createManualBudget({
   observations = "",
   author = "Sistema",
 } = {}) {
-  /* =======================================
-     VALIDAR CLIENTE
-  ======================================= */
-
   if (!client?.id) {
     throw new Error(
       "BUDGET_CLIENT_REQUIRED"
@@ -832,22 +853,15 @@ export async function createManualBudget({
   }
 
   if (
-    client.archivado ===
-    true
+    client.archivado === true
   ) {
     throw new Error(
       "BUDGET_CLIENT_ARCHIVED"
     );
   }
 
-  /* =======================================
-     VALIDAR ITEMS
-  ======================================= */
-
   if (
-    !Array.isArray(
-      items
-    ) ||
+    !Array.isArray(items) ||
     items.length === 0
   ) {
     throw new Error(
@@ -856,78 +870,66 @@ export async function createManualBudget({
   }
 
   const normalizedItems =
-    items.map(
-      (item) => {
-        const description =
-          cleanText(
-            item?.descripcion
-          );
+    items.map((item) => {
+      const description =
+        cleanText(
+          item?.descripcion
+        );
 
-        const quantity =
-          toNumber(
-            item?.cantidad,
-            0
-          );
+      const quantity =
+        toNumber(
+          item?.cantidad,
+          0
+        );
 
-        const price =
-          toNumber(
-            item?.precio,
-            -1
-          );
+      const price =
+        toNumber(
+          item?.precio,
+          -1
+        );
 
-        if (
-          !description ||
-          quantity <= 0 ||
-          price < 0
-        ) {
-          throw new Error(
-            "BUDGET_ITEM_INVALID"
-          );
-        }
-
-        return {
-          descripcion:
-            description,
-
-          cantidad:
-            quantity,
-
-          precio:
-            roundMoney(
-              price
-            ),
-
-          subtotal:
-            roundMoney(
-              quantity *
-                price
-            ),
-
-          sku:
-            cleanText(
-              item?.sku
-            ),
-
-          tipo:
-            cleanText(
-              item?.tipo
-            ) ||
-            "Concepto manual",
-        };
+      if (
+        !description ||
+        quantity <= 0 ||
+        price < 0
+      ) {
+        throw new Error(
+          "BUDGET_ITEM_INVALID"
+        );
       }
-    );
 
-  /* =======================================
-     TOTALES
-  ======================================= */
+      return {
+        descripcion:
+          description,
+
+        cantidad:
+          quantity,
+
+        precio:
+          roundMoney(price),
+
+        subtotal:
+          roundMoney(
+            quantity * price
+          ),
+
+        sku:
+          cleanText(
+            item?.sku
+          ),
+
+        tipo:
+          cleanText(
+            item?.tipo
+          ) ||
+          "Concepto manual",
+      };
+    });
 
   const subtotal =
     roundMoney(
       normalizedItems.reduce(
-        (
-          sum,
-          item
-        ) =>
+        (sum, item) =>
           sum +
           item.subtotal,
         0
@@ -949,10 +951,7 @@ export async function createManualBudget({
   const discountAmount =
     roundMoney(
       subtotal *
-        (
-          cleanDiscount /
-          100
-        )
+      (cleanDiscount / 100)
     );
 
   const total =
@@ -960,21 +959,15 @@ export async function createManualBudget({
       Math.max(
         0,
         subtotal -
-          discountAmount
+        discountAmount
       )
     );
 
-  if (
-    total <= 0
-  ) {
+  if (total <= 0) {
     throw new Error(
       "BUDGET_TOTAL_INVALID"
     );
   }
-
-  /* =======================================
-     VIGENCIA
-  ======================================= */
 
   const cleanValidityDays =
     Math.max(
@@ -994,9 +987,7 @@ export async function createManualBudget({
     now.toISOString();
 
   const date =
-    formatDateYMD(
-      now
-    );
+    formatDateYMD(now);
 
   const expirationDate =
     formatDateYMD(
@@ -1006,10 +997,6 @@ export async function createManualBudget({
       )
     );
 
-  /* =======================================
-     CONTADOR
-  ======================================= */
-
   const counterRef =
     doc(
       db,
@@ -1017,15 +1004,11 @@ export async function createManualBudget({
       "contadores"
     );
 
-  let result =
-    null;
+  let result = null;
 
   await runTransaction(
     db,
-
-    async (
-      transaction
-    ) => {
+    async (transaction) => {
       const counterSnapshot =
         await transaction.get(
           counterRef
@@ -1059,22 +1042,12 @@ export async function createManualBudget({
           budgetId
         );
 
-      /* =================================
-         CLIENTE
-      ================================= */
-
       const clientName =
         cleanText(
           client.razonSocial
         ) ||
         cleanText(
-          `${
-            client.nombre ||
-            ""
-          } ${
-            client.apellido ||
-            ""
-          }`
+          `${client.nombre || ""} ${client.apellido || ""}`
         ) ||
         cleanText(
           client.name
@@ -1094,13 +1067,7 @@ export async function createManualBudget({
         "C.F.";
 
       const cleanAuthorValue =
-        cleanAuthor(
-          author
-        );
-
-      /* =================================
-         HISTORIAL
-      ================================= */
+        cleanAuthor(author);
 
       const historyEntry =
         createHistoryEntry({
@@ -1113,10 +1080,6 @@ export async function createManualBudget({
           detail:
             `Presupuesto ${budgetId} creado manualmente. Total: ${total}.`,
         });
-
-      /* =================================
-         DOCUMENTO
-      ================================= */
 
       const budget = {
         id:
@@ -1134,7 +1097,6 @@ export async function createManualBudget({
             {
               hour:
                 "2-digit",
-
               minute:
                 "2-digit",
             }
@@ -1173,9 +1135,6 @@ export async function createManualBudget({
         presupuestoFijado:
           true,
 
-        presupuestoAprobado:
-          false,
-
         items:
           normalizedItems,
 
@@ -1211,10 +1170,6 @@ export async function createManualBudget({
         ],
       };
 
-      /* =================================
-         ACTUALIZAR CONTADOR
-      ================================= */
-
       transaction.set(
         counterRef,
         {
@@ -1222,31 +1177,21 @@ export async function createManualBudget({
             nextCounter,
         },
         {
-          merge:
-            true,
+          merge: true,
         }
       );
-
-      /* =================================
-         CREAR PRESUPUESTO
-      ================================= */
 
       transaction.set(
         budgetRef,
         budget
       );
 
-      result =
-        budget;
+      result = budget;
     }
   );
 
   return result;
 }
-
-/* =========================================
-   EXPORT DEFAULT
-========================================= */
 
 export default {
   subscribeToBudgets,

@@ -6,28 +6,45 @@ import {
   runTransaction,
 } from "firebase/firestore";
 
-import { auth, db } from "./firebase.js";
+import {
+  auth,
+  db,
+} from "./firebase.js";
 
 /* =========================================
    HELPERS
 ========================================= */
 
 function cleanText(value) {
-  return String(value ?? "").trim();
+  return String(
+    value ?? ""
+  ).trim();
 }
 
-function toNumber(value, fallback = 0) {
-  const number = Number(value);
+function toNumber(
+  value,
+  fallback = 0
+) {
+  const number =
+    Number(value);
 
-  return Number.isFinite(number)
+  return Number.isFinite(
+    number
+  )
     ? number
     : fallback;
 }
 
 function roundMoney(value) {
-  return Math.round(
-    (Number(value) + Number.EPSILON) * 100
-  ) / 100;
+  return (
+    Math.round(
+      (
+        Number(value) +
+        Number.EPSILON
+      ) *
+        100
+    ) / 100
+  );
 }
 
 function formatHistoryDate(
@@ -71,10 +88,6 @@ function createHistoryEntry({
       ),
   };
 }
-
-/* =========================================
-   TOKEN
-========================================= */
 
 function isValidToken(
   value
@@ -123,10 +136,6 @@ function createSecureToken() {
     .join("");
 }
 
-/* =========================================
-   DECISIÓN
-========================================= */
-
 function normalizeDecision(
   value
 ) {
@@ -161,13 +170,6 @@ function normalizeDecision(
     "PUBLIC_RESPONSE_INVALID"
   );
 }
-
-/* =========================================
-   VENCIMIENTO
-
-   Se interpreta YYYY-MM-DD al final
-   del día en Argentina (-03:00).
-========================================= */
 
 function createExpirationTimestamp(
   dateValue
@@ -236,10 +238,6 @@ function isExpired(
   );
 }
 
-/* =========================================
-   ITEMS
-========================================= */
-
 function normalizeItems(
   items
 ) {
@@ -303,10 +301,6 @@ function normalizeItems(
   );
 }
 
-/* =========================================
-   EQUIPO
-========================================= */
-
 function getEquipmentText(
   ticket
 ) {
@@ -332,10 +326,6 @@ function getEquipmentText(
     " · "
   );
 }
-
-/* =========================================
-   AUTH
-========================================= */
 
 function assertLoggedIn() {
   if (
@@ -380,7 +370,13 @@ export function getPublicBudgetUrl(
 }
 
 /* =========================================
-   PUBLICAR / ACTUALIZAR ENLACE PÚBLICO
+   PUBLICAR PRESUPUESTO
+
+   Esta función requiere usuario autenticado.
+
+   Genera un token aleatorio y copia únicamente
+   la información necesaria a:
+   presupuestos_publicos/{token}
 ========================================= */
 
 export async function publishBudget(
@@ -418,10 +414,6 @@ export async function publishBudget(
     async (
       transaction
     ) => {
-      /* =================================
-         PRESUPUESTO INTERNO
-      ================================= */
-
       const budgetSnapshot =
         await transaction.get(
           budgetRef
@@ -451,37 +443,15 @@ export async function publishBudget(
         );
       }
 
-      const expirationDate =
-        budget.fechaVencimiento ||
-        budget.vigencia ||
-        null;
-
       if (
         isExpired(
-          expirationDate
+          budget.fechaVencimiento
         )
       ) {
         throw new Error(
           "BUDGET_EXPIRED"
         );
       }
-
-      const expirationTimestamp =
-        createExpirationTimestamp(
-          expirationDate
-        );
-
-      if (
-        !expirationTimestamp
-      ) {
-        throw new Error(
-          "BUDGET_EXPIRATION_INVALID"
-        );
-      }
-
-      /* =================================
-         TICKET
-      ================================= */
 
       let ticket =
         null;
@@ -515,20 +485,11 @@ export async function publishBudget(
         }
       }
 
-      /* =================================
-         TOKEN
-      ================================= */
-
-      const existingToken =
-        cleanText(
-          budget.publicToken
-        );
-
       const token =
         isValidToken(
-          existingToken
+          budget.publicToken
         )
-          ? existingToken
+          ? budget.publicToken
           : createSecureToken();
 
       const publicRef =
@@ -548,25 +509,9 @@ export async function publishBudget(
           ? publicSnapshot.data()
           : null;
 
-      if (
-        previousPublic?.presupuestoId &&
-        cleanText(
-          previousPublic.presupuestoId
-        ) !==
-          cleanBudgetId
-      ) {
-        throw new Error(
-          "PUBLIC_TOKEN_CONFLICT"
-        );
-      }
-
       const nowISO =
         new Date()
           .toISOString();
-
-      /* =================================
-         ITEMS
-      ================================= */
 
       const items =
         normalizeItems(
@@ -601,9 +546,21 @@ export async function publishBudget(
             0
         );
 
-      /* =================================
-         DOCUMENTO PÚBLICO
-      ================================= */
+      const expirationDate =
+        budget.fechaVencimiento ||
+        budget.vigencia ||
+        null;
+
+      const expirationTimestamp =
+        createExpirationTimestamp(
+          expirationDate
+        );
+
+      /*
+       * IMPORTANTE:
+       * No copiamos DNI, CUIT, teléfono,
+       * dirección, PIN, IMEI ni datos sensibles.
+       */
 
       const publicData = {
         token,
@@ -631,19 +588,6 @@ export async function publishBudget(
           budget.ticketNumero ||
           budget.ticketId ||
           null,
-
-        /* =================================
-           DATOS PÚBLICOS
-
-           No copiamos:
-           DNI
-           CUIT
-           teléfono
-           dirección
-           email
-           PIN
-           IMEI
-        ================================= */
 
         cliente:
           cleanText(
@@ -690,22 +634,12 @@ export async function publishBudget(
           budget.fecha ||
           null,
 
-        /*
-         * Texto para mostrar en la UI.
-         */
         fechaVencimiento:
           expirationDate,
 
-        /*
-         * Timestamp real para Firestore Rules.
-         */
         venceEn:
           expirationTimestamp,
 
-        /*
-         * Si el cliente ya respondió,
-         * republicar NO borra la respuesta.
-         */
         estado:
           previousPublic?.respuesta ||
           "Pendiente",
@@ -738,18 +672,14 @@ export async function publishBudget(
           nowISO,
       };
 
-      /* =================================
-         GUARDAR DOCUMENTO PÚBLICO
-      ================================= */
-
       transaction.set(
         publicRef,
-        publicData
+        publicData,
+        {
+          merge:
+            true,
+        }
       );
-
-      /* =================================
-         ACTUALIZAR PRESUPUESTO INTERNO
-      ================================= */
 
       transaction.update(
         budgetRef,
@@ -787,8 +717,8 @@ export async function publishBudget(
           ),
 
         reused:
-          isValidToken(
-            existingToken
+          Boolean(
+            budget.publicToken
           ),
       };
     }
@@ -798,7 +728,9 @@ export async function publishBudget(
 }
 
 /* =========================================
-   SUSCRIPCIÓN PÚBLICA
+   LEER PRESUPUESTO PÚBLICO
+
+   Se utiliza desde la pantalla SIN LOGIN.
 ========================================= */
 
 export function subscribeToPublicBudget(
@@ -870,10 +802,13 @@ export function subscribeToPublicBudget(
 }
 
 /* =========================================
-   RESPONDER PRESUPUESTO PÚBLICO
+   RESPUESTA DEL CLIENTE
 
-   Solo modifica:
+   IMPORTANTE:
+   Esta operación SOLO modifica:
    presupuestos_publicos/{token}
+
+   No modifica tickets ni presupuestos internos.
 ========================================= */
 
 export async function respondToPublicBudget(
@@ -1001,6 +936,14 @@ export async function respondToPublicBudget(
 
 /* =========================================
    APLICAR RESPUESTA AL SISTEMA INTERNO
+
+   Esta función requiere LOGIN.
+
+   Es la que finalmente actualiza:
+   - presupuestos/{id}
+   - tickets/{id}
+
+   La página pública NO ejecuta esto.
 ========================================= */
 
 export async function applyPublicBudgetResponse(
@@ -1040,10 +983,6 @@ export async function applyPublicBudgetResponse(
     async (
       transaction
     ) => {
-      /* =================================
-         DOCUMENTO PÚBLICO
-      ================================= */
-
       const publicSnapshot =
         await transaction.get(
           publicRef
@@ -1110,10 +1049,6 @@ export async function applyPublicBudgetResponse(
         );
       }
 
-      /* =================================
-         PRESUPUESTO INTERNO
-      ================================= */
-
       const budgetRef =
         doc(
           db,
@@ -1148,19 +1083,15 @@ export async function applyPublicBudgetResponse(
         );
       }
 
-      /* =================================
-         TICKET
-      ================================= */
-
-      const ticketId =
-        publicData.ticketId ||
-        budget.ticketId ||
-        null;
-
       let ticketRef =
         null;
 
       let ticket =
+        null;
+
+      const ticketId =
+        publicData.ticketId ||
+        budget.ticketId ||
         null;
 
       if (
@@ -1197,10 +1128,6 @@ export async function applyPublicBudgetResponse(
           author
         ) ||
         "Sistema";
-
-      /* =================================
-         ACTUALIZAR PRESUPUESTO
-      ================================= */
 
       const budgetHistory =
         Array.isArray(
@@ -1249,10 +1176,6 @@ export async function applyPublicBudgetResponse(
         }
       );
 
-      /* =================================
-         ACTUALIZAR TICKET
-      ================================= */
-
       if (
         ticketRef &&
         ticket
@@ -1277,15 +1200,11 @@ export async function applyPublicBudgetResponse(
             presupuestoEstado:
               response,
 
-            /*
-             * Conservamos por ahora el flujo
-             * actual del proyecto.
-             */
             stage:
               response ===
               "Aceptado"
                 ? "reparacion"
-                : "noreparable",
+                : "presupuesto_rechazado",
 
             actualizadoEn:
               nowISO,
@@ -1313,10 +1232,6 @@ export async function applyPublicBudgetResponse(
           }
         );
       }
-
-      /* =================================
-         MARCAR COMO APLICADO
-      ================================= */
 
       transaction.update(
         publicRef,
@@ -1359,7 +1274,7 @@ export async function applyPublicBudgetResponse(
 }
 
 /* =========================================
-   CONSULTA SIMPLE
+   CONSULTA SIMPLE DEL DOCUMENTO PÚBLICO
 ========================================= */
 
 export async function getPublicBudget(

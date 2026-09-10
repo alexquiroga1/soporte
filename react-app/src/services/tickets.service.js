@@ -32,6 +32,7 @@ const TICKET_STAGE_LABELS = {
   pendiente: "Recibido",
   diagnostico: "En diagnóstico",
   presupuesto: "Esperando aprobación",
+  presupuesto_rechazado: "Presupuesto rechazado",
   reparacion: "En reparación",
   repuesto: "Esperando repuesto",
   listo: "Listo para entrega",
@@ -2384,6 +2385,9 @@ export async function fixTicketBudget(
 
         {
           presupuestoId,
+
+          stage:
+            "presupuesto",
 
           presupuestoEstado:
             "Pendiente",

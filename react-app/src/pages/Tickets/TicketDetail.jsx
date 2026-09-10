@@ -86,6 +86,11 @@ const STAGES = {
     className: "detail-stage-budget",
   },
 
+  presupuesto_rechazado: {
+    label: "Presupuesto rechazado",
+    className: "detail-stage-danger",
+  },
+
   reparacion: {
     label: "En reparación",
     className: "detail-stage-repair",

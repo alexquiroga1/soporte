@@ -64,6 +64,11 @@ const TICKET_STAGES = {
     shortLabel: "Presupuesto",
     className: "stage-budget",
   },
+  presupuesto_rechazado: {
+    label: "Presupuesto rechazado",
+    shortLabel: "Rechazado",
+    className: "stage-danger",
+  },
   reparacion: {
     label: "En reparación",
     shortLabel: "Reparación",
