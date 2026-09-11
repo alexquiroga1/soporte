@@ -21,8 +21,8 @@ service cloud.firestore {
 
     function isActiveUser() {
       return hasUserProfile()
-        && userProfile().activo != false
-        && userProfile().enabled != false;
+    && userProfile().get("activo", true) != false
+    && userProfile().get("enabled", true) != false;
     }
 
     function isAdmin() {
