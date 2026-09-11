@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -10,31 +11,31 @@ import {
 } from "react-router-dom";
 
 import {
+  AnimatePresence,
   motion,
 } from "motion/react";
 
 import {
+  AlertTriangle,
   Archive,
   ArchiveRestore,
   ArrowLeft,
   BadgeDollarSign,
-  CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
+  CheckCircle2,
   CreditCard,
+  ExternalLink,
   FileClock,
-  Mail,
-  MapPin,
+  FileText,
+  MonitorSmartphone,
   NotebookPen,
   Pencil,
-  Phone,
   Plus,
   ReceiptText,
   Search,
+  ShoppingBag,
   Ticket,
   Trash2,
   UserRound,
-  Users,
   WalletCards,
   X,
 } from "lucide-react";
@@ -46,12 +47,10 @@ import {
 import {
   addClientNote,
   createClient,
-  createClientCredit,
   deleteClient,
   getClientActivity,
   getClientDisplayName,
   getClientDocument,
-  refinanceClientDebt,
   setClientArchived,
   subscribeToClientActivityIndex,
   subscribeToClients,
@@ -60,8 +59,15 @@ import {
 } from "../../services/clientes.service.js";
 
 import {
-  notify,
-} from "../../services/notifications.js";
+  createCredit,
+  getCreditStatus,
+  refinanceClientCredits,
+} from "../../services/creditos.service.js";
+
+import {
+  PERMISSIONS,
+  profileHasPermission,
+} from "../../security/permissions.js";
 
 import "./Clientes.css";
 
@@ -137,6 +143,55 @@ function initials(name) {
     .join("");
 }
 
+function getDebtAlert(activity) {
+  const activeCredits =
+    activity?.activeCredits ||
+    [];
+
+  if (!activeCredits.length) {
+    return {
+      tone: "ok",
+      label: "Al día",
+      overdue: false,
+    };
+  }
+
+  const statuses =
+    activeCredits.map((credit) =>
+      getCreditStatus(credit)
+    );
+
+  const overdue =
+    statuses.find((status) =>
+      status.overdue
+    );
+
+  if (overdue) {
+    return {
+      tone: "critical",
+      label: overdue.label,
+      overdue: true,
+    };
+  }
+
+  return {
+    tone: "warning",
+    label: "Deuda activa",
+    overdue: false,
+  };
+}
+
+function recordDate(record) {
+  return (
+    record?.fecha ||
+    record?.fechaOrigen ||
+    record?.fechaEmision ||
+    record?.creadoEn ||
+    record?.createdAt ||
+    ""
+  );
+}
+
 function errorMessage(error) {
   if (
     error?.message ===
@@ -190,8 +245,12 @@ function errorMessage(error) {
     CLIENT_BALANCE_EXISTS: `No se puede eliminar un cliente con saldo a favor (${formatMoney(error?.balance)}).`,
     CLIENT_ARCHIVED: "El cliente está archivado. Restauralo antes de crear nuevas operaciones.",
     CREDIT_CAPITAL_INVALID: "El capital debe ser mayor a cero.",
+    CREDIT_AMOUNT_INVALID: "El capital debe ser mayor a cero.",
+    CREDIT_CLIENT_REQUIRED: "Seleccioná un cliente.",
     CREDIT_ADVANCE_INVALID: "El anticipo debe ser menor que el capital.",
     CREDIT_LIMIT_EXCEEDED: `Cupo insuficiente. Disponible: ${formatMoney(error?.available)}.`,
+    CREDIT_CLIENT_BLOCKED: `El cliente registra ${error?.daysLate || 0} días de mora. Gestioná la excepción desde Créditos.`,
+    CREDIT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
     CLIENT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
   };
 
@@ -203,17 +262,85 @@ export default function Clientes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user } = useAuth();
 
+  const canTickets =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.TICKETS
+    );
+
+  const canSales =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.SALES
+    );
+
+  const canCredits =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.CREDITS
+    );
+
+  const canSeeFinancials =
+    canSales ||
+    canCredits;
+
+  const canBudgets =
+    canTickets ||
+    canSales;
+
+  const canInvoices =
+    canSales ||
+    canCredits;
+
+  const canAccount =
+    canSales ||
+    canCredits;
+
+  const canManageClientLifecycle =
+    canTickets &&
+    canSales &&
+    canCredits;
+
+  const canDeleteClient =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.ALL
+    );
+
+
   const author =
     profile?.nombre ||
     profile?.name ||
     user?.email ||
     "Sistema";
 
+  const availableTabs = useMemo(
+    () => [
+      "summary",
+      ...(canTickets ? ["tickets", "devices"] : []),
+      ...(canSales || canInvoices ? ["sales"] : []),
+      ...(canCredits ? ["credits"] : []),
+      ...(canBudgets ? ["budgets"] : []),
+      ...(canAccount ? ["account"] : []),
+    ],
+    [
+      canTickets,
+      canSales,
+      canInvoices,
+      canCredits,
+      canBudgets,
+      canAccount,
+    ]
+  );
+
   const [clients, setClients] = useState([]);
   const [index, setIndex] = useState({
     tickets: [],
     sales: [],
     credits: [],
+    budgets: [],
+    invoices: [],
+    account: [],
   });
 
   const [search, setSearch] = useState("");
@@ -225,7 +352,7 @@ export default function Clientes() {
   const [activeTab, setActiveTab] = useState(
     () => {
       const tab = searchParams.get("tab");
-      return ["summary", "tickets", "sales", "credits"].includes(tab)
+      return availableTabs.includes(tab)
         ? tab
         : "summary";
     }
@@ -249,12 +376,60 @@ export default function Clientes() {
   const [limitValue, setLimitValue] = useState("");
   const [savingLimit, setSavingLimit] = useState(false);
 
+  const [toasts, setToasts] = useState([]);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((current) =>
+      current.filter((item) => item.id !== toastId)
+    );
+  }, []);
+
+  const pushToast = useCallback(
+    (type, title, description = "") => {
+      const id =
+        globalThis.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random()}`;
+
+      setToasts((current) => [
+        ...current.slice(-3),
+        {
+          id,
+          type,
+          title,
+          description,
+        },
+      ]);
+
+      window.setTimeout(
+        () => dismissToast(id),
+        type === "error" ? 6500 : 4300
+      );
+
+      return id;
+    },
+    [dismissToast]
+  );
+
+  const uiNotify = useMemo(
+    () => ({
+      success: (title, description = "") =>
+        pushToast("success", title, description),
+      error: (title, description = "") =>
+        pushToast("error", title, description),
+      warning: (title, description = "") =>
+        pushToast("warning", title, description),
+      info: (title, description = "") =>
+        pushToast("info", title, description),
+    }),
+    [pushToast]
+  );
+
   useEffect(() => {
     const unsubscribeClients = subscribeToClients(
       setClients,
       (error) => {
         console.error(error);
-        notify.error("Clientes", "No se pudieron cargar los clientes.");
+        uiNotify.error("Clientes", "No se pudieron cargar los clientes.");
       }
     );
 
@@ -262,6 +437,20 @@ export default function Clientes() {
       setIndex,
       (error) => {
         console.error(error);
+      },
+      {
+        includeTickets:
+          canTickets,
+        includeSales:
+          canSales,
+        includeCredits:
+          canCredits,
+        includeBudgets:
+          canBudgets,
+        includeInvoices:
+          canInvoices,
+        includeAccount:
+          canAccount,
       }
     );
 
@@ -269,7 +458,15 @@ export default function Clientes() {
       unsubscribeClients();
       unsubscribeIndex();
     };
-  }, []);
+  }, [
+    canTickets,
+    canSales,
+    canCredits,
+    canBudgets,
+    canInvoices,
+    canAccount,
+    uiNotify,
+  ]);
 
   /* =======================================
      CONTEXTO DE CLIENTE EN LA URL
@@ -285,13 +482,18 @@ export default function Clientes() {
       searchParams.get("tab");
 
     const tab =
-      ["summary", "tickets", "sales", "credits"].includes(requestedTab)
+      availableTabs.includes(
+        requestedTab
+      )
         ? requestedTab
         : "summary";
 
     setSelectedClientId(clientId);
     setActiveTab(tab);
-  }, [searchParams]);
+  }, [
+    searchParams,
+    availableTabs,
+  ]);
 
   const setClientContext = (
     clientId,
@@ -310,7 +512,9 @@ export default function Clientes() {
 
       next.set(
         "tab",
-        ["summary", "tickets", "sales", "credits"].includes(tab)
+        availableTabs.includes(
+          tab
+        )
           ? tab
           : "summary"
       );
@@ -339,6 +543,73 @@ export default function Clientes() {
         : null,
     [selectedClient, index]
   );
+
+
+  const selectedDevices = useMemo(() => {
+    const devices = new Map();
+
+    (selectedActivity?.tickets || []).forEach((ticket) => {
+      const name =
+        ticket.equipo ||
+        ticket.dispositivo ||
+        [ticket.marca, ticket.modelo]
+          .filter(Boolean)
+          .join(" ") ||
+        "Equipo";
+
+      const serial =
+        ticket.serie ||
+        ticket.numeroSerie ||
+        ticket.serial ||
+        "";
+
+      const key =
+        `${name}::${serial}`.toLowerCase();
+
+      const current =
+        devices.get(key);
+
+      if (current) {
+        current.services += 1;
+
+        if (
+          recordDate(ticket) >
+          recordDate(current.lastTicket)
+        ) {
+          current.lastTicket =
+            ticket;
+        }
+
+        return;
+      }
+
+      devices.set(key, {
+        key,
+        name,
+        serial,
+        details:
+          ticket.detalleEquipo ||
+          ticket.descripcionEquipo ||
+          ticket.tipoEquipo ||
+          "",
+        services: 1,
+        lastTicket: ticket,
+      });
+    });
+
+    return Array.from(
+      devices.values()
+    );
+  }, [selectedActivity]);
+
+  const selectedDebtAlert =
+    useMemo(
+      () =>
+        getDebtAlert(
+          selectedActivity
+        ),
+      [selectedActivity]
+    );
 
   useEffect(() => {
     if (selectedClient) {
@@ -463,10 +734,14 @@ export default function Clientes() {
           }
         );
 
-        notify.success("Cliente actualizado", "Los datos se guardaron correctamente.");
+        uiNotify.success("Cliente actualizado", "Los datos se guardaron correctamente.");
       } else {
         const created = await createClient({
           ...clientForm,
+          limiteCredito:
+            canCredits
+              ? clientForm.limiteCredito
+              : 0,
           author,
         });
 
@@ -474,21 +749,26 @@ export default function Clientes() {
           created.id,
           "summary"
         );
-        notify.success("Cliente creado", `${getClientDisplayName(created)} fue registrado.`);
+        uiNotify.success("Cliente creado", `${getClientDisplayName(created)} fue registrado.`);
       }
 
       setClientModal(false);
       setClientForm(EMPTY_CLIENT);
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo guardar", errorMessage(error));
+      uiNotify.error("No se pudo guardar", errorMessage(error));
     } finally {
       setSavingClient(false);
     }
   };
 
   const handleDeleteClient = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canDeleteClient
+    ) {
+      return;
+    }
 
     const name =
       getClientDisplayName(
@@ -515,14 +795,14 @@ export default function Clientes() {
         null
       );
 
-      notify.success(
+      uiNotify.success(
         "Cliente eliminado",
         `${name} fue eliminado de la base de clientes.`
       );
     } catch (error) {
       console.error(error);
 
-      notify.error(
+      uiNotify.error(
         "No se pudo eliminar",
         errorMessage(error)
       );
@@ -532,7 +812,12 @@ export default function Clientes() {
   };
 
   const handleArchiveClient = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canManageClientLifecycle
+    ) {
+      return;
+    }
 
     const archived =
       selectedClient.archivado ===
@@ -570,7 +855,7 @@ export default function Clientes() {
           "active"
         );
 
-        notify.success(
+        uiNotify.success(
           "Cliente restaurado",
           `${name} volvió a quedar activo.`
         );
@@ -579,7 +864,7 @@ export default function Clientes() {
           "archived"
         );
 
-        notify.success(
+        uiNotify.success(
           "Cliente archivado",
           `${name} quedó archivado sin perder su historial.`
         );
@@ -589,7 +874,7 @@ export default function Clientes() {
         error
       );
 
-      notify.error(
+      uiNotify.error(
         archived
           ? "No se pudo restaurar"
           : "No se pudo archivar",
@@ -605,7 +890,12 @@ export default function Clientes() {
   };
 
   const handleSaveLimit = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     try {
       setSavingLimit(true);
@@ -616,10 +906,10 @@ export default function Clientes() {
         author
       );
 
-      notify.success("Límite actualizado", `Nuevo límite: ${formatMoney(value)}.`);
+      uiNotify.success("Límite actualizado", `Nuevo límite: ${formatMoney(value)}.`);
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo actualizar", errorMessage(error));
+      uiNotify.error("No se pudo actualizar", errorMessage(error));
     } finally {
       setSavingLimit(false);
     }
@@ -638,23 +928,28 @@ export default function Clientes() {
       );
 
       setNote("");
-      notify.success("Nota agregada", "Quedó registrada en el perfil del cliente.");
+      uiNotify.success("Nota agregada", "Quedó registrada en el perfil del cliente.");
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo guardar", errorMessage(error));
+      uiNotify.error("No se pudo guardar", errorMessage(error));
     } finally {
       setSavingNote(false);
     }
   };
 
   const openCredit = (mode) => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     if (
       selectedClient.archivado ===
       true
     ) {
-      notify.warning(
+      uiNotify.warning(
         "Cliente archivado",
         "Restauralo antes de crear o refinanciar un crédito."
       );
@@ -674,34 +969,53 @@ export default function Clientes() {
   };
 
   const handleSaveCredit = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     try {
       setSavingCredit(true);
 
       if (creditMode === "refinance") {
-        await refinanceClientDebt({
-          client: selectedClient,
-          interest: creditForm.interest,
-          installments: creditForm.installments,
-          firstDueDate: creditForm.firstDueDate,
+        await refinanceClientCredits({
+          client:
+            selectedClient,
+          credits:
+            selectedActivity?.activeCredits ||
+            [],
+          interest:
+            creditForm.interest,
+          installments:
+            creditForm.installments,
+          firstDueDate:
+            creditForm.firstDueDate,
           author,
         });
 
-        notify.success("Deuda refinanciada", "Se creó una nueva carpeta con la deuda unificada.");
+        uiNotify.success("Deuda refinanciada", "Se creó una nueva carpeta con la deuda unificada.");
       } else {
-        await createClientCredit({
-          client: selectedClient,
-          concept: creditForm.concept,
-          capital: creditForm.capital,
-          advance: creditForm.advance,
-          interest: creditForm.interest,
-          installments: creditForm.installments,
-          firstDueDate: creditForm.firstDueDate,
+        await createCredit({
+          client:
+            selectedClient,
+          concept:
+            creditForm.concept,
+          capital:
+            creditForm.capital,
+          advance:
+            creditForm.advance,
+          interest:
+            creditForm.interest,
+          installments:
+            creditForm.installments,
+          firstDueDate:
+            creditForm.firstDueDate,
           author,
         });
 
-        notify.success("Crédito creado", "La nueva carpeta fue registrada.");
+        uiNotify.success("Crédito creado", "La nueva carpeta fue registrada.");
       }
 
       setCreditModal(false);
@@ -712,7 +1026,7 @@ export default function Clientes() {
       );
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo procesar", errorMessage(error));
+      uiNotify.error("No se pudo procesar", errorMessage(error));
     } finally {
       setSavingCredit(false);
     }
@@ -759,413 +1073,652 @@ export default function Clientes() {
     );
   };
 
+
+  const openSaleFromClient = (sale) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/facturas",
+      {
+        state: {
+          saleId: sale.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+        },
+      }
+    );
+  };
+
+  const openInvoiceFromClient = (invoice) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/facturas",
+      {
+        state: {
+          invoiceId: invoice.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+        },
+      }
+    );
+  };
+
+  const openBudgetFromClient = (budget) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/presupuestos",
+      {
+        state: {
+          budgetId: budget.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=budgets`,
+        },
+      }
+    );
+  };
+
+  const openNewTicketForClient = (device = null) => {
+    if (
+      !selectedClient ||
+      !canTickets
+    ) {
+      return;
+    }
+
+    navigate(
+      "/tickets/nuevo",
+      {
+        state: {
+          clienteId:
+            selectedClient.id,
+          device:
+            device
+              ? {
+                  name:
+                    device.name,
+                  serial:
+                    device.serial,
+                }
+              : null,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=${device ? "devices" : "summary"}`,
+        },
+      }
+    );
+  };
+
   return (
     <main className="clients-page">
       <div className="clients-shell">
-        <header className="clients-header">
-          <div className="clients-heading">
-            <button
-              type="button"
-              className="clients-back"
-              onClick={() => navigate("/dashboard")}
+        <AnimatePresence mode="wait">
+          {!selectedClient ? (
+            <motion.section
+              key="directory"
+              className="clients-directory-view"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22 }}
             >
-              <ArrowLeft size={17} />
-              Dashboard
-            </button>
+              <header className="clients-topbar">
+                <div className="clients-brand">
+                  <button
+                    type="button"
+                    className="clients-icon-button"
+                    onClick={() => navigate("/dashboard")}
+                    title="Volver al Dashboard"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
 
-            <span className="clients-eyebrow">Clientes / Cuenta comercial</span>
-            <h1>Clientes</h1>
-            <p>Perfiles, tickets, compras, créditos y saldo a favor.</p>
-          </div>
+                  <div className="clients-brand-mark">
+                    <UserRound size={20} />
+                  </div>
 
-          <button
-            type="button"
-            className="clients-primary"
-            onClick={openNewClient}
-          >
-            <Plus size={17} />
-            Nuevo cliente
-          </button>
-        </header>
-
-        <section className="clients-metrics">
-          <article>
-            <span><Users size={17} /> Activos</span>
-            <strong>{metrics.active}</strong>
-            <small>{metrics.total} clientes registrados</small>
-          </article>
-
-          <article>
-            <span><Archive size={17} /> Archivados</span>
-            <strong>{metrics.archived}</strong>
-            <small>Con historial conservado</small>
-          </article>
-
-          <article>
-            <span><ReceiptText size={17} /> Compras</span>
-            <strong>{formatMoney(metrics.purchases)}</strong>
-            <small>Histórico registrado</small>
-          </article>
-
-          <article>
-            <span><CreditCard size={17} /> Deuda activa</span>
-            <strong>{formatMoney(metrics.debt)}</strong>
-            <small>Carpetas con saldo</small>
-          </article>
-
-          <article>
-            <span><WalletCards size={17} /> Saldo a favor</span>
-            <strong>{formatMoney(metrics.creditBalance)}</strong>
-            <small>Disponible para cobros</small>
-          </article>
-        </section>
-
-        <section className="clients-workspace">
-          <div className="clients-list-panel">
-            <div className="clients-toolbar">
-              <div>
-                <span>Directorio</span>
-                <h2>Base de clientes</h2>
-              </div>
-
-              <div className="clients-toolbar-actions">
-                <div className="clients-directory-filters">
-                  {[
-                    ["active", "Activos"],
-                    ["archived", "Archivados"],
-                    ["all", "Todos"],
-                  ].map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={
-                        clientFilter === id
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        setClientFilter(
-                          id
-                        )
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  <div>
+                    <strong>SERVIX</strong>
+                    <span>Clientes</span>
+                  </div>
                 </div>
 
-                <label className="clients-search">
-                  <Search size={16} />
-                  <input
-                    value={search}
-                    placeholder="Nombre, DNI, CUIT, teléfono..."
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
+                <button
+                  type="button"
+                  className="clients-action primary"
+                  onClick={openNewClient}
+                >
+                  <Plus size={17} />
+                  Nuevo cliente
+                </button>
+              </header>
+
+              <div className="clients-directory-title">
+                <div>
+                  <span className="clients-eyebrow">Directorio comercial</span>
+                  <h1>Clientes</h1>
+                  <p>
+                    {metrics.active} activos · {metrics.archived} archivados · {metrics.total} registrados
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="clients-table-wrap">
-              <table className="clients-table">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Contacto</th>
-                    <th>Tickets</th>
-                    <th>Compras</th>
-                    <th>Deuda</th>
-                    <th />
-                  </tr>
-                </thead>
+              <div className="clients-alert-criteria" aria-label="Criterio de alertas">
+                <strong>Criterio</strong>
+                <span className="ok"><i />Al día</span>
+                <span className="warning"><i />Deuda activa</span>
+                <span className="critical"><i />Mora / vencimiento</span>
+                <span className="info"><i />Informativo</span>
+              </div>
 
-                <tbody>
-                  {rows.map((client) => {
-                    const activity = getClientActivity(client, index);
-                    const name = getClientDisplayName(client);
+              <section className="clients-directory-panel">
+                <div className="clients-directory-toolbar">
+                  <label className="clients-search">
+                    <Search size={18} />
+                    <input
+                      value={search}
+                      placeholder="Buscar por nombre, DNI, CUIT, teléfono o correo..."
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
 
-                    return (
-                      <tr
-                        key={client.id}
-                        className={[
-                          selectedClientId === client.id
-                            ? "active"
-                            : "",
-                          client.archivado === true
-                            ? "archived"
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        onClick={() => openClient(client)}
+                  <div className="clients-directory-filters">
+                    {[
+                      ["active", "Activos"],
+                      ["archived", "Archivados"],
+                      ["all", "Todos"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={clientFilter === id ? "active" : ""}
+                        onClick={() => setClientFilter(id)}
                       >
-                        <td>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="clients-list-head">
+                  <span>Cliente</span>
+                  <span>Contacto</span>
+                  <span>Actividad</span>
+                  <span>Finanzas</span>
+                  <span />
+                </div>
+
+                <div className="clients-list">
+                  <AnimatePresence initial={false}>
+                    {rows.map((client, rowIndex) => {
+                      const activity = getClientActivity(client, index);
+                      const name = getClientDisplayName(client);
+                      const alert = getDebtAlert(activity);
+
+                      return (
+                        <motion.div
+                          layout
+                          key={client.id}
+                          className={[
+                            "clients-list-row",
+                            client.archivado === true ? "archived" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openClient(client)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openClient(client);
+                            }
+                          }}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{
+                            duration: 0.2,
+                            delay: Math.min(rowIndex * 0.025, 0.18),
+                          }}
+                        >
                           <div className="clients-person">
-                            <div>{initials(name)}</div>
+                            <div className="clients-avatar">
+                              {initials(name)}
+                            </div>
                             <section>
                               <strong>{name}</strong>
                               <span>
                                 {getClientDocument(client)}
-                                {client.archivado === true
-                                  ? " · Archivado"
-                                  : ""}
+                                {client.archivado === true && (
+                                  <em className="clients-inline-status archived">
+                                    Archivado
+                                  </em>
+                                )}
+                                {client.archivado !== true && (
+                                  <em className="clients-inline-status active">
+                                    Activo
+                                  </em>
+                                )}
                               </span>
                             </section>
                           </div>
-                        </td>
 
-                        <td>
-                          <strong className="clients-cell-main">{client.tel || "—"}</strong>
-                          <span className="clients-cell-sub">{client.localidad || client.email || "Sin ubicación"}</span>
-                        </td>
+                          <div className="clients-contact-cell">
+                            <strong>{client.tel || "Sin teléfono"}</strong>
+                            <span>{client.email || client.localidad || "Sin contacto adicional"}</span>
+                          </div>
 
-                        <td>{activity.tickets.length}</td>
-                        <td>{formatMoney(activity.purchases)}</td>
-                        <td className={activity.debt > 0 ? "clients-debt" : ""}>
-                          {formatMoney(activity.debt)}
-                        </td>
+                          <div className="clients-activity-cell">
+                            <strong>
+                              {canTickets ? `${activity.tickets.length} tickets` : "Historial"}
+                              {canSales ? ` · ${activity.sales.length} ventas` : ""}
+                            </strong>
+                            <span>
+                              {canBudgets
+                                ? `${activity.budgets.length} presupuestos`
+                                : "Consultar perfil"}
+                            </span>
+                          </div>
 
-                        <td>
-                          <ChevronRight size={17} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <div className="clients-finance-cell">
+                            {canSeeFinancials ? (
+                              <>
+                                <div>
+                                  <span>Deuda</span>
+                                  <strong className={activity.debt > 0 ? "negative" : ""}>
+                                    {formatMoney(activity.debt)}
+                                  </strong>
+                                  {canCredits && (
+                                    <em className={`clients-debt-alert ${alert.tone}`}>
+                                      <i />
+                                      {alert.label}
+                                    </em>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <span>A favor</span>
+                                  <strong className={Number(client.saldoAFavor || 0) > 0 ? "positive" : ""}>
+                                    {formatMoney(client.saldoAFavor)}
+                                  </strong>
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                <span>Estado</span>
+                                <strong>{client.archivado === true ? "Archivado" : "Activo"}</strong>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="clients-row-actions">
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openClient(client);
+                              }}
+                            >
+                              <UserRound size={15} />
+                              Ver cliente
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
 
                   {!rows.length && (
-                    <tr>
-                      <td colSpan="6">
-                        <div className="clients-empty">
-                          <UserRound size={26} />
-                          <strong>Sin resultados</strong>
-                          <span>No encontramos clientes con ese filtro.</span>
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="clients-empty clients-empty-directory">
+                      <UserRound size={28} />
+                      <strong>Sin resultados</strong>
+                      <span>No encontramos clientes con ese filtro.</span>
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </div>
+              </section>
+            </motion.section>
+          ) : (
+            <motion.section
+              key={`profile-${selectedClient.id}`}
+              className="clients-profile-view"
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.24 }}
+            >
+              <header className="clients-topbar profile">
+                <div className="clients-brand">
+                  <button
+                    type="button"
+                    className="clients-icon-button"
+                    onClick={() => setClientContext(null)}
+                    title="Volver a Clientes"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
 
-          <aside className="clients-profile">
-            {!selectedClient ? (
-              <div className="clients-profile-empty">
-                <UserRound size={34} />
-                <strong>Seleccioná un cliente</strong>
-                <span>Su información y actividad aparecerán acá.</span>
-              </div>
-            ) : (
-              <>
-                <div className="clients-profile-head">
-                  <div className="clients-avatar">
+                  <div className="clients-brand-mark profile">
                     {initials(getClientDisplayName(selectedClient))}
                   </div>
 
                   <div>
-                    <span>Perfil</span>
-                    <h2>{getClientDisplayName(selectedClient)}</h2>
-                    <p>
-                      {getClientDocument(selectedClient)}
-                      {selectedClient.archivado === true && (
-                        <strong className="clients-archived-badge">
-                          Archivado
-                        </strong>
-                      )}
-                    </p>
+                    <strong>{getClientDisplayName(selectedClient)}</strong>
+                    <span>Perfil de cliente</span>
                   </div>
+                </div>
 
-                  <div className="clients-profile-head-actions">
+                <div className="clients-profile-top-actions">
+                  <button
+                    type="button"
+                    className="clients-action"
+                    onClick={openEditClient}
+                  >
+                    <Pencil size={16} />
+                    Editar
+                  </button>
+
+                  {canManageClientLifecycle && (
                     <button
                       type="button"
-                      onClick={openEditClient}
-                      title="Editar cliente"
-                    >
-                      <Pencil size={16} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className={
+                      className={`clients-action ${
                         selectedClient.archivado === true
                           ? "restore"
                           : "archive"
-                      }
+                      }`}
                       disabled={archivingClient}
                       onClick={handleArchiveClient}
-                      title={
-                        selectedClient.archivado === true
-                          ? "Restaurar cliente"
-                          : "Archivar cliente"
-                      }
                     >
                       {selectedClient.archivado === true ? (
                         <ArchiveRestore size={16} />
                       ) : (
                         <Archive size={16} />
                       )}
+                      {selectedClient.archivado === true ? "Restaurar" : "Archivar"}
                     </button>
+                  )}
 
+                  {canDeleteClient && (
                     <button
                       type="button"
-                      className="danger"
-                      disabled={
-                        deletingClient ||
-                        archivingClient
-                      }
+                      className="clients-action danger"
+                      disabled={deletingClient || archivingClient}
                       onClick={handleDeleteClient}
-                      title="Eliminar cliente"
                     >
                       <Trash2 size={16} />
+                      Eliminar
                     </button>
-                  </div>
+                  )}
                 </div>
+              </header>
 
-                <div className="clients-contact-grid">
-                  <div>
-                    <Phone size={15} />
-                    <span>Teléfono</span>
-                    <strong>{selectedClient.tel || "—"}</strong>
+              <section className="clients-profile-hero">
+                <div className="clients-profile-identity">
+                  <div className="clients-profile-avatar">
+                    {initials(getClientDisplayName(selectedClient))}
                   </div>
 
                   <div>
-                    <Mail size={15} />
-                    <span>Correo</span>
-                    <strong>{selectedClient.email || "—"}</strong>
-                  </div>
+                    <h1>{getClientDisplayName(selectedClient)}</h1>
+                    <p>
+                      {getClientDocument(selectedClient)}
+                      {selectedClient.tel ? ` · ${selectedClient.tel}` : ""}
+                      {selectedClient.email ? ` · ${selectedClient.email}` : ""}
+                    </p>
 
-                  <div className="wide">
-                    <MapPin size={15} />
-                    <span>Dirección</span>
-                    <strong>
-                      {[selectedClient.direccion, selectedClient.localidad, selectedClient.provincia]
-                        .filter((value) => value && value !== "—")
-                        .join(", ") || "—"}
-                    </strong>
-                  </div>
-                </div>
-
-                {selectedClient.archivado === true && (
-                  <div className="clients-archived-notice">
-                    <Archive size={17} />
-                    <div>
-                      <strong>Cliente archivado</strong>
-                      <span>
-                        El historial sigue disponible, pero las nuevas operaciones están bloqueadas hasta restaurarlo.
+                    <div className="clients-profile-chips">
+                      <span className={selectedClient.archivado === true ? "archived" : "active"}>
+                        {selectedClient.archivado === true ? "Archivado" : "Activo"}
                       </span>
+
+                      {canCredits && selectedDebtAlert.overdue && (
+                        <span className="critical">
+                          <AlertTriangle size={13} />
+                          {selectedDebtAlert.label}
+                        </span>
+                      )}
+
+                      {canCredits && !selectedDebtAlert.overdue && selectedActivity?.debt > 0 && (
+                        <span className="warning">
+                          <AlertTriangle size={13} />
+                          Deuda activa
+                        </span>
+                      )}
+
+                      {canCredits && selectedActivity?.debt <= 0 && (
+                        <span className="success">
+                          <CheckCircle2 size={13} />
+                          Al día
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-
-                <div className="clients-finance-strip">
-                  <div>
-                    <span>Deuda</span>
-                    <strong>{formatMoney(selectedActivity?.debt)}</strong>
-                  </div>
-                  <div>
-                    <span>Cupo disponible</span>
-                    <strong>{formatMoney(selectedActivity?.availableCredit)}</strong>
-                  </div>
-                  <div>
-                    <span>Saldo a favor</span>
-                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
-                  </div>
                 </div>
 
-                <div className="clients-profile-actions">
-                  <button
-                    type="button"
-                    disabled={
-                      selectedClient.archivado ===
-                      true
-                    }
-                    onClick={() => openCredit("new")}
-                  >
-                    <BadgeDollarSign size={15} />
-                    Nuevo crédito
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={
-                      selectedClient.archivado ===
-                        true ||
-                      !selectedActivity?.activeCredits.length
-                    }
-                    onClick={() => openCredit("refinance")}
-                  >
-                    <FileClock size={15} />
-                    Refinanciar
-                  </button>
-                </div>
-
-                <nav className="clients-tabs">
-                  {[
-                    ["summary", "Resumen"],
-                    ["tickets", `Tickets ${selectedActivity?.tickets.length || 0}`],
-                    ["sales", `Compras ${selectedActivity?.sales.length || 0}`],
-                    ["credits", `Créditos ${selectedActivity?.credits.length || 0}`],
-                  ].map(([id, label]) => (
+                <div className="clients-profile-main-actions">
+                  {canTickets && (
                     <button
-                      key={id}
                       type="button"
-                      className={activeTab === id ? "active" : ""}
+                      className="clients-action soft-blue"
+                      disabled={selectedClient.archivado === true}
+                      onClick={() => openNewTicketForClient()}
+                    >
+                      <Ticket size={16} />
+                      Nuevo ticket
+                    </button>
+                  )}
+
+                  {canSales && (
+                    <button
+                      type="button"
+                      className="clients-action soft-green"
+                      disabled={selectedClient.archivado === true}
                       onClick={() =>
-                        setClientContext(
-                          selectedClient.id,
-                          id
+                        navigate(
+                          "/caja",
+                          {
+                            state: {
+                              clienteId:
+                                selectedClient.id,
+                              returnTo:
+                                `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+                            },
+                          }
                         )
                       }
                     >
-                      {label}
+                      <ShoppingBag size={16} />
+                      Nueva venta
                     </button>
-                  ))}
-                </nav>
+                  )}
 
-                <div className="clients-profile-body">
+                  {canCredits && (
+                    <button
+                      type="button"
+                      className="clients-action soft-purple"
+                      disabled={selectedClient.archivado === true}
+                      onClick={() => openCredit("new")}
+                    >
+                      <BadgeDollarSign size={16} />
+                      Nuevo crédito
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              {selectedClient.archivado === true && (
+                <div className="clients-archived-notice">
+                  <Archive size={17} />
+                  <div>
+                    <strong>Cliente archivado</strong>
+                    <span>
+                      El historial continúa disponible, pero las nuevas operaciones
+                      permanecen bloqueadas hasta restaurarlo.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <section className="clients-summary-strip">
+                {canTickets && (
+                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: -1.2 }}>
+                    <div className="icon blue"><Ticket size={19} /></div>
+                    <span>Tickets</span>
+                    <strong>{selectedActivity?.tickets.length || 0}</strong>
+                    <small>Servicios vinculados</small>
+                  </motion.article>
+                )}
+
+                {canSales && (
+                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: 1.2 }}>
+                    <div className="icon green"><ReceiptText size={19} /></div>
+                    <span>Compras acumuladas</span>
+                    <strong>{formatMoney(selectedActivity?.purchases)}</strong>
+                    <small>{selectedActivity?.sales.length || 0} ventas registradas</small>
+                  </motion.article>
+                )}
+
+                {canCredits && (
+                  <motion.article
+                    className={selectedActivity?.debt > 0 ? "has-alert" : ""}
+                    whileHover={{ y: -4, rotateX: -1.2, rotateY: 1.2 }}
+                  >
+                    <div className="icon pink"><CreditCard size={19} /></div>
+                    <span>Deuda actual</span>
+                    <strong>{formatMoney(selectedActivity?.debt)}</strong>
+                    <small>{selectedActivity?.activeCredits.length || 0} carpetas con saldo</small>
+                    {selectedActivity?.debt > 0 && (
+                      <em className={`clients-summary-alert ${selectedDebtAlert.overdue ? "critical" : "warning"}`}>
+                        <i />
+                        {selectedDebtAlert.label}
+                      </em>
+                    )}
+                  </motion.article>
+                )}
+
+                {canSeeFinancials && (
+                  <motion.article whileHover={{ y: -4, rotateX: -1.2, rotateY: -1.2 }}>
+                    <div className="icon purple"><WalletCards size={19} /></div>
+                    <span>Saldo a favor</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                    <small>Disponible para aplicar</small>
+                  </motion.article>
+                )}
+              </section>
+
+              <nav className="clients-module-tabs">
+                {[
+                  ["summary", "Resumen", UserRound],
+                  ...(canTickets
+                    ? [
+                        ["tickets", `Tickets ${selectedActivity?.tickets.length || 0}`, Ticket],
+                        ["devices", `Equipos ${selectedDevices.length}`, MonitorSmartphone],
+                      ]
+                    : []),
+                  ...(canSales || canInvoices
+                    ? [["sales", "Ventas / Facturas", ReceiptText]]
+                    : []),
+                  ...(canCredits
+                    ? [["credits", `Créditos ${selectedActivity?.credits.length || 0}`, CreditCard]]
+                    : []),
+                  ...(canBudgets
+                    ? [["budgets", `Presupuestos ${selectedActivity?.budgets.length || 0}`, FileText]]
+                    : []),
+                  ...(canAccount
+                    ? [["account", "Cuenta corriente", WalletCards]]
+                    : []),
+                ].map(([id, label, Icon]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={activeTab === id ? "active" : ""}
+                    onClick={() => setClientContext(selectedClient.id, id)}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </button>
+                ))}
+              </nav>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  className="clients-module-content"
+                  initial={{ opacity: 0, y: 9 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                >
                   {activeTab === "summary" && (
-                    <div className="clients-summary">
-                      <section>
-                        <div className="clients-section-title">
+                    <div className="clients-overview-grid">
+                      <section className="clients-module-card">
+                        <header>
                           <div>
-                            <span>Crédito</span>
-                            <h3>Límite comercial</h3>
+                            <span>Información</span>
+                            <h3>Datos del cliente</h3>
                           </div>
-                          <CircleDollarSign size={18} />
+                          <UserRound size={19} />
+                        </header>
+
+                        <div className="clients-info-grid">
+                          <div>
+                            <span>Documento</span>
+                            <strong>{getClientDocument(selectedClient)}</strong>
+                          </div>
+                          <div>
+                            <span>Teléfono</span>
+                            <strong>{selectedClient.tel || "—"}</strong>
+                          </div>
+                          <div>
+                            <span>Correo</span>
+                            <strong>{selectedClient.email || "—"}</strong>
+                          </div>
+                          <div>
+                            <span>Dirección</span>
+                            <strong>
+                              {[selectedClient.direccion, selectedClient.localidad, selectedClient.provincia]
+                                .filter((value) => value && value !== "—")
+                                .join(", ") || "—"}
+                            </strong>
+                          </div>
                         </div>
 
-                        <div className="clients-limit-row">
-                          <input
-                            type="number"
-                            min="0"
-                            value={limitValue}
-                            disabled={
-                              selectedClient.archivado ===
-                              true
-                            }
-                            onChange={(event) => setLimitValue(event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            disabled={
-                              savingLimit ||
-                              selectedClient.archivado ===
-                                true
-                            }
-                            onClick={handleSaveLimit}
-                          >
-                            {savingLimit ? "Guardando..." : "Guardar"}
-                          </button>
-                        </div>
+                        {canCredits && (
+                          <div className="clients-credit-limit">
+                            <div>
+                              <span>Límite de crédito</span>
+                              <strong>{formatMoney(limitValue)}</strong>
+                            </div>
+                            <div className="clients-limit-row">
+                              <input
+                                type="number"
+                                min="0"
+                                value={limitValue}
+                                disabled={selectedClient.archivado === true}
+                                onChange={(event) => setLimitValue(event.target.value)}
+                              />
+                              <button
+                                type="button"
+                                disabled={savingLimit || selectedClient.archivado === true}
+                                onClick={handleSaveLimit}
+                              >
+                                {savingLimit ? "Guardando..." : "Actualizar"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </section>
 
-                      <section>
-                        <div className="clients-section-title">
+                      <section className="clients-module-card notes">
+                        <header>
                           <div>
                             <span>Bitácora</span>
                             <h3>Notas del cliente</h3>
                           </div>
-                          <NotebookPen size={18} />
-                        </div>
+                          <NotebookPen size={19} />
+                        </header>
 
                         <textarea
                           rows="3"
@@ -1213,110 +1766,389 @@ export default function Clientes() {
                   )}
 
                   {activeTab === "tickets" && (
-                    <div className="clients-activity-list">
-                      {selectedActivity?.tickets.map((ticket) => (
-                        <button
-                          type="button"
-                          key={ticket.id}
-                          onClick={() =>
-                            openTicketFromClient(
-                              ticket
-                            )
-                          }
-                        >
-                          <div className="clients-activity-icon">
-                            <Ticket size={16} />
-                          </div>
-                          <section>
-                            <strong>#{ticket.id} · {ticket.equipo || "Equipo"}</strong>
-                            <span>{ticket.falla || "Sin falla informada"}</span>
-                          </section>
-                          <span className="clients-state">
-                            {STAGES[ticket.stage] || ticket.stage || "Pendiente"}
-                          </span>
-                        </button>
-                      ))}
-
-                      {!selectedActivity?.tickets.length && (
-                        <div className="clients-empty compact">
-                          <Ticket size={23} />
-                          <strong>Sin tickets</strong>
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Tickets</span>
+                          <h3>Tickets del cliente</h3>
                         </div>
-                      )}
-                    </div>
+                        <Ticket size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.tickets.map((ticket) => (
+                          <article key={ticket.id} className="clients-record-row">
+                            <div>
+                              <strong>#{ticket.id}</strong>
+                              <span>{formatDate(recordDate(ticket))}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{ticket.equipo || "Equipo"}</strong>
+                              <span>{ticket.falla || "Sin falla informada"}</span>
+                            </div>
+                            <span className="clients-state blue">
+                              {STAGES[ticket.stage] || ticket.stage || "Pendiente"}
+                            </span>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={() => openTicketFromClient(ticket)}
+                            >
+                              <ExternalLink size={14} />
+                              Ver ticket
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.tickets.length && (
+                          <div className="clients-empty compact">
+                            <Ticket size={23} />
+                            <strong>Sin tickets</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
                   )}
 
                   {activeTab === "sales" && (
-                    <div className="clients-activity-list">
-                      {selectedActivity?.sales.map((sale) => (
-                        <article key={sale.id}>
-                          <div className="clients-activity-icon">
-                            <ReceiptText size={16} />
-                          </div>
-                          <section>
-                            <strong>{sale.folio || sale.id}</strong>
-                            <span>{sale.articulos || sale.concepto || "Venta"}</span>
-                          </section>
-                          <strong>{formatMoney(sale.total)}</strong>
-                        </article>
-                      ))}
+                    <div className="clients-data-stack">
+                      {canSales && (
+                        <section className="clients-module-card data">
+                          <header>
+                            <div>
+                              <span>Fuente: Caja / Ventas</span>
+                              <h3>Ventas</h3>
+                            </div>
+                            <ShoppingBag size={19} />
+                          </header>
 
-                      {!selectedActivity?.sales.length && (
-                        <div className="clients-empty compact">
-                          <ReceiptText size={23} />
-                          <strong>Sin compras registradas</strong>
-                        </div>
+                          <div className="clients-record-list">
+                            {selectedActivity?.sales.map((sale) => (
+                              <article key={sale.id} className="clients-record-row">
+                                <div>
+                                  <strong>{sale.folio || sale.id}</strong>
+                                  <span>{formatDate(recordDate(sale))}</span>
+                                </div>
+                                <div className="grow">
+                                  <strong>{sale.articulos || sale.concepto || "Venta"}</strong>
+                                  <span>{sale.medioPago || sale.formaPago || "Operación registrada"}</span>
+                                </div>
+                                <strong className="clients-money">{formatMoney(sale.total)}</strong>
+                                <button
+                                  type="button"
+                                  className="clients-record-button"
+                                  onClick={() => openSaleFromClient(sale)}
+                                >
+                                  <ExternalLink size={14} />
+                                  Ver venta
+                                </button>
+                              </article>
+                            ))}
+
+                            {!selectedActivity?.sales.length && (
+                              <div className="clients-empty compact">
+                                <ReceiptText size={23} />
+                                <strong>Sin ventas registradas</strong>
+                              </div>
+                            )}
+                          </div>
+                        </section>
+                      )}
+
+                      {canInvoices && (
+                        <section className="clients-module-card data">
+                          <header>
+                            <div>
+                              <span>Fuente: Facturación</span>
+                              <h3>Facturas</h3>
+                            </div>
+                            <ReceiptText size={19} />
+                          </header>
+
+                          <div className="clients-record-list">
+                            {selectedActivity?.invoices.map((invoice) => (
+                              <article key={invoice.id} className="clients-record-row">
+                                <div>
+                                  <strong>{invoice.numero || invoice.folio || invoice.id}</strong>
+                                  <span>{formatDate(recordDate(invoice))}</span>
+                                </div>
+                                <div className="grow">
+                                  <strong>{invoice.concepto || "Factura"}</strong>
+                                  <span>{invoice.estado || invoice.estadoPago || "Emitida"}</span>
+                                </div>
+                                <strong className="clients-money">{formatMoney(invoice.total)}</strong>
+                                <button
+                                  type="button"
+                                  className="clients-record-button"
+                                  onClick={() => openInvoiceFromClient(invoice)}
+                                >
+                                  <ExternalLink size={14} />
+                                  Ver factura
+                                </button>
+                              </article>
+                            ))}
+
+                            {!selectedActivity?.invoices.length && (
+                              <div className="clients-empty compact">
+                                <ReceiptText size={23} />
+                                <strong>Sin facturas registradas</strong>
+                              </div>
+                            )}
+                          </div>
+                        </section>
                       )}
                     </div>
                   )}
 
                   {activeTab === "credits" && (
-                    <div className="clients-credits-list">
-                      {selectedActivity?.credits.map((credit) => (
-                        <button
-                          type="button"
-                          key={credit.id}
-                          onClick={() =>
-                            openCreditFromClient(
-                              credit
-                            )
-                          }
-                        >
-                          <div>
-                            <span className={Number(credit.saldo || 0) > 0 ? "active" : "paid"}>
-                              {Number(credit.saldo || 0) > 0 ? "Activo" : "Finalizado"}
-                            </span>
-                            <strong>{credit.concepto || "Crédito"}</strong>
-                            <small>{credit.id} · {formatDate(credit.fechaOrigen)}</small>
-                          </div>
-
-                          <div>
-                            <span>Original</span>
-                            <strong>{formatMoney(credit.original)}</strong>
-                          </div>
-
-                          <div>
-                            <span>Saldo</span>
-                            <strong>{formatMoney(credit.saldo)}</strong>
-                          </div>
-
-                          <ChevronRight size={17} />
-                        </button>
-                      ))}
-
-                      {!selectedActivity?.credits.length && (
-                        <div className="clients-empty compact">
-                          <CreditCard size={23} />
-                          <strong>Sin carpetas de crédito</strong>
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Créditos</span>
+                          <h3>Carpetas de crédito</h3>
                         </div>
-                      )}
-                    </div>
+
+                        <div className="clients-card-actions">
+                          <button
+                            type="button"
+                            className="clients-action soft-purple"
+                            disabled={selectedClient.archivado === true}
+                            onClick={() => openCredit("new")}
+                          >
+                            <Plus size={15} />
+                            Nuevo
+                          </button>
+                          <button
+                            type="button"
+                            className="clients-action"
+                            disabled={
+                              selectedClient.archivado === true ||
+                              !selectedActivity?.activeCredits.length
+                            }
+                            onClick={() => openCredit("refinance")}
+                          >
+                            <FileClock size={15} />
+                            Refinanciar
+                          </button>
+                        </div>
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.credits.map((credit) => {
+                          const status = getCreditStatus(credit);
+
+                          return (
+                            <article key={credit.id} className="clients-record-row credit">
+                              <div>
+                                <span className={`clients-state ${status.overdue ? "critical" : status.key === "saldado" ? "green" : "purple"}`}>
+                                  {status.label}
+                                </span>
+                                <strong>{credit.id}</strong>
+                                <span>{formatDate(credit.fechaOrigen)}</span>
+                              </div>
+                              <div className="grow">
+                                <strong>{credit.concepto || "Crédito"}</strong>
+                                <span>
+                                  Original {formatMoney(credit.original)} · Saldo {formatMoney(credit.saldo)}
+                                </span>
+                              </div>
+                              <strong className={Number(credit.saldo || 0) > 0 ? "clients-money negative" : "clients-money positive"}>
+                                {formatMoney(credit.saldo)}
+                              </strong>
+                              <button
+                                type="button"
+                                className="clients-record-button"
+                                onClick={() => openCreditFromClient(credit)}
+                              >
+                                <ExternalLink size={14} />
+                                Ver crédito
+                              </button>
+                            </article>
+                          );
+                        })}
+
+                        {!selectedActivity?.credits.length && (
+                          <div className="clients-empty compact">
+                            <CreditCard size={23} />
+                            <strong>Sin carpetas de crédito</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
                   )}
-                </div>
-              </>
-            )}
-          </aside>
-        </section>
+
+                  {activeTab === "budgets" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Presupuestos</span>
+                          <h3>Presupuestos</h3>
+                        </div>
+                        <FileText size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.budgets.map((budget) => (
+                          <article key={budget.id} className="clients-record-row">
+                            <div>
+                              <strong>{budget.numero || budget.folio || budget.id}</strong>
+                              <span>{formatDate(recordDate(budget))}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{budget.titulo || budget.concepto || "Presupuesto"}</strong>
+                              <span>{budget.ticketId ? `Ticket ${budget.ticketId}` : "Presupuesto manual"}</span>
+                            </div>
+                            <span className="clients-state purple">
+                              {budget.estado || budget.status || "Pendiente"}
+                            </span>
+                            <strong className="clients-money">{formatMoney(budget.total)}</strong>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={() => openBudgetFromClient(budget)}
+                            >
+                              <ExternalLink size={14} />
+                              Ver presupuesto
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.budgets.length && (
+                          <div className="clients-empty compact">
+                            <FileText size={23} />
+                            <strong>Sin presupuestos</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "devices" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Tickets</span>
+                          <h3>Equipos registrados</h3>
+                        </div>
+                        <MonitorSmartphone size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedDevices.map((device) => (
+                          <article key={device.key} className="clients-record-row">
+                            <div className="grow">
+                              <strong>{device.name}</strong>
+                              <span>
+                                {device.details || "Equipo asociado a servicios anteriores"}
+                              </span>
+                            </div>
+                            <div>
+                              <strong>{device.serial || "Sin serie"}</strong>
+                              <span>{device.services} servicios</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              disabled={selectedClient.archivado === true}
+                              onClick={() => openNewTicketForClient(device)}
+                            >
+                              <Plus size={14} />
+                              Nuevo ticket
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedDevices.length && (
+                          <div className="clients-empty compact">
+                            <MonitorSmartphone size={23} />
+                            <strong>Sin equipos registrados</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "account" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Cuenta corriente</span>
+                          <h3>Movimientos</h3>
+                        </div>
+                        <WalletCards size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.account.map((movement) => (
+                          <article key={movement.id} className="clients-record-row">
+                            <div>
+                              <strong>{formatDate(recordDate(movement))}</strong>
+                              <span>{movement.refId || movement.origen || "Movimiento"}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{movement.concepto || "Cuenta corriente"}</strong>
+                              <span>
+                                Saldo posterior {formatMoney(movement.saldoPosterior)}
+                              </span>
+                            </div>
+                            <strong className={`clients-money ${String(movement.tipo || "").toLowerCase().includes("crédito") ? "positive" : "negative"}`}>
+                              {String(movement.tipo || "").toLowerCase().includes("crédito") ? "+" : "-"} {formatMoney(movement.importe)}
+                            </strong>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.account.length && (
+                          <div className="clients-empty compact">
+                            <WalletCards size={23} />
+                            <strong>Sin movimientos de cuenta corriente</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="clients-toast-stack" aria-live="polite">
+        <AnimatePresence initial={false}>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              className={`clients-toast ${toast.type}`}
+              initial={{ opacity: 0, y: 18, x: 10, scale: 0.95, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, x: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 10, x: 12, scale: 0.97, filter: "blur(3px)" }}
+              transition={{ type: "spring", stiffness: 430, damping: 30 }}
+            >
+              <div className="clients-toast-icon">
+                {toast.type === "success" ? (
+                  <CheckCircle2 size={20} />
+                ) : (
+                  <AlertTriangle size={20} />
+                )}
+              </div>
+
+              <div className="clients-toast-copy">
+                <strong>{toast.title}</strong>
+                {toast.description && <span>{toast.description}</span>}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                aria-label="Cerrar notificación"
+              >
+                <X size={16} />
+              </button>
+
+              <i className="clients-toast-progress" />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {clientModal && (
@@ -1480,7 +2312,7 @@ export default function Clientes() {
                 />
               </label>
 
-              {!editingClient && (
+              {!editingClient && canCredits && (
                 <label>
                   <span>Límite de crédito</span>
                   <input
@@ -1522,6 +2354,7 @@ export default function Clientes() {
       )}
 
       {creditModal &&
+        canCredits &&
         selectedClient &&
         selectedClient.archivado !== true && (
         <div

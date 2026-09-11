@@ -366,19 +366,52 @@ export async function annulInvoice(
       }
 
       /*
-       * Una factura pagada se anula
-       * mediante Nota de Crédito.
+       * Una factura totalmente pagada o con pagos parciales
+       * se anula mediante Nota de Crédito. Una financiación
+       * sin pagos se cancela, no se anula.
        */
 
+      const paidInFull =
+        invoice.estadoPago ===
+          "Pagado Total" ||
+        invoice.estadoPago ===
+          "Pagado";
+
+      const partiallyPaid =
+        invoice.estadoPago ===
+          "Pago Parcial";
+
       if (
-        invoice.estadoPago !==
-        "Pagado Total" &&
-        invoice.estadoPago !==
-        "Pagado"
+        !paidInFull &&
+        !partiallyPaid
       ) {
         throw new Error(
           "INVOICE_NOT_PAID"
         );
+      }
+
+      let creditRef =
+        null;
+
+      let creditSnapshot =
+        null;
+
+      if (
+        invoice.creditoId
+      ) {
+        creditRef =
+          doc(
+            db,
+            "creditos",
+            cleanText(
+              invoice.creditoId
+            )
+          );
+
+        creditSnapshot =
+          await transaction.get(
+            creditRef
+          );
       }
 
       /* =================================
@@ -515,6 +548,62 @@ export async function annulInvoice(
       }
 
       /* =================================
+         PRESUPUESTO
+      ================================= */
+
+      let budgetRef =
+        null;
+
+      let budgetSnapshot =
+        null;
+
+      if (
+        invoice.presupuestoId
+      ) {
+        budgetRef =
+          doc(
+            db,
+            "presupuestos",
+            cleanText(
+              invoice.presupuestoId
+            )
+          );
+
+        budgetSnapshot =
+          await transaction.get(
+            budgetRef
+          );
+      }
+
+      /* =================================
+         VENTA
+      ================================= */
+
+      let saleRef =
+        null;
+
+      let saleSnapshot =
+        null;
+
+      if (
+        invoice.ventaId
+      ) {
+        saleRef =
+          doc(
+            db,
+            "ventas",
+            cleanText(
+              invoice.ventaId
+            )
+          );
+
+        saleSnapshot =
+          await transaction.get(
+            saleRef
+          );
+      }
+
+      /* =================================
          FECHAS
       ================================= */
 
@@ -545,6 +634,56 @@ export async function annulInvoice(
           invoice.total ||
           0
         );
+
+      const creditData =
+        creditSnapshot?.exists()
+          ? creditSnapshot.data()
+          : null;
+
+      const collectedFromCredit =
+        creditData
+          ? Math.max(
+              0,
+              Number(
+                creditData.original ||
+                amount
+              ) -
+              Number(
+                creditData.saldo ||
+                0
+              )
+            )
+          : 0;
+
+      const recordedCollected =
+        Math.max(
+          0,
+          Number(
+            invoice.montoCobrado ||
+            0
+          )
+        );
+
+      const refundableAmount =
+        paidInFull
+          ? amount
+          : Math.min(
+              amount,
+              Math.max(
+                recordedCollected,
+                collectedFromCredit
+              )
+            );
+
+      if (
+        partiallyPaid &&
+        refundableAmount <=
+        0
+      ) {
+        throw new Error(
+          "INVOICE_NOT_PAID"
+        );
+      }
 
       /* =================================
          HISTORIAL FACTURA
@@ -580,6 +719,9 @@ export async function annulInvoice(
         {
           estado:
             "Anulada",
+
+          estadoPago:
+            "Anulado",
 
           notaCreditoId:
             noteId,
@@ -665,6 +807,9 @@ export async function annulInvoice(
         facturaOrigenId:
           cleanInvoiceId,
 
+        montoAcreditado:
+          refundableAmount,
+
         creadoEn:
           nowISO,
 
@@ -717,6 +862,8 @@ export async function annulInvoice(
         false;
 
       if (
+        refundableAmount >
+          0 &&
         clientRef &&
         clientSnapshot?.exists()
       ) {
@@ -733,7 +880,72 @@ export async function annulInvoice(
           {
             saldoAFavor:
               currentBalance +
-              amount,
+              refundableAmount,
+
+            actualizadoEn:
+              nowISO,
+          }
+        );
+
+        const accountMovementRef =
+          doc(
+            db,
+            "cuenta_corriente",
+            `nc_${noteId}`
+          );
+
+        transaction.set(
+          accountMovementRef,
+          {
+            id:
+              `nc_${noteId}`,
+
+            clienteId:
+              invoice.clienteId,
+
+            cliente:
+              invoice.cliente ||
+              "Cliente",
+
+            tipo:
+              "Crédito",
+
+            concepto:
+              `Nota de Crédito ${noteId}`,
+
+            importe:
+              refundableAmount,
+
+            saldoAnterior:
+              currentBalance,
+
+            saldoPosterior:
+              currentBalance +
+              refundableAmount,
+
+            origen:
+              "Nota de Crédito",
+
+            refId:
+              noteId,
+
+            facturaOrigenId:
+              cleanInvoiceId,
+
+            motivo:
+              cleanReason,
+
+            fecha:
+              getISODate(now),
+
+            hora:
+              getISOTime(now),
+
+            creadoEn:
+              nowISO,
+
+            usuario:
+              safeAuthor,
           }
         );
 
@@ -742,7 +954,171 @@ export async function annulInvoice(
       }
 
       /* =================================
-         HISTORIAL TICKET
+         CRÉDITO VINCULADO
+      ================================= */
+
+      if (
+        creditRef &&
+        creditSnapshot?.exists()
+      ) {
+        const credit =
+          creditSnapshot.data();
+
+        const creditHistory =
+          Array.isArray(
+            credit.historial
+          )
+            ? credit.historial
+            : [];
+
+        transaction.update(
+          creditRef,
+          {
+            estado:
+              "Anulado",
+
+            saldo:
+              0,
+
+            canceladoEn:
+              nowISO,
+
+            actualizadoEn:
+              nowISO,
+
+            actualizadoPor:
+              safeAuthor,
+
+            canceladaPorFacturaId:
+              cleanInvoiceId,
+
+            historial: [
+              ...creditHistory,
+              {
+                fecha:
+                  nowISO,
+
+                accion:
+                  "Crédito anulado por Nota de Crédito",
+
+                detalle:
+                  `Factura ${cleanInvoiceId} anulada mediante ${noteId}. Saldo pendiente cancelado: $${Math.max(
+                    0,
+                    Number(
+                      credit.saldo ||
+                      0
+                    )
+                  ).toLocaleString(
+                    "es-AR"
+                  )}.`,
+
+                autor:
+                  safeAuthor,
+              },
+            ],
+          }
+        );
+      }
+
+      /* =================================
+         VENTA VINCULADA
+      ================================= */
+
+      if (
+        saleRef &&
+        saleSnapshot?.exists()
+      ) {
+        transaction.update(
+          saleRef,
+          {
+            estado:
+              "Anulada",
+
+            estadoPago:
+              "Anulado",
+
+            notaCreditoId:
+              noteId,
+
+            montoReintegrado:
+              refundableAmount,
+
+            actualizadoEn:
+              nowISO,
+          }
+        );
+      }
+
+      /* =================================
+         PRESUPUESTO VINCULADO
+      ================================= */
+
+      if (
+        budgetRef &&
+        budgetSnapshot?.exists()
+      ) {
+        const budget =
+          budgetSnapshot.data();
+
+        const budgetHistory =
+          Array.isArray(
+            budget.historial
+          )
+            ? budget.historial
+            : [];
+
+        transaction.update(
+          budgetRef,
+          {
+            estado:
+              budget.estado ===
+              "Facturado"
+                ? "Aceptado"
+                : budget.estado,
+
+            estadoCaja:
+              "Cancelado",
+
+            estadoPago:
+              "Pendiente",
+
+            facturaId:
+              null,
+
+            creditoId:
+              null,
+
+            facturaAnuladaId:
+              cleanInvoiceId,
+
+            notaCreditoId:
+              noteId,
+
+            actualizadoEn:
+              nowISO,
+
+            historial: [
+              ...budgetHistory,
+              {
+                fecha:
+                  historyDate,
+
+                accion:
+                  "Facturación anulada",
+
+                detalle:
+                  `Factura ${cleanInvoiceId} anulada mediante ${noteId}. El presupuesto vuelve a quedar disponible para una nueva facturación. Usuario: ${safeAuthor}`,
+
+                autor:
+                  safeAuthor,
+              },
+            ],
+          }
+        );
+      }
+
+      /* =================================
+         TICKET VINCULADO
       ================================= */
 
       if (
@@ -763,8 +1139,29 @@ export async function annulInvoice(
           ticketRef,
 
           {
+            estadoPago:
+              "Pendiente",
+
+            estadoCaja:
+              "Cancelado",
+
+            estadoFacturacion:
+              "No facturado",
+
+            facturaId:
+              null,
+
+            creditoId:
+              null,
+
+            cobradoEn:
+              null,
+
             facturaAnulada:
               true,
+
+            facturaAnuladaId:
+              cleanInvoiceId,
 
             notaCreditoId:
               noteId,
@@ -783,7 +1180,7 @@ export async function annulInvoice(
                   "Factura anulada",
 
                 detalle:
-                  `Factura ${cleanInvoiceId} anulada mediante ${noteId}. Usuario: ${safeAuthor}`,
+                  `Factura ${cleanInvoiceId} anulada mediante ${noteId}. La operación financiera quedó revertida y puede volver a facturarse si corresponde. Usuario: ${safeAuthor}`,
 
                 autor:
                   safeAuthor,
@@ -801,6 +1198,8 @@ export async function annulInvoice(
           noteId,
 
         amount,
+
+        refundableAmount,
 
         clientId:
           invoice.clienteId ||
@@ -886,12 +1285,6 @@ export async function cancelInvoice(
         );
       }
 
-      /*
-       * Si ya fue pagada,
-       * no se cancela:
-       * debe anularse con NC.
-       */
-
       if (
         invoice.estadoPago ===
           "Pagado Total" ||
@@ -903,8 +1296,152 @@ export async function cancelInvoice(
         );
       }
 
+      let creditRef =
+        null;
+
+      let creditSnapshot =
+        null;
+
+      if (
+        invoice.creditoId
+      ) {
+        creditRef =
+          doc(
+            db,
+            "creditos",
+            cleanText(
+              invoice.creditoId
+            )
+          );
+
+        creditSnapshot =
+          await transaction.get(
+            creditRef
+          );
+      }
+
+      const linkedCredit =
+        creditSnapshot?.exists()
+          ? creditSnapshot.data()
+          : null;
+
+      const collectedFromCredit =
+        linkedCredit
+          ? Math.max(
+              0,
+              Number(
+                linkedCredit.original ||
+                invoice.total ||
+                0
+              ) -
+              Number(
+                linkedCredit.saldo ||
+                0
+              )
+            )
+          : 0;
+
+      const collected =
+        Math.max(
+          Number(
+            invoice.montoCobrado ||
+            0
+          ),
+          collectedFromCredit
+        );
+
+      if (
+        invoice.estadoPago ===
+          "Pago Parcial" ||
+        collected >
+          0
+      ) {
+        throw new Error(
+          "INVOICE_PARTIALLY_PAID"
+        );
+      }
+
+      let ticketRef =
+        null;
+
+      let ticketSnapshot =
+        null;
+
+      if (
+        invoice.refModulo ===
+          "Ticket" &&
+        invoice.refId &&
+        invoice.refId !==
+          "—"
+      ) {
+        ticketRef =
+          doc(
+            db,
+            "tickets",
+            cleanText(
+              invoice.refId
+            )
+          );
+
+        ticketSnapshot =
+          await transaction.get(
+            ticketRef
+          );
+      }
+
+      let budgetRef =
+        null;
+
+      let budgetSnapshot =
+        null;
+
+      if (
+        invoice.presupuestoId
+      ) {
+        budgetRef =
+          doc(
+            db,
+            "presupuestos",
+            cleanText(
+              invoice.presupuestoId
+            )
+          );
+
+        budgetSnapshot =
+          await transaction.get(
+            budgetRef
+          );
+      }
+
+      let saleRef =
+        null;
+
+      let saleSnapshot =
+        null;
+
+      if (
+        invoice.ventaId
+      ) {
+        saleRef =
+          doc(
+            db,
+            "ventas",
+            cleanText(
+              invoice.ventaId
+            )
+          );
+
+        saleSnapshot =
+          await transaction.get(
+            saleRef
+          );
+      }
+
       const now =
         new Date();
+
+      const nowISO =
+        now.toISOString();
 
       const safeAuthor =
         cleanText(
@@ -931,11 +1468,14 @@ export async function cancelInvoice(
           estado:
             "Cancelada",
 
+          estadoPago:
+            "Cancelado",
+
           canceladaEn:
-            now.toISOString(),
+            nowISO,
 
           actualizadoEn:
-            now.toISOString(),
+            nowISO,
 
           historial: [
             ...history,
@@ -958,12 +1498,217 @@ export async function cancelInvoice(
         }
       );
 
+      if (
+        creditRef &&
+        creditSnapshot?.exists()
+      ) {
+        const creditHistory =
+          Array.isArray(
+            linkedCredit.historial
+          )
+            ? linkedCredit.historial
+            : [];
+
+        transaction.update(
+          creditRef,
+
+          {
+            estado:
+              "Cancelado",
+
+            saldo:
+              0,
+
+            canceladoEn:
+              nowISO,
+
+            actualizadoEn:
+              nowISO,
+
+            actualizadoPor:
+              safeAuthor,
+
+            canceladaPorFacturaId:
+              cleanInvoiceId,
+
+            historial: [
+              ...creditHistory,
+
+              {
+                fecha:
+                  nowISO,
+
+                accion:
+                  "Crédito cancelado",
+
+                detalle:
+                  `Se canceló la financiación vinculada a ${cleanInvoiceId} sin pagos aplicados.`,
+
+                autor:
+                  safeAuthor,
+              },
+            ],
+          }
+        );
+      }
+
+      if (
+        ticketRef &&
+        ticketSnapshot?.exists()
+      ) {
+        const ticket =
+          ticketSnapshot.data();
+
+        const ticketHistory =
+          Array.isArray(
+            ticket.historial
+          )
+            ? ticket.historial
+            : [];
+
+        transaction.update(
+          ticketRef,
+
+          {
+            estadoPago:
+              "Pendiente",
+
+            estadoCaja:
+              "Cancelado",
+
+            estadoFacturacion:
+              "No facturado",
+
+            facturaId:
+              null,
+
+            creditoId:
+              null,
+
+            cobradoEn:
+              null,
+
+            actualizadoEn:
+              nowISO,
+
+            historial: [
+              ...ticketHistory,
+
+              {
+                fecha:
+                  formatDateTimeAR(
+                    now
+                  ),
+
+                accion:
+                  "Financiación cancelada",
+
+                detalle:
+                  `Factura ${cleanInvoiceId} cancelada. El ticket puede volver a enviarse a Caja. Usuario: ${safeAuthor}`,
+
+                autor:
+                  safeAuthor,
+              },
+            ],
+          }
+        );
+      }
+
+      if (
+        budgetRef &&
+        budgetSnapshot?.exists()
+      ) {
+        const budget =
+          budgetSnapshot.data();
+
+        const budgetHistory =
+          Array.isArray(
+            budget.historial
+          )
+            ? budget.historial
+            : [];
+
+        transaction.update(
+          budgetRef,
+
+          {
+            estado:
+              budget.estado ===
+              "Facturado"
+                ? "Aceptado"
+                : budget.estado,
+
+            estadoCaja:
+              "Cancelado",
+
+            estadoPago:
+              "Pendiente",
+
+            facturaId:
+              null,
+
+            creditoId:
+              null,
+
+            actualizadoEn:
+              nowISO,
+
+            historial: [
+              ...budgetHistory,
+
+              {
+                fecha:
+                  formatDateTimeAR(
+                    now
+                  ),
+
+                accion:
+                  "Facturación cancelada",
+
+                detalle:
+                  `Factura ${cleanInvoiceId} cancelada sin pagos. Usuario: ${safeAuthor}`,
+              },
+            ],
+          }
+        );
+      }
+
+      if (
+        saleRef &&
+        saleSnapshot?.exists()
+      ) {
+        transaction.update(
+          saleRef,
+
+          {
+            estado:
+              "Cancelada",
+
+            estadoPago:
+              "Cancelado",
+
+            actualizadoEn:
+              nowISO,
+          }
+        );
+      }
+
       return {
         invoiceId:
           cleanInvoiceId,
 
         state:
           "Cancelada",
+
+        creditId:
+          invoice.creditoId ||
+          null,
+
+        ticketId:
+          invoice.refModulo ===
+            "Ticket"
+            ? invoice.refId
+            : null,
       };
     }
   );

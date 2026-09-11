@@ -21,8 +21,8 @@ service cloud.firestore {
 
     function isActiveUser() {
       return hasUserProfile()
-    && userProfile().get("activo", true) != false
-    && userProfile().get("enabled", true) != false;
+        && userProfile().activo != false
+        && userProfile().enabled != false;
     }
 
     function isAdmin() {
@@ -102,9 +102,84 @@ service cloud.firestore {
       ]);
     }
 
+    function authEmail() {
+      return request.auth.token.email;
+    }
+
+    function legacyUserPath(legacyId) {
+      return /databases/$(database)/documents/usuarios/$(legacyId);
+    }
+
+    function isOwnLegacyProfile(legacyId) {
+      return isSignedIn()
+        && legacyId != request.auth.uid
+        && exists(legacyUserPath(legacyId))
+        && get(legacyUserPath(legacyId)).data.email == authEmail();
+    }
+
+    function validSelfLegacyMigration(userId) {
+      return isSignedIn()
+        && userId == request.auth.uid
+        && request.resource.data.migradoDesde is string
+        && isOwnLegacyProfile(request.resource.data.migradoDesde)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.authUid == request.auth.uid
+        && request.resource.data.email == authEmail()
+        && request.resource.data
+          .diff(
+            get(
+              legacyUserPath(request.resource.data.migradoDesde)
+            ).data
+          )
+          .affectedKeys()
+          .hasOnly([
+            "id",
+            "uid",
+            "authUid",
+            "email",
+            "authPendiente",
+            "migradoDesde",
+            "actualizadoEn",
+            "actualizadoPor"
+          ]);
+    }
+
+    function validSelfLegacyDelete(userId) {
+      let targetPath = /databases/$(database)/documents/usuarios/$(request.auth.uid);
+
+      return isSignedIn()
+        && userId != request.auth.uid
+        && resource.data.email == authEmail()
+        && existsAfter(targetPath)
+        && getAfter(targetPath).data.migradoDesde == userId
+        && getAfter(targetPath).data.uid == request.auth.uid
+        && getAfter(targetPath).data.authUid == request.auth.uid
+        && getAfter(targetPath).data.email == authEmail()
+        && getAfter(targetPath).data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            "id",
+            "uid",
+            "authUid",
+            "email",
+            "authPendiente",
+            "migradoDesde",
+            "actualizadoEn",
+            "actualizadoPor"
+          ]);
+    }
+
     function isValidPublicToken(token) {
       return token.matches('^[a-fA-F0-9]{48}$');
     }
+
+    /* =====================================
+       PRESUPUESTOS PÚBLICOS
+       - lectura pública por token
+       - respuesta pública de un solo uso
+       - gestión interna autenticada
+    ===================================== */
 
     match /presupuestos_publicos/{token} {
       allow get: if isValidPublicToken(token);
@@ -141,10 +216,37 @@ service cloud.firestore {
       }
     }
 
+    /* =====================================
+       USUARIOS Y ROLES
+    ===================================== */
+
     match /usuarios/{userId} {
+      // El propio usuario puede leer su perfil por UID incluso si fue
+      // desactivado, para que la app cierre la sesión con un mensaje claro.
       allow get: if isSignedIn() && request.auth.uid == userId;
-      allow get, list: if canSecurity();
-      allow create, update, delete: if canSecurity();
+
+      // Un usuario sin perfil UID solo puede consultar el perfil legacy
+      // cuyo email coincide con el email verificado por Authentication.
+      // Las reglas siguen sin permitir listar perfiles ajenos.
+      allow list: if canSecurity()
+        || (
+          isSignedIn()
+          && resource.data.email == authEmail()
+        );
+
+      allow get: if canSecurity();
+
+      // Migración controlada: el usuario puede copiar SU perfil legacy a
+      // /usuarios/{uid}, sin alterar rol, permisos, activo ni otros campos.
+      allow create: if canSecurity()
+        || validSelfLegacyMigration(userId);
+
+      allow update: if canSecurity();
+
+      // El documento legacy solo puede borrarse en el mismo batch en el que
+      // queda creada una copia UID equivalente y vinculada por migradoDesde.
+      allow delete: if canSecurity()
+        || validSelfLegacyDelete(userId);
     }
 
     match /roles/{roleId} {
@@ -152,9 +254,38 @@ service cloud.firestore {
       allow write: if canSecurity();
     }
 
+    /* =====================================
+       OPERACIÓN TÉCNICA / COMERCIAL
+    ===================================== */
+
     match /tickets/{ticketId} {
-      allow read: if canTickets() || canReports();
-      allow write: if canTickets();
+      // Caja/Facturación necesita leer un ticket puntual para cerrar
+      // el circuito de cobro, sin habilitar el listado completo.
+      allow get: if canTickets() || canSales() || canReports();
+      allow list: if canTickets() || canReports();
+
+      allow create, delete: if canTickets();
+
+      allow update: if
+        canTickets()
+        || (
+          canSales()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "estadoPago",
+            "estadoCaja",
+            "estadoFacturacion",
+            "facturaId",
+            "creditoId",
+            "cajaPendienteId",
+            "enviadoCajaEn",
+            "cobradoEn",
+            "actualizadoEn",
+            "facturaAnulada",
+            "facturaAnuladaId",
+            "notaCreditoId",
+            "historial"
+          ])
+        );
     }
 
     match /clientes/{clientId} {
@@ -164,11 +295,41 @@ service cloud.firestore {
         "Registrar ventas y cobros",
         "Ver reportes financieros"
       ]);
-      allow write: if hasAnyPermission([
-        "Ver y actualizar tickets asignados",
-        "Aprobar créditos y descuentos",
-        "Registrar ventas y cobros"
-      ]);
+
+      // Crear un cliente no debe otorgar cupo financiero por accidente.
+      // Tickets/Ventas pueden registrar clientes, pero el límite distinto
+      // de cero queda reservado al módulo Créditos.
+      allow create: if
+        canCredits()
+        || (
+          (canTickets() || canSales())
+          && request.resource.data.limiteCredito == 0
+          && request.resource.data.saldoAFavor == 0
+        );
+
+      // El límite de crédito solo puede cambiarlo Créditos.
+      // Ventas puede mover saldo a favor por cobros/NC. Tickets solo puede
+      // actualizar información no financiera del cliente.
+      allow update: if
+        canCredits()
+        || (
+          canSales()
+          && !request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasAny(["limiteCredito"])
+        )
+        || (
+          canTickets()
+          && !request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasAny(["limiteCredito", "saldoAFavor"])
+        );
+
+      // Borrado físico: solo acceso total/administrador. El flujo normal
+      // para el resto de los perfiles es archivar y conservar historial.
+      allow delete: if isAdmin();
     }
 
     match /presupuestos/{budgetId} {
@@ -177,6 +338,7 @@ service cloud.firestore {
         "Registrar ventas y cobros",
         "Ver reportes financieros"
       ]);
+
       allow write: if hasAnyPermission([
         "Ver y actualizar tickets asignados",
         "Registrar ventas y cobros"
@@ -184,8 +346,26 @@ service cloud.firestore {
     }
 
     match /creditos/{creditId} {
-      allow read: if canCredits() || canReports();
-      allow write: if canCredits();
+      allow get: if canCredits() || canSales() || canReports();
+      allow list: if canCredits() || canReports();
+
+      allow create, delete: if canCredits();
+
+      allow update: if
+        canCredits()
+        || (
+          canSales()
+          && resource.data.origen == "Caja"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "estado",
+            "saldo",
+            "canceladoEn",
+            "actualizadoEn",
+            "actualizadoPor",
+            "canceladaPorFacturaId",
+            "historial"
+          ])
+        );
     }
 
     match /productos/{productId} {
@@ -202,14 +382,36 @@ service cloud.firestore {
       allow read, write: if canSales();
     }
 
+    /* =====================================
+       CAJA / FACTURACIÓN
+    ===================================== */
+
     match /ventas/{saleId} {
       allow read: if canSales() || canReports();
       allow write: if canSales();
     }
 
     match /facturas/{invoiceId} {
-      allow read: if canSales() || canReports();
-      allow write: if canSales();
+      allow read: if canSales() || canCredits() || canReports();
+
+      allow create, delete: if canSales();
+
+      // El módulo Créditos puede sincronizar únicamente el estado financiero
+      // de una factura originada por una financiación. No puede modificar
+      // importes, cliente, ítems, numeración ni datos fiscales.
+      allow update: if
+        canSales()
+        || (
+          canCredits()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "estadoPago",
+            "montoCobrado",
+            "saldoPendiente",
+            "pagadoEn",
+            "actualizadoEn",
+            "historial"
+          ])
+        );
     }
 
     match /caja_pendientes/{pendingId} {
@@ -219,11 +421,27 @@ service cloud.firestore {
         "Abrir y cerrar corte de caja",
         "Ver reportes financieros"
       ]);
-      allow write: if hasAnyPermission([
-        "Ver y actualizar tickets asignados",
-        "Registrar ventas y cobros",
-        "Abrir y cerrar corte de caja"
-      ]);
+
+      // Ventas puede gestionar cualquier pendiente. Tickets solo puede crear
+      // o retirar pendientes nacidos de un Ticket; no puede fabricar cobros
+      // manuales ni alterar pendientes comerciales desde Firestore.
+      allow create: if
+        canSales()
+        || (
+          canTickets()
+          && request.resource.data.origen == "Ticket"
+          && request.resource.data.ticketId != null
+        );
+
+      allow update: if canSales();
+
+      allow delete: if
+        canSales()
+        || (
+          canTickets()
+          && resource.data.origen == "Ticket"
+          && resource.data.ticketId != null
+        );
     }
 
     match /caja_cortes/{cutId} {
@@ -235,6 +453,10 @@ service cloud.firestore {
       allow read: if canSales() || canCredits() || canReports();
       allow write: if canSales() || canCredits();
     }
+
+    /* =====================================
+       NEGOCIO / CONTADORES / CAJA ACTIVA
+    ===================================== */
 
     match /negocio/configuracion {
       allow read: if isActiveUser();
@@ -257,6 +479,7 @@ service cloud.firestore {
         "Aprobar créditos y descuentos",
         "Ver reportes financieros"
       ]);
+
       allow write: if hasAnyPermission([
         "Registrar ventas y cobros",
         "Abrir y cerrar corte de caja",
@@ -268,6 +491,10 @@ service cloud.firestore {
       allow read: if isActiveUser();
       allow write: if isAdmin();
     }
+
+    /* =====================================
+       TODO LO NO DECLARADO: DENEGADO
+    ===================================== */
 
     match /{document=**} {
       allow read, write: if false;

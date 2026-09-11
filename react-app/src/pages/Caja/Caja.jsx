@@ -30,11 +30,16 @@ import {
   ShieldCheck,
   WalletCards,
   X,
+  XCircle,
 } from "lucide-react";
 
 import {
   useAuth,
 } from "../../context/AuthContext.jsx";
+
+import {
+  PERMISSIONS,
+} from "../../security/permissions.js";
 
 import {
   addCashMovement,
@@ -46,6 +51,10 @@ import {
   subscribeToCashPendings,
   subscribeToCashRegister,
 } from "../../services/caja.service.js";
+
+import {
+  cancelCashPending,
+} from "../../services/caja-pendientes.service.js";
 
 import {
   notify,
@@ -129,7 +138,11 @@ function paymentErrorMessage(error) {
 
 export default function Caja() {
   const navigate = useNavigate();
-  const { profile, user } = useAuth();
+  const {
+    profile,
+    user,
+    hasPermission,
+  } = useAuth();
 
   const author =
     profile?.nombre ||
@@ -155,6 +168,7 @@ export default function Caja() {
   const [eligibility, setEligibility] = useState({ eligible: true });
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [cancellingPendingId, setCancellingPendingId] = useState(null);
 
   const [movementForm, setMovementForm] = useState({
     concept: "",
@@ -216,6 +230,37 @@ export default function Caja() {
   }, []);
 
   const summary = useMemo(() => getCashSummary(cash), [cash]);
+
+  const canRegisterSales =
+    hasPermission(
+      PERMISSIONS.SALES
+    );
+
+  const canManageCash =
+    hasPermission(
+      PERMISSIONS.CASH
+    );
+
+  const canCancelPending =
+    canRegisterSales;
+
+  const canGrantCredit =
+    canRegisterSales &&
+    hasPermission(
+      PERMISSIONS.CREDITS
+    );
+
+  const availablePaymentMethods =
+    useMemo(
+      () =>
+        PAYMENT_METHODS.filter(
+          (method) =>
+            method.id !==
+              "Préstamo personal" ||
+            canGrantCredit
+        ),
+      [canGrantCredit]
+    );
 
   const pendingAmount = useMemo(
     () => pendings.reduce((sum, item) => sum + Number(item.total || 0), 0),
@@ -282,6 +327,16 @@ export default function Caja() {
   }, [paymentItem, paymentMethod]);
 
   const openPayment = (item) => {
+    if (
+      !canRegisterSales
+    ) {
+      notify.warning(
+        "Acción no habilitada",
+        "Tu perfil puede operar el turno de Caja, pero no registrar ventas y cobros."
+      );
+      return;
+    }
+
     setPaymentItem(item);
     setPaymentMethod("Efectivo");
     setPaymentDetails({
@@ -341,8 +396,16 @@ export default function Caja() {
       });
 
       notify.success(
-        "Cobro procesado",
-        `${result.invoiceId} emitida por ${formatMoney(result.total)}.`
+        result.paymentState ===
+        "Financiado"
+          ? "Financiación registrada"
+          : "Cobro procesado",
+        result.paymentState ===
+        "Financiado"
+          ? `${result.invoiceId} emitida y crédito ${result.creditId} generado por ${formatMoney(
+              result.total
+            )}.`
+          : `${result.invoiceId} emitida por ${formatMoney(result.total)}.`
       );
 
       setPaymentItem(null);
@@ -354,7 +417,49 @@ export default function Caja() {
     }
   };
 
+  const handleCancelPending = async (item) => {
+    if (!item?.id || !canCancelPending || cancellingPendingId) return;
+
+    const confirmed = window.confirm(
+      `¿Cancelar este pendiente de Caja?\n\n${item.cliente || "Cliente"} · ${formatMoney(item.total)}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCancellingPendingId(item.id);
+
+      await cancelCashPending(item.id, author);
+
+      notify.success(
+        "Pendiente cancelado",
+        item.ticketId
+          ? `El Ticket ${item.ticketId} volvió a quedar sin envío a Caja.`
+          : `El presupuesto ${item.presupuestoId || item.ref || ""} volvió a quedar sin envío a Caja.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      notify.error(
+        "No se pudo cancelar",
+        error?.message === "CASH_PENDING_NOT_FOUND"
+          ? "La operación ya no está pendiente; probablemente fue cobrada o cancelada desde otra pantalla."
+          : error?.message || "Ocurrió un error inesperado."
+      );
+    } finally {
+      setCancellingPendingId(null);
+    }
+  };
+
   const handleAddMovement = async () => {
+    if (!canManageCash) {
+      notify.warning(
+        "Acción no habilitada",
+        "Necesitás permiso para abrir y cerrar corte de caja."
+      );
+      return;
+    }
+
     try {
       setSavingMovement(true);
 
@@ -381,6 +486,14 @@ export default function Caja() {
   };
 
   const handleCloseCash = async () => {
+    if (!canManageCash) {
+      notify.warning(
+        "Acción no habilitada",
+        "Necesitás permiso para abrir y cerrar corte de caja."
+      );
+      return;
+    }
+
     try {
       setClosing(true);
 
@@ -432,7 +545,14 @@ export default function Caja() {
         <button
           type="button"
           className="cash-close-shift"
+          disabled={!canManageCash}
+          title={
+            canManageCash
+              ? "Cerrar turno de Caja"
+              : "Requiere permiso para abrir y cerrar corte de caja"
+          }
           onClick={() => {
+            if (!canManageCash) return;
             setNewFund("0");
             setCloseModalOpen(true);
           }}
@@ -577,10 +697,34 @@ export default function Caja() {
                         <strong>{formatMoney(item.total)}</strong>
                       </div>
 
-                      <button type="button" onClick={() => openPayment(item)}>
-                        <CircleDollarSign size={16} />
-                        Cobrar
-                      </button>
+                      <div className="cash-pending-actions">
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={!canRegisterSales || cancellingPendingId === item.id}
+                          title={
+                            canRegisterSales
+                              ? "Procesar cobro"
+                              : "Requiere permiso para registrar ventas y cobros"
+                          }
+                          onClick={() => openPayment(item)}
+                        >
+                          <CircleDollarSign size={16} />
+                          {canRegisterSales ? "Cobrar" : "Sin permiso"}
+                        </button>
+
+                        {canCancelPending && (
+                          <button
+                            type="button"
+                            className="cancel"
+                            disabled={cancellingPendingId === item.id || processingPayment}
+                            onClick={() => handleCancelPending(item)}
+                          >
+                            <XCircle size={15} />
+                            {cancellingPendingId === item.id ? "Cancelando..." : "Cancelar"}
+                          </button>
+                        )}
+                      </div>
                     </motion.article>
                   ))}
                 </div>
@@ -645,6 +789,7 @@ export default function Caja() {
                   <span>Concepto</span>
                   <input
                     value={movementForm.concept}
+                    disabled={!canManageCash}
                     placeholder="Ej: Compra de insumos"
                     onChange={(event) =>
                       setMovementForm((current) => ({ ...current, concept: event.target.value }))
@@ -657,6 +802,7 @@ export default function Caja() {
                     <span>Tipo</span>
                     <select
                       value={movementForm.type}
+                      disabled={!canManageCash}
                       onChange={(event) =>
                         setMovementForm((current) => ({ ...current, type: event.target.value }))
                       }
@@ -672,6 +818,7 @@ export default function Caja() {
                       type="number"
                       min="0"
                       value={movementForm.amount}
+                      disabled={!canManageCash}
                       placeholder="0"
                       onChange={(event) =>
                         setMovementForm((current) => ({ ...current, amount: event.target.value }))
@@ -683,7 +830,12 @@ export default function Caja() {
                 <button
                   type="button"
                   className="cash-manual-save"
-                  disabled={savingMovement}
+                  disabled={savingMovement || !canManageCash}
+                  title={
+                    canManageCash
+                      ? "Registrar movimiento manual"
+                      : "Requiere permiso para abrir y cerrar corte de caja"
+                  }
                   onClick={handleAddMovement}
                 >
                   <Plus size={16} />
@@ -758,7 +910,7 @@ export default function Caja() {
             <span className="cash-payment-label">Medio de pago</span>
 
             <div className="cash-payment-methods">
-              {PAYMENT_METHODS.map((method) => {
+              {availablePaymentMethods.map((method) => {
                 const Icon = method.icon;
                 return (
                   <button
@@ -879,7 +1031,12 @@ export default function Caja() {
                 onClick={handlePayment}
               >
                 <ReceiptText size={16} />
-                {processingPayment ? "Procesando..." : "Cobrar y emitir factura"}
+                {processingPayment
+                  ? "Procesando..."
+                  : paymentMethod ===
+                      "Préstamo personal"
+                    ? "Financiar y emitir factura"
+                    : "Cobrar y emitir factura"}
               </button>
             </div>
           </motion.div>

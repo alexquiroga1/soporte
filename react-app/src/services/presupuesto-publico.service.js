@@ -509,6 +509,15 @@ export async function publishBudget(
           ? publicSnapshot.data()
           : null;
 
+      if (
+        previousPublic?.respuesta &&
+        !previousPublic?.aplicadoEn
+      ) {
+        throw new Error(
+          "PUBLIC_RESPONSE_UNAPPLIED"
+        );
+      }
+
       const nowISO =
         new Date()
           .toISOString();
@@ -641,27 +650,27 @@ export async function publishBudget(
           expirationTimestamp,
 
         estado:
-          previousPublic?.respuesta ||
           "Pendiente",
 
         activo:
-          previousPublic?.activo !==
-          false,
+          true,
 
         respuesta:
-          previousPublic?.respuesta ||
           null,
 
         respondidoEn:
-          previousPublic?.respondidoEn ||
           null,
 
         aplicadoEn:
-          previousPublic?.aplicadoEn ||
           null,
 
         aplicadoPor:
-          previousPublic?.aplicadoPor ||
+          null,
+
+        cerradoEn:
+          null,
+
+        cerradoPor:
           null,
 
         publicadoEn:
@@ -1240,6 +1249,15 @@ export async function applyPublicBudgetResponse(
             nowISO,
 
           aplicadoPor:
+            cleanAuthor,
+
+          activo:
+            false,
+
+          cerradoEn:
+            nowISO,
+
+          cerradoPor:
             cleanAuthor,
 
           actualizadoEn:

@@ -523,6 +523,22 @@ export function getCreditStatus(
   ).toLowerCase();
 
   if (
+    explicitState === "cancelado" ||
+    explicitState === "anulado"
+  ) {
+    return {
+      key: explicitState,
+      label:
+        explicitState ===
+        "anulado"
+          ? "Anulado"
+          : "Cancelado",
+      tone: "red",
+      overdue: false,
+    };
+  }
+
+  if (
     explicitState === "refinanciado" ||
     concept.includes("refinanciad")
   ) {
@@ -1003,6 +1019,15 @@ export async function createCredit({
   if (!client?.id) {
     throw new Error(
       "CREDIT_CLIENT_REQUIRED"
+    );
+  }
+
+  if (
+    client.archivado ===
+    true
+  ) {
+    throw new Error(
+      "CLIENT_ARCHIVED"
     );
   }
 
@@ -1548,6 +1573,30 @@ export async function registerCreditPayment({
         }
       }
 
+      let invoiceRef =
+        null;
+
+      let invoiceSnapshot =
+        null;
+
+      if (
+        credit.facturaId
+      ) {
+        invoiceRef =
+          doc(
+            db,
+            "facturas",
+            cleanText(
+              credit.facturaId
+            )
+          );
+
+        invoiceSnapshot =
+          await transaction.get(
+            invoiceRef
+          );
+      }
+
       const installments =
         legacyInstallments(
           credit
@@ -1851,6 +1900,126 @@ export async function registerCreditPayment({
       );
 
       /*
+       * Si este crédito nació desde Caja, sincronizamos la factura.
+       * Los punitorios no incrementan el monto cobrado de la factura:
+       * solamente el capital cancela el comprobante original.
+       */
+      if (
+        invoiceRef &&
+        invoiceSnapshot?.exists()
+      ) {
+        const invoice =
+          invoiceSnapshot.data();
+
+        if (
+          invoice.estado ===
+            "Emitida" &&
+          (
+            !invoice.tipo ||
+            invoice.tipo ===
+              "Factura"
+          )
+        ) {
+          const invoiceTotal =
+            Math.max(
+              0,
+              toNumber(
+                invoice.total
+              )
+            );
+
+          const previouslyCollected =
+            Math.max(
+              0,
+              toNumber(
+                invoice.montoCobrado
+              )
+            );
+
+          const collected =
+            Math.min(
+              invoiceTotal,
+              previouslyCollected +
+                capitalPaid
+            );
+
+          const pendingAmount =
+            Math.max(
+              0,
+              invoiceTotal -
+                collected
+            );
+
+          const paymentState =
+            pendingAmount <=
+            0
+              ? "Pagado Total"
+              : collected >
+                  0
+                ? "Pago Parcial"
+                : "Financiado";
+
+          const invoiceHistory =
+            Array.isArray(
+              invoice.historial
+            )
+              ? invoice.historial
+              : [];
+
+          transaction.update(
+            invoiceRef,
+
+            {
+              estadoPago:
+                paymentState,
+
+              montoCobrado:
+                collected,
+
+              saldoPendiente:
+                pendingAmount,
+
+              pagadoEn:
+                paymentState ===
+                "Pagado Total"
+                  ? nowISO
+                  : null,
+
+              actualizadoEn:
+                nowISO,
+
+              historial: [
+                ...invoiceHistory,
+
+                {
+                  fecha:
+                    now.toLocaleString(
+                      "es-AR"
+                    ),
+
+                  accion:
+                    paymentState ===
+                    "Pagado Total"
+                      ? "Financiación saldada"
+                      : "Pago parcial de financiación",
+
+                  detalle:
+                    `Crédito ${id} · Capital aplicado ${capitalPaid.toFixed(
+                      2
+                    )} · Saldo ${pendingAmount.toFixed(
+                      2
+                    )}`,
+
+                  autor:
+                    authorName,
+                },
+              ],
+            }
+          );
+        }
+      }
+
+      /*
        * SALDO A FAVOR:
        * descuenta el saldo del cliente.
        * No genera un ingreso nuevo de Caja.
@@ -1868,16 +2037,93 @@ export async function registerCreditPayment({
             )
           );
 
+        const nextBalance =
+          availableBalance -
+          applied;
+
         transaction.update(
           clientRef,
 
           {
             saldoAFavor:
-              availableBalance -
-              applied,
+              nextBalance,
 
             actualizadoEn:
               nowISO,
+          }
+        );
+
+        const accountMovementId =
+          `uso_credito_${payment.id}`;
+
+        transaction.set(
+          doc(
+            db,
+            "cuenta_corriente",
+            accountMovementId
+          ),
+
+          {
+            id:
+              accountMovementId,
+
+            clienteId:
+              credit.clienteId,
+
+            cliente:
+              credit.cliente ||
+              "Cliente",
+
+            tipo:
+              "Débito",
+
+            concepto:
+              `Pago de crédito ${id} con saldo a favor`,
+
+            importe:
+              applied,
+
+            saldoAnterior:
+              availableBalance,
+
+            saldoPosterior:
+              nextBalance,
+
+            origen:
+              "Pago de crédito con saldo a favor",
+
+            refId:
+              payment.id,
+
+            creditoId:
+              id,
+
+            facturaId:
+              credit.facturaId ||
+              null,
+
+            fecha:
+              nowISO.split(
+                "T"
+              )[0],
+
+            hora:
+              now.toLocaleTimeString(
+                "es-AR",
+                {
+                  hour:
+                    "2-digit",
+
+                  minute:
+                    "2-digit",
+                }
+              ),
+
+            creadoEn:
+              nowISO,
+
+            usuario:
+              authorName,
           }
         );
       } else {
@@ -2301,6 +2547,15 @@ export async function refinanceClientCredits({
   if (!client?.id) {
     throw new Error(
       "CREDIT_CLIENT_REQUIRED"
+    );
+  }
+
+  if (
+    client.archivado ===
+    true
+  ) {
+    throw new Error(
+      "CLIENT_ARCHIVED"
     );
   }
 

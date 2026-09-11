@@ -8,8 +8,10 @@ import {
 } from "react";
 
 import {
+  browserLocalPersistence,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
@@ -22,7 +24,6 @@ import {
   limit,
   onSnapshot,
   query,
-  setDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -48,16 +49,6 @@ function cleanText(value) {
 
 function normalizeEmail(value) {
   return cleanText(value).toLowerCase();
-}
-
-function sameStringArray(a, b) {
-  const left = [...a].sort();
-  const right = [...b].sort();
-
-  return (
-    left.length === right.length &&
-    left.every((item, index) => item === right[index])
-  );
 }
 
 /* =========================================
@@ -125,130 +116,106 @@ async function resolveProfilePermissions(profile) {
 }
 
 /* =========================================
-   BUSCAR PERFIL LEGACY POR EMAIL
+   PERFIL DE EJECUCIÓN
+   El login nunca modifica rol/permisos.
 ========================================= */
 
-async function findLegacyProfileByEmail(email) {
-  const cleanEmail = normalizeEmail(email);
+async function buildRuntimeProfile(
+  firebaseUser,
+  sourceData,
+  documentId = firebaseUser.uid
+) {
+  const permissions = await resolveProfilePermissions(
+    sourceData
+  );
 
-  if (!cleanEmail) {
+  return validateProfile({
+    ...sourceData,
+    id: documentId,
+    uid: firebaseUser.uid,
+    authUid: firebaseUser.uid,
+    email: normalizeEmail(
+      firebaseUser.email || sourceData?.email
+    ),
+    activo: sourceData?.activo !== false,
+    permisos: permissions,
+  });
+}
+
+/* =========================================
+   BUSCAR PERFIL LEGACY DEL PROPIO USUARIO
+
+   Esta consulta está deliberadamente limitada
+   al email autenticado. Firestore NO permite
+   listar el resto de usuarios durante el login.
+========================================= */
+
+async function findOwnLegacyProfile(firebaseUser) {
+  const authEmail = cleanText(firebaseUser?.email);
+
+  if (!authEmail) {
     return null;
   }
 
   const usersRef = collection(db, "usuarios");
 
-  const emailQuery = query(
+  const exactQuery = query(
     usersRef,
-    where("email", "==", cleanEmail),
-    limit(1)
+    where("email", "==", authEmail),
+    limit(2)
   );
 
-  const snapshot = await getDocs(emailQuery);
+  const exactSnapshot = await getDocs(exactQuery);
 
-  if (!snapshot.empty) {
-    return snapshot.docs[0];
-  }
-
-  /*
-   * Compatibilidad con perfiles muy antiguos
-   * que hayan guardado el email con mayúsculas.
-   * Esta rama solo se necesita durante la migración.
-   */
-  const allUsers = await getDocs(usersRef);
-
-  return (
-    allUsers.docs.find(
-      (snapshotDoc) =>
-        normalizeEmail(snapshotDoc.data()?.email) ===
-        cleanEmail
-    ) || null
+  const exactMatch = exactSnapshot.docs.find(
+    (snapshotDoc) =>
+      snapshotDoc.id !== firebaseUser.uid
   );
+
+  return exactMatch || null;
 }
 
 /* =========================================
-   NORMALIZAR / MIGRAR PERFIL A UID
+   MIGRAR PERFIL LEGACY A UID
+
+   Se ejecuta una sola vez. Las reglas permiten
+   únicamente copiar el perfil que pertenece al
+   mismo email autenticado y no permiten cambiar
+   rol, permisos, estado ni datos de seguridad.
 ========================================= */
 
-async function normalizeProfileForUid(
+async function migrateOwnLegacyProfile(
   firebaseUser,
   sourceDocument
 ) {
   const sourceData = sourceDocument.data();
-  const permissions = await resolveProfilePermissions(
-    sourceData
-  );
+  const uidRef = doc(db, "usuarios", firebaseUser.uid);
+  const nowISO = new Date().toISOString();
 
-  const normalized = {
+  const migratedProfile = {
     ...sourceData,
     id: firebaseUser.uid,
     uid: firebaseUser.uid,
     authUid: firebaseUser.uid,
-    email: normalizeEmail(
-      firebaseUser.email || sourceData.email
-    ),
-    activo: sourceData.activo !== false,
+    email: cleanText(firebaseUser.email),
     authPendiente: false,
-    permisos: permissions,
+    migradoDesde: sourceDocument.id,
+    actualizadoEn: nowISO,
+    actualizadoPor: "Migración automática UID",
   };
 
-  const uidRef = doc(
-    db,
-    "usuarios",
+  const batch = writeBatch(db);
+
+  batch.set(uidRef, migratedProfile);
+  batch.delete(sourceDocument.ref);
+
+  await batch.commit();
+
+  return buildRuntimeProfile(
+    firebaseUser,
+    migratedProfile,
     firebaseUser.uid
   );
-
-  const sourceIsUid =
-    sourceDocument.id === firebaseUser.uid;
-
-  const currentPermissions = normalizePermissions(
-    sourceData?.permisos
-  );
-
-  const needsSync =
-    !sourceIsUid ||
-    sourceData?.uid !== firebaseUser.uid ||
-    sourceData?.authUid !== firebaseUser.uid ||
-    sourceData?.authPendiente === true ||
-    normalizeEmail(sourceData?.email) !==
-      normalized.email ||
-    !sameStringArray(
-      currentPermissions,
-      permissions
-    );
-
-  if (!needsSync) {
-    return validateProfile(normalized);
-  }
-
-  const nowISO = new Date().toISOString();
-
-  const persisted = {
-    ...normalized,
-    actualizadoEn: nowISO,
-    actualizadoPor:
-      sourceData?.actualizadoPor ||
-      "Migración UID",
-  };
-
-  if (!sourceIsUid) {
-    persisted.migradoDesde = sourceDocument.id;
-
-    const batch = writeBatch(db);
-
-    batch.set(uidRef, persisted, {
-      merge: true,
-    });
-
-    batch.delete(sourceDocument.ref);
-
-    await batch.commit();
-  } else {
-    await setDoc(uidRef, persisted, {
-      merge: true,
-    });
-  }
-
-  return validateProfile(persisted);
 }
 
 /* =========================================
@@ -269,9 +236,10 @@ async function loadUserProfile(firebaseUser) {
   const uidSnapshot = await getDoc(uidRef);
 
   if (uidSnapshot.exists()) {
-    return normalizeProfileForUid(
+    return buildRuntimeProfile(
       firebaseUser,
-      uidSnapshot
+      uidSnapshot.data(),
+      uidSnapshot.id
     );
   }
 
@@ -279,19 +247,36 @@ async function loadUserProfile(firebaseUser) {
     throw new Error("PROFILE_NOT_FOUND");
   }
 
-  const legacyDocument =
-    await findLegacyProfileByEmail(
-      firebaseUser.email
+  try {
+    const legacyDocument =
+      await findOwnLegacyProfile(firebaseUser);
+
+    if (!legacyDocument) {
+      throw new Error("PROFILE_NOT_FOUND");
+    }
+
+    return migrateOwnLegacyProfile(
+      firebaseUser,
+      legacyDocument
     );
+  } catch (error) {
+    if (
+      error?.message === "PROFILE_NOT_FOUND" ||
+      error?.message === "USER_INACTIVE"
+    ) {
+      throw error;
+    }
 
-  if (!legacyDocument) {
-    throw new Error("PROFILE_NOT_FOUND");
+    if (error?.code === "permission-denied") {
+      const migrationError = new Error(
+        "LEGACY_PROFILE_MIGRATION_BLOCKED"
+      );
+      migrationError.cause = error;
+      throw migrationError;
+    }
+
+    throw error;
   }
-
-  return normalizeProfileForUid(
-    firebaseUser,
-    legacyDocument
-  );
 }
 
 /* =========================================
@@ -308,6 +293,13 @@ function getProfileErrorMessage(error) {
 
     case "USER_INACTIVE":
       return "Este usuario se encuentra desactivado.";
+
+    case "LEGACY_PROFILE_MIGRATION_BLOCKED":
+      return (
+        "Tu cuenta es de una versión anterior y no pudo " +
+        "vincularse automáticamente al UID. Un administrador " +
+        "debe revisar el perfil legacy antes de volver a ingresar."
+      );
 
     default:
       return "No se pudo validar el perfil del usuario.";
@@ -329,53 +321,92 @@ export function AuthProvider({ children }) {
   ======================================= */
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (firebaseUser) => {
-        setLoading(true);
+    let disposed = false;
+    let unsubscribe = () => {};
 
-        if (!firebaseUser) {
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+    const observeSession = async () => {
+      /*
+       * Hacemos explícita la persistencia local antes de
+       * resolver la primera ruta. Así un F5 no manda al
+       * usuario a /login mientras Firebase restaura sesión.
+       */
+      try {
+        await setPersistence(
+          auth,
+          browserLocalPersistence
+        );
+      } catch (error) {
+        console.warn(
+          "No se pudo fijar persistencia local de Authentication:",
+          error
+        );
+      }
 
-        try {
-          const userProfile = await loadUserProfile(
-            firebaseUser
-          );
+      if (disposed) {
+        return;
+      }
 
-          setUser(firebaseUser);
-          setProfile(userProfile);
-          setAuthError(null);
-        } catch (error) {
-          console.error(
-            "Error validando perfil:",
-            error
-          );
+      unsubscribe = onAuthStateChanged(
+        auth,
+        async (firebaseUser) => {
+          setLoading(true);
 
-          setUser(null);
-          setProfile(null);
-          setAuthError(
-            getProfileErrorMessage(error)
-          );
+          if (!firebaseUser) {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
 
           try {
-            await signOut(auth);
-          } catch (signOutError) {
-            console.error(
-              "Error cerrando sesión:",
-              signOutError
+            const userProfile = await loadUserProfile(
+              firebaseUser
             );
-          }
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
 
-    return unsubscribe;
+            if (disposed) {
+              return;
+            }
+
+            setUser(firebaseUser);
+            setProfile(userProfile);
+            setAuthError(null);
+          } catch (error) {
+            console.error(
+              "Error validando perfil:",
+              error
+            );
+
+            if (!disposed) {
+              setUser(null);
+              setProfile(null);
+              setAuthError(
+                getProfileErrorMessage(error)
+              );
+            }
+
+            try {
+              await signOut(auth);
+            } catch (signOutError) {
+              console.error(
+                "Error cerrando sesión:",
+                signOutError
+              );
+            }
+          } finally {
+            if (!disposed) {
+              setLoading(false);
+            }
+          }
+        }
+      );
+    };
+
+    observeSession();
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, []);
 
   /* =======================================
@@ -410,10 +441,11 @@ export function AuthProvider({ children }) {
         }
 
         try {
-          const nextProfile = validateProfile({
-            id: snapshot.id,
-            ...snapshot.data(),
-          });
+          const nextProfile = await buildRuntimeProfile(
+            auth.currentUser,
+            snapshot.data(),
+            snapshot.id
+          );
 
           setProfile(nextProfile);
           setAuthError(null);

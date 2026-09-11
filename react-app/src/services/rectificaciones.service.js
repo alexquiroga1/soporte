@@ -106,6 +106,15 @@ export async function addInvoiceRectification(
         );
       }
 
+      if (
+        invoice.estado !==
+        "Emitida"
+      ) {
+        throw new Error(
+          "INVOICE_NOT_ISSUED"
+        );
+      }
+
       /*
        * Rectificación interna:
        *

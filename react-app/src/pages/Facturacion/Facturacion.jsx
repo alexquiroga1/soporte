@@ -2,6 +2,9 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 
+import { useAuth } from "../../context/AuthContext.jsx";
+import { PERMISSIONS } from "../../security/permissions.js";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,6 +30,10 @@ import "./Facturacion.css";
 
 export default function Facturacion() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+
+  const canSales = hasPermission(PERMISSIONS.SALES);
+  const canTickets = hasPermission(PERMISSIONS.TICKETS);
 
   /* =======================================
      MÓDULOS
@@ -43,6 +50,7 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/presupuestos",
+        visible: canTickets || canSales,
       },
 
       {
@@ -54,6 +62,7 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/facturas",
+        visible: canSales,
       },
 
       {
@@ -65,6 +74,7 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/notas-credito",
+        visible: canSales,
       },
 
       {
@@ -76,6 +86,7 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/rectificaciones",
+        visible: canSales,
       },
 
       {
@@ -87,6 +98,7 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/anulaciones",
+        visible: canSales,
       },
 
       {
@@ -98,9 +110,10 @@ export default function Facturacion() {
         meta: "Operativo",
         status: "ready",
         route: "/facturacion/historial",
+        visible: canSales,
       },
     ],
-    []
+    [canSales, canTickets]
   );
 
   /* =======================================
@@ -275,7 +288,7 @@ export default function Facturacion() {
 
           <div className="billing-modules-grid">
 
-            {modules.map((module, index) => {
+            {modules.filter((module) => module.visible).map((module, index) => {
               const Icon = module.icon;
 
               return (

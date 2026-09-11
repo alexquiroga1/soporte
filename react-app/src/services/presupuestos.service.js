@@ -165,50 +165,28 @@ function isBudgetExpired(
 function assertBudgetPending(
   budget
 ) {
-  if (
-    !budget
-  ) {
-    throw new Error(
-      "BUDGET_NOT_FOUND"
-    );
+  if (!budget) {
+    throw new Error("BUDGET_NOT_FOUND");
   }
 
   if (
-    budget.estado !==
-    "Pendiente"
+    budget.estado === "Facturado" ||
+    budget.facturaId ||
+    ["Cobrado", "Financiado"].includes(budget.estadoCaja)
   ) {
-    throw new Error(
-      "BUDGET_NOT_PENDING"
-    );
+    throw new Error("BUDGET_ALREADY_BILLED");
   }
 
-  if (
-    isBudgetExpired(
-      budget
-    )
-  ) {
-    throw new Error(
-      "BUDGET_EXPIRED"
-    );
+  if (budget.estadoCaja === "Pendiente") {
+    throw new Error("BUDGET_ALREADY_IN_CASH");
   }
 
-  if (
-    budget.estadoCaja ===
-    "Pendiente"
-  ) {
-    throw new Error(
-      "BUDGET_ALREADY_IN_CASH"
-    );
+  if (budget.estado !== "Pendiente") {
+    throw new Error("BUDGET_NOT_PENDING");
   }
 
-  if (
-    budget.estado ===
-      "Facturado" ||
-    budget.facturaId
-  ) {
-    throw new Error(
-      "BUDGET_ALREADY_BILLED"
-    );
+  if (isBudgetExpired(budget)) {
+    throw new Error("BUDGET_EXPIRED");
   }
 }
 
@@ -394,211 +372,113 @@ export async function acceptBudget(
   budgetId,
   author
 ) {
-  if (
-    !budgetId
-  ) {
-    throw new Error(
-      "BUDGET_REQUIRED"
-    );
+  if (!budgetId) {
+    throw new Error("BUDGET_REQUIRED");
   }
 
-  const cleanBudgetId =
-    String(
-      budgetId
-    );
-
-  const budgetRef =
-    doc(
-      db,
-      "presupuestos",
-      cleanBudgetId
-    );
-
+  const cleanBudgetId = String(budgetId);
+  const cleanAuthorValue = cleanAuthor(author);
+  const budgetRef = doc(db, "presupuestos", cleanBudgetId);
   let result = null;
 
-  await runTransaction(
-    db,
+  await runTransaction(db, async (transaction) => {
+    const budgetSnapshot = await transaction.get(budgetRef);
 
-    async (
-      transaction
-    ) => {
-      /* =================================
-         LEER PRESUPUESTO
-      ================================= */
-
-      const budgetSnapshot =
-        await transaction.get(
-          budgetRef
-        );
-
-      if (
-        !budgetSnapshot.exists()
-      ) {
-        throw new Error(
-          "BUDGET_NOT_FOUND"
-        );
-      }
-
-      const budget =
-        budgetSnapshot.data();
-
-      assertBudgetPending(
-        budget
-      );
-
-      /* =================================
-         SI TIENE TICKET, LEERLO
-      ================================= */
-
-      const ticketId =
-        budget.ticketId
-          ? String(
-              budget.ticketId
-            )
-          : null;
-
-      let ticketRef =
-        null;
-
-      let ticketData =
-        null;
-
-      if (
-        ticketId
-      ) {
-        ticketRef =
-          doc(
-            db,
-            "tickets",
-            ticketId
-          );
-
-        const ticketSnapshot =
-          await transaction.get(
-            ticketRef
-          );
-
-        if (
-          ticketSnapshot.exists()
-        ) {
-          ticketData =
-            ticketSnapshot.data();
-        }
-      }
-
-      const nowISO =
-        new Date()
-          .toISOString();
-
-      /* =================================
-         HISTORIAL PRESUPUESTO
-      ================================= */
-
-      const budgetHistoryEntry =
-        createHistoryEntry({
-          author,
-
-          action:
-            "Presupuesto aceptado",
-
-          detail:
-            ticketId
-              ? `Presupuesto aceptado. Vinculado al Ticket ${ticketId}.`
-              : "Presupuesto aceptado.",
-        });
-
-      const budgetHistory =
-        Array.isArray(
-          budget.historial
-        )
-          ? budget.historial
-          : [];
-
-      /* =================================
-         ACTUALIZAR PRESUPUESTO
-      ================================= */
-
-      transaction.update(
-        budgetRef,
-        {
-          estado:
-            "Aceptado",
-
-          actualizadoEn:
-            nowISO,
-
-          historial: [
-            ...budgetHistory,
-            budgetHistoryEntry,
-          ],
-        }
-      );
-
-      /* =================================
-         ACTUALIZAR TICKET
-      ================================= */
-
-      if (
-        ticketRef &&
-        ticketData
-      ) {
-        const ticketHistoryEntry =
-          createHistoryEntry({
-            author,
-
-            action:
-              "Presupuesto APROBADO",
-
-            detail:
-              `Presupuesto ${cleanBudgetId} aceptado. El ticket pasa a reparación.`,
-          });
-
-        const ticketHistory =
-          Array.isArray(
-            ticketData.historial
-          )
-            ? ticketData.historial
-            : [];
-
-        transaction.update(
-          ticketRef,
-          {
-            presupuestoAprobado:
-              true,
-
-            presupuestoEstado:
-              "Aceptado",
-
-            presupuestoId:
-              cleanBudgetId,
-
-            stage:
-              "reparacion",
-
-            historial: [
-              ...ticketHistory,
-              ticketHistoryEntry,
-            ],
-          }
-        );
-      }
-
-      result = {
-        budgetId:
-          cleanBudgetId,
-
-        ticketId,
-
-        state:
-          "Aceptado",
-
-        ticketUpdated:
-          Boolean(
-            ticketData
-          ),
-      };
+    if (!budgetSnapshot.exists()) {
+      throw new Error("BUDGET_NOT_FOUND");
     }
-  );
+
+    const budget = budgetSnapshot.data();
+    assertBudgetPending(budget);
+
+    const ticketId = budget.ticketId ? String(budget.ticketId) : null;
+    const ticketRef = ticketId ? doc(db, "tickets", ticketId) : null;
+    const ticketSnapshot = ticketRef ? await transaction.get(ticketRef) : null;
+    const ticketData = ticketSnapshot?.exists() ? ticketSnapshot.data() : null;
+
+    const publicToken = cleanText(budget.publicToken);
+    const publicRef = publicToken
+      ? doc(db, "presupuestos_publicos", publicToken)
+      : null;
+    const publicSnapshot = publicRef ? await transaction.get(publicRef) : null;
+    const publicData = publicSnapshot?.exists() ? publicSnapshot.data() : null;
+    const publicResponse = cleanText(publicData?.respuesta);
+
+    if (publicResponse && publicResponse !== "Aceptado") {
+      throw new Error("PUBLIC_RESPONSE_CONFLICT");
+    }
+
+    const nowISO = new Date().toISOString();
+    const budgetHistory = Array.isArray(budget.historial) ? budget.historial : [];
+
+    transaction.update(budgetRef, {
+      estado: "Aceptado",
+      presupuestoAprobado: true,
+      ...(publicResponse
+        ? {
+            respuestaPublica: "Aceptado",
+            respuestaPublicaEn: publicData?.respondidoEn || nowISO,
+          }
+        : {}),
+      actualizadoEn: nowISO,
+      historial: [
+        ...budgetHistory,
+        createHistoryEntry({
+          author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
+          action: "Presupuesto aceptado",
+          detail: ticketId
+            ? `Presupuesto aceptado. Vinculado al Ticket ${ticketId}.`
+            : "Presupuesto aceptado.",
+        }),
+      ],
+    });
+
+    if (ticketRef && ticketData) {
+      const ticketHistory = Array.isArray(ticketData.historial)
+        ? ticketData.historial
+        : [];
+
+      transaction.update(ticketRef, {
+        presupuestoAprobado: true,
+        presupuestoEstado: "Aceptado",
+        presupuestoId: cleanBudgetId,
+        stage: "reparacion",
+        actualizadoEn: nowISO,
+        historial: [
+          ...ticketHistory,
+          createHistoryEntry({
+            author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
+            action: "Presupuesto APROBADO",
+            detail: `Presupuesto ${cleanBudgetId} aceptado. El ticket pasa a reparación.`,
+          }),
+        ],
+      });
+    }
+
+    if (publicRef && publicData) {
+      transaction.update(publicRef, {
+        activo: false,
+        estado: "Aceptado",
+        actualizadoEn: nowISO,
+        cerradoEn: nowISO,
+        cerradoPor: cleanAuthorValue,
+        ...(publicResponse
+          ? {
+              aplicadoEn: nowISO,
+              aplicadoPor: cleanAuthorValue,
+            }
+          : {}),
+      });
+    }
+
+    result = {
+      budgetId: cleanBudgetId,
+      ticketId,
+      state: "Aceptado",
+      ticketUpdated: Boolean(ticketData),
+      publicResponseApplied: Boolean(publicResponse),
+    };
+  });
 
   return result;
 }
@@ -612,223 +492,117 @@ export async function rejectBudget(
   reason = "",
   author
 ) {
-  if (
-    !budgetId
-  ) {
-    throw new Error(
-      "BUDGET_REQUIRED"
-    );
+  if (!budgetId) {
+    throw new Error("BUDGET_REQUIRED");
   }
 
-  const cleanBudgetId =
-    String(
-      budgetId
-    );
-
-  const cleanReason =
-    String(
-      reason ||
-        ""
-    ).trim();
-
-  const budgetRef =
-    doc(
-      db,
-      "presupuestos",
-      cleanBudgetId
-    );
-
+  const cleanBudgetId = String(budgetId);
+  const cleanReason = String(reason || "").trim();
+  const cleanAuthorValue = cleanAuthor(author);
+  const budgetRef = doc(db, "presupuestos", cleanBudgetId);
   let result = null;
 
-  await runTransaction(
-    db,
+  await runTransaction(db, async (transaction) => {
+    const budgetSnapshot = await transaction.get(budgetRef);
 
-    async (
-      transaction
-    ) => {
-      /* =================================
-         PRESUPUESTO
-      ================================= */
-
-      const budgetSnapshot =
-        await transaction.get(
-          budgetRef
-        );
-
-      if (
-        !budgetSnapshot.exists()
-      ) {
-        throw new Error(
-          "BUDGET_NOT_FOUND"
-        );
-      }
-
-      const budget =
-        budgetSnapshot.data();
-
-      assertBudgetPending(
-        budget
-      );
-
-      /* =================================
-         TICKET
-      ================================= */
-
-      const ticketId =
-        budget.ticketId
-          ? String(
-              budget.ticketId
-            )
-          : null;
-
-      let ticketRef =
-        null;
-
-      let ticketData =
-        null;
-
-      if (
-        ticketId
-      ) {
-        ticketRef =
-          doc(
-            db,
-            "tickets",
-            ticketId
-          );
-
-        const ticketSnapshot =
-          await transaction.get(
-            ticketRef
-          );
-
-        if (
-          ticketSnapshot.exists()
-        ) {
-          ticketData =
-            ticketSnapshot.data();
-        }
-      }
-
-      const nowISO =
-        new Date()
-          .toISOString();
-
-      const detail =
-        cleanReason
-          ? `Motivo: ${cleanReason}`
-          : "El presupuesto fue rechazado.";
-
-      /* =================================
-         HISTORIAL PRESUPUESTO
-      ================================= */
-
-      const budgetHistoryEntry =
-        createHistoryEntry({
-          author,
-
-          action:
-            "Presupuesto rechazado",
-
-          detail,
-        });
-
-      const budgetHistory =
-        Array.isArray(
-          budget.historial
-        )
-          ? budget.historial
-          : [];
-
-      transaction.update(
-        budgetRef,
-        {
-          estado:
-            "Rechazado",
-
-          presupuestoAprobado:
-            false,
-
-          actualizadoEn:
-            nowISO,
-
-          historial: [
-            ...budgetHistory,
-            budgetHistoryEntry,
-          ],
-        }
-      );
-
-      /* =================================
-         HISTORIAL TICKET
-      ================================= */
-
-      if (
-        ticketRef &&
-        ticketData
-      ) {
-        const ticketHistoryEntry =
-          createHistoryEntry({
-            author,
-
-            action:
-              "Presupuesto RECHAZADO",
-
-            detail:
-              cleanReason
-                ? `Presupuesto ${cleanBudgetId} rechazado. Motivo: ${cleanReason}`
-                : `Presupuesto ${cleanBudgetId} rechazado.`,
-          });
-
-        const ticketHistory =
-          Array.isArray(
-            ticketData.historial
-          )
-            ? ticketData.historial
-            : [];
-
-        transaction.update(
-          ticketRef,
-          {
-            presupuestoAprobado:
-              false,
-
-            presupuestoEstado:
-              "Rechazado",
-
-            presupuestoId:
-              cleanBudgetId,
-
-            stage:
-              "presupuesto_rechazado",
-
-            actualizadoEn:
-              nowISO,
-
-            historial: [
-              ...ticketHistory,
-              ticketHistoryEntry,
-            ],
-          }
-        );
-      }
-
-      result = {
-        budgetId:
-          cleanBudgetId,
-
-        ticketId,
-
-        state:
-          "Rechazado",
-
-        ticketUpdated:
-          Boolean(
-            ticketData
-          ),
-      };
+    if (!budgetSnapshot.exists()) {
+      throw new Error("BUDGET_NOT_FOUND");
     }
-  );
+
+    const budget = budgetSnapshot.data();
+    assertBudgetPending(budget);
+
+    const ticketId = budget.ticketId ? String(budget.ticketId) : null;
+    const ticketRef = ticketId ? doc(db, "tickets", ticketId) : null;
+    const ticketSnapshot = ticketRef ? await transaction.get(ticketRef) : null;
+    const ticketData = ticketSnapshot?.exists() ? ticketSnapshot.data() : null;
+
+    const publicToken = cleanText(budget.publicToken);
+    const publicRef = publicToken
+      ? doc(db, "presupuestos_publicos", publicToken)
+      : null;
+    const publicSnapshot = publicRef ? await transaction.get(publicRef) : null;
+    const publicData = publicSnapshot?.exists() ? publicSnapshot.data() : null;
+    const publicResponse = cleanText(publicData?.respuesta);
+
+    if (publicResponse && publicResponse !== "Rechazado") {
+      throw new Error("PUBLIC_RESPONSE_CONFLICT");
+    }
+
+    const nowISO = new Date().toISOString();
+    const detail = cleanReason
+      ? `Motivo: ${cleanReason}`
+      : "El presupuesto fue rechazado.";
+    const budgetHistory = Array.isArray(budget.historial) ? budget.historial : [];
+
+    transaction.update(budgetRef, {
+      estado: "Rechazado",
+      presupuestoAprobado: false,
+      ...(publicResponse
+        ? {
+            respuestaPublica: "Rechazado",
+            respuestaPublicaEn: publicData?.respondidoEn || nowISO,
+          }
+        : {}),
+      actualizadoEn: nowISO,
+      historial: [
+        ...budgetHistory,
+        createHistoryEntry({
+          author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
+          action: "Presupuesto rechazado",
+          detail,
+        }),
+      ],
+    });
+
+    if (ticketRef && ticketData) {
+      const ticketHistory = Array.isArray(ticketData.historial)
+        ? ticketData.historial
+        : [];
+
+      transaction.update(ticketRef, {
+        presupuestoAprobado: false,
+        presupuestoEstado: "Rechazado",
+        presupuestoId: cleanBudgetId,
+        stage: "presupuesto_rechazado",
+        actualizadoEn: nowISO,
+        historial: [
+          ...ticketHistory,
+          createHistoryEntry({
+            author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
+            action: "Presupuesto RECHAZADO",
+            detail: cleanReason
+              ? `Presupuesto ${cleanBudgetId} rechazado. Motivo: ${cleanReason}`
+              : `Presupuesto ${cleanBudgetId} rechazado.`,
+          }),
+        ],
+      });
+    }
+
+    if (publicRef && publicData) {
+      transaction.update(publicRef, {
+        activo: false,
+        estado: "Rechazado",
+        actualizadoEn: nowISO,
+        cerradoEn: nowISO,
+        cerradoPor: cleanAuthorValue,
+        ...(publicResponse
+          ? {
+              aplicadoEn: nowISO,
+              aplicadoPor: cleanAuthorValue,
+            }
+          : {}),
+      });
+    }
+
+    result = {
+      budgetId: cleanBudgetId,
+      ticketId,
+      state: "Rechazado",
+      ticketUpdated: Boolean(ticketData),
+      publicResponseApplied: Boolean(publicResponse),
+    };
+  });
 
   return result;
 }
@@ -1132,8 +906,20 @@ export async function createManualBudget({
         estado:
           "Pendiente",
 
+        estadoCaja:
+          "No enviado",
+
         presupuestoFijado:
           true,
+
+        presupuestoAprobado:
+          false,
+
+        publicado:
+          false,
+
+        revision:
+          1,
 
         items:
           normalizedItems,

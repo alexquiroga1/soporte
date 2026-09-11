@@ -53,6 +53,7 @@ import {
 } from "../../services/tickets.service.js";
 
 import {
+  cancelCashPending,
   sendTicketToCash,
 } from "../../services/caja-pendientes.service.js";
 
@@ -253,6 +254,11 @@ export default function TicketDetail() {
   const [
     sendingToCash,
     setSendingToCash,
+  ] = useState(false);
+
+  const [
+    cancellingCashPending,
+    setCancellingCashPending,
   ] = useState(false);
 
   /* =======================================
@@ -687,6 +693,20 @@ export default function TicketDetail() {
     ticket?.estadoPago ===
       "Pagado";
 
+  const cashFinanced =
+    ticket?.estadoCaja ===
+      "Financiado" ||
+    [
+      "Financiado",
+      "Pago Parcial",
+    ].includes(
+      ticket?.estadoPago
+    );
+
+  const cashResolved =
+    cashPaid ||
+    cashFinanced;
+
   const alreadyBilled =
     Boolean(
       ticket?.estadoFacturacion &&
@@ -699,7 +719,7 @@ export default function TicketDetail() {
       "listo" &&
     budgetAccepted &&
     !cashPending &&
-    !cashPaid &&
+    !cashResolved &&
     !alreadyBilled;
 
   /* =======================================
@@ -793,9 +813,19 @@ export default function TicketDetail() {
           currentStage
         );
 
+        const stageMessages = {
+          TICKET_CASH_PENDING_LOCKED:
+            "Primero cancelá el pendiente de Caja o completá el cobro.",
+          TICKET_PAYMENT_REQUIRED:
+            "El ticket debe estar cobrado o financiado y facturado antes de marcarlo como Entregado.",
+          TICKET_FINANCIAL_REVERSAL_REQUIRED:
+            "El ticket ya tiene una operación financiera. Primero anulá o rectificá la factura correspondiente.",
+        };
+
         notify.error(
           "No se pudo cambiar el estado",
-          "Firestore rechazó la actualización."
+          stageMessages[stageError?.message] ||
+            "Firestore rechazó la actualización."
         );
       } finally {
         setSavingStage(
@@ -1460,6 +1490,18 @@ export default function TicketDetail() {
           return;
         }
 
+        if (
+          budgetError?.message ===
+          "PUBLIC_RESPONSE_UNAPPLIED"
+        ) {
+          notify.warning(
+            "Respuesta pendiente de aplicar",
+            "El cliente ya respondió desde el enlace público. Aplicá esa respuesta antes de generar una nueva revisión."
+          );
+
+          return;
+        }
+
         notify.error(
           "No se pudo fijar",
           "Ocurrió un error al guardar el presupuesto."
@@ -1534,7 +1576,9 @@ export default function TicketDetail() {
 
         notify.error(
           "No se pudo desbloquear",
-          "Ocurrió un error al modificar el presupuesto."
+          unlockError?.message === "PUBLIC_RESPONSE_UNAPPLIED"
+            ? "El cliente ya respondió desde el enlace público. Aplicá esa respuesta antes de editar el presupuesto."
+            : "Ocurrió un error al modificar el presupuesto."
         );
       } finally {
         setUnlockingBudget(
@@ -1621,9 +1665,6 @@ export default function TicketDetail() {
           )}.`
         );
 
-        navigate(
-          "/caja"
-        );
       } catch (
         cashError
       ) {
@@ -1669,6 +1710,55 @@ export default function TicketDetail() {
         setSendingToCash(
           false
         );
+      }
+    };
+
+  const handleCancelCashPending =
+    async () => {
+      const pendingId =
+        ticket?.cajaPendienteId;
+
+      if (!pendingId) {
+        notify.info(
+          "Sin pendiente",
+          "El ticket ya no tiene un cobro pendiente en Caja."
+        );
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `¿Cancelar el envío del ticket #${ticket.id} a Caja?\n\n` +
+            "No se elimina el presupuesto; solamente se retira el pendiente de cobro."
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setCancellingCashPending(true);
+
+        await cancelCashPending(
+          pendingId,
+          author
+        );
+
+        notify.success(
+          "Envío cancelado",
+          `El ticket #${ticket.id} volvió a quedar disponible para revisión antes del cobro.`
+        );
+      } catch (cashError) {
+        console.error(cashError);
+
+        notify.error(
+          "No se pudo cancelar",
+          cashError?.message === "CASH_PENDING_NOT_FOUND"
+            ? "El pendiente ya no existe; probablemente fue procesado desde Caja."
+            : cashError?.message || "Ocurrió un error inesperado."
+        );
+      } finally {
+        setCancellingCashPending(false);
       }
     };
 
@@ -3905,11 +3995,14 @@ export default function TicketDetail() {
 
                   disabled={
                     sendingToCash ||
-                    !canSendToCash
+                    cancellingCashPending ||
+                    (!canSendToCash && !cashPending)
                   }
 
                   onClick={
-                    handleSendToCash
+                    cashPending
+                      ? handleCancelCashPending
+                      : handleSendToCash
                   }
                 >
                   <WalletCards
@@ -3918,17 +4011,21 @@ export default function TicketDetail() {
 
                   {sendingToCash
                     ? "Enviando a Caja..."
-                    : cashPending
-                      ? "Pendiente en Caja"
-                      : cashPaid ||
-                          alreadyBilled
-                        ? "Cobrado / facturado"
-                        : "Enviar a Caja"}
+                    : cancellingCashPending
+                      ? "Cancelando envío..."
+                      : cashPending
+                        ? "Cancelar envío a Caja"
+                      : cashFinanced
+                        ? "Financiado / facturado"
+                        : cashPaid ||
+                            alreadyBilled
+                          ? "Cobrado / facturado"
+                          : "Enviar a Caja"}
                 </button>
 
                 {!canSendToCash &&
                   !cashPending &&
-                  !cashPaid &&
+                  !cashResolved &&
                   !alreadyBilled && (
                   <small className="ticket-cash-hint">
                     {!budgetAccepted

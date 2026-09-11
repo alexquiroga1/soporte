@@ -1109,129 +1109,203 @@ export async function updateTicketStage(
     );
   }
 
-  const currentStage =
-    ticket.stage ||
-    "pendiente";
-
-  if (
-    currentStage ===
-    newStage
-  ) {
-    return {
-      changed: false,
-      stage: newStage,
-    };
-  }
-
-  const oldStageLabel =
-    getStageLabel(
-      currentStage
-    );
-
-  const newStageLabel =
-    getStageLabel(
-      newStage
-    );
-
-  const updates = {
-    stage:
-      newStage,
-
-    actualizadoEn:
-      new Date()
-        .toISOString(),
-  };
-
-  let logDetail =
-    `${oldStageLabel} → ${newStageLabel}`;
-
-  if (
-    newStage === "listo"
-  ) {
-    updates.fechaListo =
-      new Date()
-        .toISOString();
-  }
-
-  if (
-    newStage ===
-    "entregado"
-  ) {
-    const warrantyDays =
-      Math.max(
-        0,
-        normalizeNumber(
-          ticket
-            .garantiaDias,
-          30
-        )
-      );
-
-    const expiration =
-      new Date();
-
-    expiration.setDate(
-      expiration.getDate() +
-        warrantyDays
-    );
-
-    const expirationYMD =
-      formatDateYMD(
-        expiration
-      );
-
-    updates.garantiaDias =
-      warrantyDays;
-
-    updates.garantiaVencimiento =
-      expirationYMD;
-
-    logDetail +=
-      ` | Garantía activada por ${warrantyDays} días` +
-      ` (hasta ${formatDisplayYMD(
-        expirationYMD
-      )}).`;
-  }
-
-  const historyEntry =
-    createHistoryEntry({
-      author,
-
-      action:
-        "Estado cambiado",
-
-      detail:
-        logDetail,
-    });
-
-  updates.historial =
-    arrayUnion(
-      historyEntry
-    );
-
-  await updateDoc(
+  const ticketRef =
     doc(
       db,
       "tickets",
-      String(
-        ticket.id
-      )
-    ),
+      String(ticket.id)
+    );
 
-    updates
+  return runTransaction(
+    db,
+    async (transaction) => {
+      const snapshot =
+        await transaction.get(
+          ticketRef
+        );
+
+      if (!snapshot.exists()) {
+        throw new Error(
+          "TICKET_NOT_FOUND"
+        );
+      }
+
+      // Usar siempre el estado fresco de Firestore. Esto evita que una UI
+      // atrasada mueva el Ticket mientras Caja acaba de crear un pendiente.
+      const currentTicket =
+        snapshot.data();
+
+      const currentStage =
+        currentTicket.stage ||
+        "pendiente";
+
+      if (
+        currentStage ===
+        newStage
+      ) {
+        return {
+          changed: false,
+          stage: newStage,
+        };
+      }
+
+      const cashPending =
+        currentTicket.estadoCaja ===
+        "Pendiente";
+
+      const cashResolved =
+        [
+          "Cobrado",
+          "Financiado",
+        ].includes(
+          currentTicket.estadoCaja
+        ) ||
+        [
+          "Pagado",
+          "Pagado Total",
+          "Financiado",
+          "Pago Parcial",
+        ].includes(
+          currentTicket.estadoPago
+        );
+
+      const billed =
+        Boolean(
+          currentTicket.facturaId
+        ) ||
+        Boolean(
+          currentTicket.estadoFacturacion &&
+          currentTicket.estadoFacturacion !==
+            "No facturado"
+        );
+
+      if (cashPending) {
+        throw new Error(
+          "TICKET_CASH_PENDING_LOCKED"
+        );
+      }
+
+      if (
+        newStage ===
+          "entregado" &&
+        !(cashResolved && billed)
+      ) {
+        throw new Error(
+          "TICKET_PAYMENT_REQUIRED"
+        );
+      }
+
+      if (
+        [
+          "cancelado",
+          "noreparable",
+        ].includes(
+          newStage
+        ) &&
+        (cashResolved || billed)
+      ) {
+        throw new Error(
+          "TICKET_FINANCIAL_REVERSAL_REQUIRED"
+        );
+      }
+
+      const oldStageLabel =
+        getStageLabel(
+          currentStage
+        );
+
+      const newStageLabel =
+        getStageLabel(
+          newStage
+        );
+
+      const now =
+        new Date();
+
+      const updates = {
+        stage:
+          newStage,
+
+        actualizadoEn:
+          now.toISOString(),
+      };
+
+      let logDetail =
+        `${oldStageLabel} → ${newStageLabel}`;
+
+      if (
+        newStage ===
+        "listo"
+      ) {
+        updates.fechaListo =
+          now.toISOString();
+      }
+
+      if (
+        newStage ===
+        "entregado"
+      ) {
+        const warrantyDays =
+          Math.max(
+            0,
+            normalizeNumber(
+              currentTicket.garantiaDias,
+              30
+            )
+          );
+
+        const expiration =
+          new Date(now);
+
+        expiration.setDate(
+          expiration.getDate() +
+          warrantyDays
+        );
+
+        const expirationYMD =
+          formatDateYMD(
+            expiration
+          );
+
+        updates.garantiaDias =
+          warrantyDays;
+
+        updates.garantiaVencimiento =
+          expirationYMD;
+
+        logDetail +=
+          ` | Garantía activada por ${warrantyDays} días` +
+          ` (hasta ${formatDisplayYMD(expirationYMD)}).`;
+      }
+
+      const historyEntry =
+        createHistoryEntry({
+          author,
+          action:
+            "Estado cambiado",
+          detail:
+            logDetail,
+        });
+
+      updates.historial =
+        arrayUnion(
+          historyEntry
+        );
+
+      transaction.update(
+        ticketRef,
+        updates
+      );
+
+      return {
+        changed: true,
+        stage: newStage,
+        stageLabel:
+          newStageLabel,
+        historyEntry,
+      };
+    }
   );
-
-  return {
-    changed: true,
-
-    stage:
-      newStage,
-
-    stageLabel:
-      newStageLabel,
-
-    historyEntry,
-  };
 }
 
 /* =========================================
@@ -1953,6 +2027,9 @@ export async function fixTicketBudget(
       let existingBudget =
         null;
 
+      let publicRef = null;
+      let publicData = null;
+
       if (presupuestoId) {
         budgetRef =
           doc(
@@ -1975,6 +2052,40 @@ export async function fixTicketBudget(
           assertBudgetCanBeModified(
             existingBudget
           );
+
+          const publicToken =
+            String(
+              existingBudget.publicToken ||
+              ""
+            ).trim();
+
+          if (publicToken) {
+            publicRef =
+              doc(
+                db,
+                "presupuestos_publicos",
+                publicToken
+              );
+
+            const publicSnapshot =
+              await transaction.get(
+                publicRef
+              );
+
+            if (publicSnapshot.exists()) {
+              publicData =
+                publicSnapshot.data();
+
+              if (
+                publicData.respuesta &&
+                !publicData.aplicadoEn
+              ) {
+                throw new Error(
+                  "PUBLIC_RESPONSE_UNAPPLIED"
+                );
+              }
+            }
+          }
         }
       }
 
@@ -2088,9 +2199,9 @@ export async function fixTicketBudget(
           ?.fecha ||
         today;
 
+      // Cada revisión renueva la vigencia. Mantener la fecha de vencimiento
+      // anterior podía dejar un presupuesto recién corregido ya vencido.
       const expiryDate =
-        existingBudget
-          ?.fechaVencimiento ||
         formatDateYMD(
           addDays(
             now,
@@ -2100,6 +2211,17 @@ export async function fixTicketBudget(
 
       const isNewBudget =
         !existingBudget;
+
+      const revision =
+        isNewBudget
+          ? 1
+          : Math.max(
+              1,
+              normalizeNumber(
+                existingBudget?.revision,
+                1
+              )
+            ) + 1;
 
       const budgetHistoryEntry =
         createBudgetHistoryEntry({
@@ -2178,8 +2300,16 @@ export async function fixTicketBudget(
           estado:
             "Pendiente",
 
+          estadoCaja:
+            "No enviado",
+
           presupuestoFijado:
             true,
+
+          publicado:
+            false,
+
+          revision,
 
           items,
 
@@ -2291,6 +2421,62 @@ export async function fixTicketBudget(
           merge: true,
         }
       );
+
+      if (existingBudget) {
+        transaction.update(
+          budgetRef,
+          {
+            presupuestoAprobado:
+              deleteField(),
+
+            respuestaPublica:
+              deleteField(),
+
+            respuestaPublicaEn:
+              deleteField(),
+
+            cajaPendienteId:
+              deleteField(),
+          }
+        );
+      }
+
+      if (
+        publicRef &&
+        publicData
+      ) {
+        transaction.update(
+          publicRef,
+          {
+            activo:
+              false,
+
+            estado:
+              "En edición",
+
+            respuesta:
+              null,
+
+            respondidoEn:
+              null,
+
+            aplicadoEn:
+              null,
+
+            aplicadoPor:
+              null,
+
+            cerradoEn:
+              nowISO,
+
+            cerradoPor:
+              cleanAuthorValue,
+
+            actualizadoEn:
+              nowISO,
+          }
+        );
+      }
 
       transaction.update(
         ticketRef,
@@ -2428,6 +2614,8 @@ export async function unlockTicketBudget(
 
       let budgetRef = null;
       let budgetData = null;
+      let publicRef = null;
+      let publicData = null;
 
       if (presupuestoId) {
         budgetRef =
@@ -2451,6 +2639,40 @@ export async function unlockTicketBudget(
           assertBudgetCanBeModified(
             budgetData
           );
+
+          const publicToken =
+            String(
+              budgetData.publicToken ||
+              ""
+            ).trim();
+
+          if (publicToken) {
+            publicRef =
+              doc(
+                db,
+                "presupuestos_publicos",
+                publicToken
+              );
+
+            const publicSnapshot =
+              await transaction.get(
+                publicRef
+              );
+
+            if (publicSnapshot.exists()) {
+              publicData =
+                publicSnapshot.data();
+
+              if (
+                publicData.respuesta &&
+                !publicData.aplicadoEn
+              ) {
+                throw new Error(
+                  "PUBLIC_RESPONSE_UNAPPLIED"
+                );
+              }
+            }
+          }
         }
       }
 
@@ -2497,6 +2719,9 @@ export async function unlockTicketBudget(
           presupuestoEstado:
             "En edición",
 
+          stage:
+            "presupuesto",
+
           presupuestoAprobado:
             deleteField(),
 
@@ -2539,7 +2764,22 @@ export async function unlockTicketBudget(
             estado:
               "En edición",
 
+            estadoCaja:
+              "No enviado",
+
             presupuestoFijado:
+              false,
+
+            presupuestoAprobado:
+              deleteField(),
+
+            respuestaPublica:
+              deleteField(),
+
+            respuestaPublicaEn:
+              deleteField(),
+
+            publicado:
               false,
 
             actualizadoEn:
@@ -2549,6 +2789,43 @@ export async function unlockTicketBudget(
               ...budgetHistory,
               budgetHistoryEntry,
             ],
+          }
+        );
+      }
+
+      if (
+        publicRef &&
+        publicData
+      ) {
+        transaction.update(
+          publicRef,
+          {
+            activo:
+              false,
+
+            estado:
+              "En edición",
+
+            respuesta:
+              null,
+
+            respondidoEn:
+              null,
+
+            aplicadoEn:
+              null,
+
+            aplicadoPor:
+              null,
+
+            cerradoEn:
+              nowISO,
+
+            cerradoPor:
+              cleanAuthor(author),
+
+            actualizadoEn:
+              nowISO,
           }
         );
       }

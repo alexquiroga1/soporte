@@ -20,16 +20,21 @@ import {
   Share2,
   Ticket,
   UserRound,
+  WalletCards,
   X,
   XCircle,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext.jsx";
+import { MODULE_ACCESS, PERMISSIONS } from "../../security/permissions.js";
 import {
   acceptBudget,
   rejectBudget,
   subscribeToBudgets,
 } from "../../services/presupuestos.service.js";
+import {
+  sendBudgetToCash,
+} from "../../services/caja-pendientes.service.js";
 import {
   applyPublicBudgetResponse,
   getPublicBudget,
@@ -109,6 +114,12 @@ function getOperationError(error) {
     PUBLIC_TOKEN_INVALID: "El enlace público no es válido.",
     PUBLIC_BUDGET_NOT_FOUND: "No encontramos el presupuesto público.",
     PUBLIC_RESPONSE_PENDING: "El cliente todavía no respondió el presupuesto.",
+    PUBLIC_RESPONSE_UNAPPLIED: "El cliente ya respondió este enlace. Aplicá esa respuesta antes de volver a publicar o editar.",
+    PUBLIC_RESPONSE_CONFLICT: "El cliente ya registró la decisión opuesta desde el enlace público. Aplicá primero esa respuesta.",
+    BUDGET_NOT_ACCEPTED: "El presupuesto debe estar aceptado antes de enviarlo a Caja.",
+    BUDGET_TICKET_USE_TICKET_FLOW: "Los presupuestos vinculados a Tickets se envían a Caja desde el detalle del Ticket.",
+    BUDGET_INVALID_TOTAL: "El presupuesto no tiene un total válido para cobrar.",
+    CASH_PENDING_EXISTS: "Este presupuesto ya tiene un cobro pendiente en Caja.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";
@@ -127,7 +138,32 @@ async function copyText(value) {
 export default function Presupuestos() {
   const navigate = useNavigate();
   const authContext = useAuth();
-  const { profile, userProfile, user } = authContext || {};
+  const {
+    profile,
+    userProfile,
+    user,
+    hasAnyPermission,
+  } = authContext || {};
+
+  const canOpenTickets = Boolean(
+    hasAnyPermission?.([PERMISSIONS.TICKETS])
+  );
+
+  const canOpenFacturacion = Boolean(
+    hasAnyPermission?.(MODULE_ACCESS.facturacion || [])
+  );
+
+  const canSendManualToCash = Boolean(
+    hasAnyPermission?.([PERMISSIONS.SALES])
+  );
+
+  const backPath = canOpenFacturacion
+    ? "/facturacion"
+    : "/tickets";
+
+  const backTitle = canOpenFacturacion
+    ? "Volver a Facturación"
+    : "Volver a Tickets";
 
   const author =
     profile?.nombre ||
@@ -150,6 +186,7 @@ export default function Presupuestos() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [processingBudgetId, setProcessingBudgetId] = useState(null);
   const [publicBusyId, setPublicBusyId] = useState(null);
+  const [cashBusyId, setCashBusyId] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -287,6 +324,32 @@ export default function Presupuestos() {
     }
   }
 
+  async function handleSendManualToCash(budget) {
+    if (!budget?.id || cashBusyId || !canSendManualToCash) return;
+
+    const confirmed = window.confirm(
+      `¿Enviar ${budget.id} a Caja?\n\nTotal a cobrar: ${formatMoney(budget.total)}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCashBusyId(budget.id);
+
+      const result = await sendBudgetToCash(budget.id, author);
+
+      notify.success(
+        "Enviado a Caja",
+        `${result.budgetId} quedó pendiente de cobro por ${formatMoney(result.total)}.`
+      );
+    } catch (operationError) {
+      console.error(operationError);
+      notify.error("No se pudo enviar a Caja", getOperationError(operationError));
+    } finally {
+      setCashBusyId(null);
+    }
+  }
+
   async function handlePublishBudget(budget) {
     if (!budget?.id || publicBusyId) return;
 
@@ -390,8 +453,8 @@ export default function Presupuestos() {
           <button
             type="button"
             className="budgets-back"
-            onClick={() => navigate("/facturacion")}
-            title="Volver a Facturación"
+            onClick={() => navigate(backPath)}
+            title={backTitle}
           >
             <ArrowLeft size={20} />
           </button>
@@ -618,14 +681,18 @@ export default function Presupuestos() {
                 <BudgetDetail
                   budget={selectedBudget}
                   onOpenTicket={openTicket}
+                  canOpenTicket={canOpenTickets}
                   onAccept={openAcceptModal}
                   onReject={openRejectModal}
                   onPublish={handlePublishBudget}
                   onCopyPublicLink={handleCopyPublicLink}
                   onOpenPublicLink={handleOpenPublicLink}
                   onApplyPublicResponse={handleApplyPublicResponse}
+                  onSendToCash={handleSendManualToCash}
+                  canSendManualToCash={canSendManualToCash}
                   busy={processingBudgetId === selectedBudget.id}
                   publicBusy={publicBusyId === selectedBudget.id}
+                  cashBusy={cashBusyId === selectedBudget.id}
                 />
               )}
             </aside>
@@ -733,14 +800,18 @@ export default function Presupuestos() {
 function BudgetDetail({
   budget,
   onOpenTicket,
+  canOpenTicket,
   onAccept,
   onReject,
   onPublish,
   onCopyPublicLink,
   onOpenPublicLink,
   onApplyPublicResponse,
+  onSendToCash,
+  canSendManualToCash,
   busy,
   publicBusy,
+  cashBusy,
 }) {
   const status = getBudgetStatus(budget);
   const items = Array.isArray(budget.items) ? budget.items : [];
@@ -749,6 +820,17 @@ function BudgetDetail({
   const canDecide = status.label === "Pendiente";
   const hasPublicLink = Boolean(budget.publicToken);
   const origin = normalizeOrigin(budget.origen);
+  const isManualAccepted =
+    origin === "Manual" &&
+    status.label === "Aceptado" &&
+    !budget.facturaId;
+  const pendingInCash = budget.estadoCaja === "Pendiente";
+  const cashResolved = ["Cobrado", "Financiado"].includes(budget.estadoCaja);
+  const canQueueManualCash =
+    isManualAccepted &&
+    !pendingInCash &&
+    !cashResolved &&
+    canSendManualToCash;
 
   return (
     <div className="budget-detail">
@@ -780,6 +862,31 @@ function BudgetDetail({
           >
             <XCircle size={15} />
             Rechazar
+          </button>
+        </div>
+      )}
+
+      {isManualAccepted && (
+        <div className="budget-detail-actions">
+          <button
+            type="button"
+            className="budget-accept-button"
+            disabled={!canQueueManualCash || cashBusy}
+            title={
+              pendingInCash
+                ? "Ya está pendiente de cobro en Caja"
+                : canSendManualToCash
+                  ? "Crear pendiente de cobro en Caja"
+                  : "Requiere permiso para registrar ventas y cobros"
+            }
+            onClick={() => onSendToCash(budget)}
+          >
+            <WalletCards size={15} />
+            {cashBusy
+              ? "Enviando..."
+              : pendingInCash
+                ? "Pendiente en Caja"
+                : "Enviar a Caja"}
           </button>
         </div>
       )}
@@ -886,7 +993,7 @@ function BudgetDetail({
         </div>
       </div>
 
-      {budget.ticketId && (
+      {budget.ticketId && canOpenTicket && (
         <button
           type="button"
           className="budget-ticket-link"

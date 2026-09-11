@@ -75,6 +75,7 @@ function normalizeInvoiceItems(pending) {
       desc: cleanText(item.nombre || item.descripcion || item.desc) || "Concepto",
       cant: Math.max(1, toNumber(item.cantidad ?? item.cant ?? 1) || 1),
       precio: Math.max(0, toNumber(item.precio ?? item.costo ?? 0)),
+      sku: cleanText(item.sku) || null,
     }));
   }
 
@@ -224,18 +225,40 @@ export async function getPaymentEligibility(pending, method) {
   }
 
   const clientName = getClientName(client, pending.cliente || "Cliente");
-  const creditsQuery = query(
-    collection(db, "creditos"),
-    where("cliente", "==", clientName)
+
+  // Los créditos nuevos se vinculan por clienteId. El fallback por nombre
+  // se conserva únicamente para registros legacy que todavía no tengan id.
+  let creditsSnapshot = await getDocs(
+    query(
+      collection(db, "creditos"),
+      where("clienteId", "==", pending.clienteId)
+    )
   );
 
-  const creditsSnapshot = await getDocs(creditsQuery);
+  if (creditsSnapshot.empty) {
+    creditsSnapshot = await getDocs(
+      query(
+        collection(db, "creditos"),
+        where("cliente", "==", clientName)
+      )
+    );
+  }
+
   const activeCredits = creditsSnapshot.docs
     .map((creditSnapshot) => ({
       id: creditSnapshot.id,
       ...creditSnapshot.data(),
     }))
-    .filter((credit) => toNumber(credit.saldo) > 0);
+    .filter((credit) => {
+      const state = cleanText(credit.estado).toLowerCase();
+
+      return (
+        toNumber(credit.saldo) > 0 &&
+        state !== "cancelado" &&
+        state !== "anulado" &&
+        state !== "refinanciado"
+      );
+    });
 
   const currentDebt = activeCredits.reduce(
     (sum, credit) => sum + toNumber(credit.saldo),
@@ -298,6 +321,7 @@ export async function processCashPayment({
   const cleanPendingId = cleanText(pendingId);
   const cleanMethod = cleanText(method);
   const cleanAuthor = cleanText(author) || "Caja";
+  const isFinanced = cleanMethod === "Préstamo personal";
 
   if (!cleanPendingId) throw new Error("CASH_PENDING_ID_REQUIRED");
 
@@ -708,6 +732,11 @@ export async function processCashPayment({
             "Cliente"
         );
 
+      const firstDueDate =
+        addDaysISO(
+          30
+        );
+
       transaction.set(
         creditRef,
         {
@@ -736,13 +765,40 @@ export async function processCashPayment({
           fechaOrigen:
             date,
 
+          capitalSolicitado:
+            total,
+
+          anticipo:
+            0,
+
+          capitalFinanciado:
+            total,
+
+          interesGlobal:
+            0,
+
+          interesMonto:
+            0,
+
           original:
             total,
 
           saldo:
             total,
 
+          cantidadCuotas:
+            1,
+
+          primerVencimiento:
+            firstDueDate,
+
           abonos:
+            [],
+
+          gestiones:
+            [],
+
+          promesasPago:
             [],
 
           cuotas: [
@@ -763,17 +819,65 @@ export async function processCashPayment({
                 0,
 
               vence:
-                addDaysISO(
-                  30
-                ),
+                firstDueDate,
             },
           ],
+
+          estado:
+            "Activo",
+
+          estadoAprobacion:
+            "Aprobado",
+
+          autorizacion:
+            "Automática por cupo disponible",
+
+          origen:
+            "Caja",
+
+          facturaId:
+            invoiceId,
+
+          ventaId:
+            saleRef.id,
+
+          ticketId:
+            pending.origen ===
+            "Ticket"
+              ? pending.ref ||
+                null
+              : null,
+
+          presupuestoId:
+            pending.presupuestoId ||
+            null,
 
           creadoEn:
             nowISO,
 
+          actualizadoEn:
+            nowISO,
+
           usuario:
             cleanAuthor,
+
+          historial: [
+            {
+              fecha:
+                nowISO,
+
+              accion:
+                "Crédito otorgado desde Caja",
+
+              detalle:
+                `Factura ${invoiceId} · Total financiado $${total.toLocaleString(
+                  "es-AR"
+                )}`,
+
+              autor:
+                cleanAuthor,
+            },
+          ],
         }
       );
     }
@@ -788,19 +892,104 @@ export async function processCashPayment({
       clientRef &&
       clientSnapshot?.exists()
     ) {
+      const previousBalance =
+        toNumber(
+          clientSnapshot
+            .data()
+            .saldoAFavor
+        );
+
+      const nextBalance =
+        previousBalance -
+        total;
+
       transaction.update(
         clientRef,
         {
           saldoAFavor:
-            toNumber(
-              clientSnapshot
-                .data()
-                .saldoAFavor
-            ) -
-            total,
+            nextBalance,
 
           actualizadoEn:
             nowISO,
+        }
+      );
+
+      const accountMovementId =
+        `uso_factura_${invoiceId}`;
+
+      transaction.set(
+        doc(
+          db,
+          "cuenta_corriente",
+          accountMovementId
+        ),
+        {
+          id:
+            accountMovementId,
+
+          clienteId:
+            pending.clienteId,
+
+          cliente:
+            pending.cliente ||
+            "Cliente",
+
+          tipo:
+            "Débito",
+
+          concepto:
+            `Aplicación de saldo a favor · Factura ${invoiceId}`,
+
+          importe:
+            total,
+
+          saldoAnterior:
+            previousBalance,
+
+          saldoPosterior:
+            nextBalance,
+
+          origen:
+            "Cobro con saldo a favor",
+
+          refId:
+            invoiceId,
+
+          facturaId:
+            invoiceId,
+
+          ventaId:
+            saleRef.id,
+
+          ticketId:
+            pending.origen ===
+            "Ticket"
+              ? pending.ref ||
+                null
+              : null,
+
+          fecha:
+            nowISO.split(
+              "T"
+            )[0],
+
+          hora:
+            now.toLocaleTimeString(
+              "es-AR",
+              {
+                hour:
+                  "2-digit",
+
+                minute:
+                  "2-digit",
+              }
+            ),
+
+          creadoEn:
+            nowISO,
+
+          usuario:
+            cleanAuthor,
         }
       );
     }
@@ -960,6 +1149,32 @@ export async function processCashPayment({
 
         facturaId:
           invoiceId,
+
+        estadoPago:
+          isFinanced
+            ? "Financiado"
+            : "Pagado",
+
+        montoIngresado:
+          REAL_INCOME_METHODS.has(
+            cleanMethod
+          )
+            ? total
+            : 0,
+
+        montoFinanciado:
+          isFinanced
+            ? total
+            : 0,
+
+        creditoId:
+          isFinanced
+            ? creditRef.id
+            : null,
+
+        presupuestoId:
+          pending.presupuestoId ||
+          null,
       }
     );
 
@@ -984,6 +1199,10 @@ export async function processCashPayment({
           "Consumidor Final",
 
         doc:
+          cleanText(
+            clientSnapshot?.data()?.cuit ||
+            clientSnapshot?.data()?.dni
+          ) ||
           "C.F.",
 
         clienteId:
@@ -1016,13 +1235,36 @@ export async function processCashPayment({
           cleanAuthor,
 
         estadoPago:
-          "Pagado Total",
+          isFinanced
+            ? "Financiado"
+            : "Pagado Total",
 
         condicionPago:
-          cleanMethod ===
-          "Préstamo personal"
+          isFinanced
             ? "Financiado"
             : "Cancelado",
+
+        montoCobrado:
+          isFinanced
+            ? 0
+            : total,
+
+        saldoPendiente:
+          isFinanced
+            ? total
+            : 0,
+
+        creditoId:
+          isFinanced
+            ? creditRef.id
+            : null,
+
+        ventaId:
+          saleRef.id,
+
+        presupuestoId:
+          pending.presupuestoId ||
+          null,
 
         detallesPago:
           paymentDetails,
@@ -1085,16 +1327,34 @@ export async function processCashPayment({
         ticketRef,
         {
           estadoPago:
-            "Pagado",
+            isFinanced
+              ? "Financiado"
+              : "Pagado",
 
           estadoCaja:
-            "Cobrado",
+            isFinanced
+              ? "Financiado"
+              : "Cobrado",
 
           estadoFacturacion:
             invoiceId,
 
           facturaId:
             invoiceId,
+
+          creditoId:
+            isFinanced
+              ? creditRef.id
+              : null,
+
+          facturaAnulada:
+            false,
+
+          facturaAnuladaId:
+            null,
+
+          notaCreditoId:
+            null,
 
           cajaPendienteId:
             null,
@@ -1110,12 +1370,18 @@ export async function processCashPayment({
 
             {
               accion:
-                "Cobro registrado y Facturado",
+                isFinanced
+                  ? "Venta financiada y facturada"
+                  : "Cobro registrado y Facturado",
 
               detalle:
-                `Medio: ${cleanMethod} - Importe: $${total.toLocaleString(
-                  "es-AR"
-                )} - Factura: ${invoiceId}`,
+                isFinanced
+                  ? `Crédito ${creditRef.id} por $${total.toLocaleString(
+                      "es-AR"
+                    )} - Factura: ${invoiceId}`
+                  : `Medio: ${cleanMethod} - Importe: $${total.toLocaleString(
+                      "es-AR"
+                    )} - Factura: ${invoiceId}`,
 
               fecha:
                 historyDate,
@@ -1153,10 +1419,28 @@ export async function processCashPayment({
             "Facturado",
 
           estadoCaja:
-            "Cobrado",
+            isFinanced
+              ? "Financiado"
+              : "Cobrado",
+
+          estadoPago:
+            isFinanced
+              ? "Financiado"
+              : "Pagado",
 
           facturaId:
             invoiceId,
+
+          creditoId:
+            isFinanced
+              ? creditRef.id
+              : null,
+
+          facturaAnuladaId:
+            null,
+
+          notaCreditoId:
+            null,
 
           actualizadoEn:
             nowISO,
@@ -1169,10 +1453,14 @@ export async function processCashPayment({
                 historyDate,
 
               accion:
-                "Cobrado y facturado",
+                isFinanced
+                  ? "Financiado y facturado"
+                  : "Cobrado y facturado",
 
               detalle:
-                `Factura ${invoiceId}. Medio: ${cleanMethod}. Usuario: ${cleanAuthor}`,
+                isFinanced
+                  ? `Factura ${invoiceId}. Crédito ${creditRef.id}. Usuario: ${cleanAuthor}`
+                  : `Factura ${invoiceId}. Medio: ${cleanMethod}. Usuario: ${cleanAuthor}`,
             },
           ],
         }
@@ -1208,6 +1496,11 @@ export async function processCashPayment({
 
       method:
         cleanMethod,
+
+      paymentState:
+        isFinanced
+          ? "Financiado"
+          : "Pagado",
 
       total,
 

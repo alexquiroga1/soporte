@@ -169,6 +169,15 @@ function isInvoicePaid(
   );
 }
 
+function isInvoicePartiallyPaid(
+  invoice
+) {
+  return (
+    invoice?.estadoPago ===
+    "Pago Parcial"
+  );
+}
+
 /* =========================================
    COMPONENTE
 ========================================= */
@@ -648,10 +657,12 @@ export default function Facturas() {
             "Factura anulada",
 
             result.balanceCredited
-              ? `${result.creditNoteId} generada. ${formatMoney(
+              ? `${result.creditNoteId} generada por ${formatMoney(
                   result.amount
+                )}. ${formatMoney(
+                  result.refundableAmount
                 )} acreditados como saldo a favor.`
-              : `${result.creditNoteId} generada. No había un cliente vinculado para acreditar saldo.`
+              : `${result.creditNoteId} generada. No había un importe cobrado y cliente vinculado para acreditar saldo.`
           );
         }
 
@@ -704,6 +715,9 @@ export default function Facturas() {
 
           INVOICE_IS_PAID:
             "Esta factura ya fue pagada. Debe anularse mediante Nota de Crédito.",
+
+          INVOICE_PARTIALLY_PAID:
+            "La financiación ya tiene pagos aplicados. Debe anularse mediante Nota de Crédito, no cancelarse.",
 
           INVOICE_NOT_ISSUED:
             "La factura ya no se encuentra en estado Emitida.",
@@ -1496,7 +1510,11 @@ export default function Facturas() {
               <p>
                 {operationModal.type ===
                 "annul"
-                  ? "Se generará una Nota de Crédito por el total y, si existe un cliente asociado, el importe quedará como saldo a favor."
+                  ? isInvoicePartiallyPaid(
+                      operationModal.invoice
+                    )
+                    ? "Se generará una Nota de Crédito por el total de la factura. Solo el importe efectivamente cobrado se acreditará como saldo a favor y el saldo financiado pendiente quedará cancelado."
+                    : "Se generará una Nota de Crédito por el total y, si existe un cliente asociado, el importe cobrado quedará como saldo a favor."
                   : "El comprobante se cancelará sin generar movimiento de dinero."}
               </p>
 
@@ -1649,6 +1667,11 @@ function InvoiceDetail({
       invoice
     );
 
+  const partiallyPaid =
+    isInvoicePartiallyPaid(
+      invoice
+    );
+
   const canOperate =
     invoice.estado ===
     "Emitida";
@@ -1692,7 +1715,8 @@ function InvoiceDetail({
 
         <div className="invoice-detail-actions">
 
-          {paid ? (
+          {paid ||
+          partiallyPaid ? (
 
             <button
               type="button"
@@ -1710,7 +1734,9 @@ function InvoiceDetail({
                 size={16}
               />
 
-              Anular y generar NC
+              {partiallyPaid
+                ? "Anular financiación y generar NC"
+                : "Anular y generar NC"}
 
             </button>
 

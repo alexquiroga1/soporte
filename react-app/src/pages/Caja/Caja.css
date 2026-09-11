@@ -112,7 +112,7 @@
 
 .cash-pending-list { display: flex; flex-direction: column; }
 .cash-pending-card {
-  display: grid; grid-template-columns: 130px minmax(0,1fr) 135px 110px;
+  display: grid; grid-template-columns: 130px minmax(0,1fr) 135px 190px;
   align-items: center; gap: 14px; min-height: 92px; padding: 13px 15px;
   border-bottom: 1px solid var(--line); background: white;
 }
@@ -126,11 +126,14 @@
 .cash-pending-total { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .cash-pending-total span { font-size: .62rem; color: var(--muted); }
 .cash-pending-total strong { font-size: .9rem; }
-.cash-pending-card > button {
+.cash-pending-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.cash-pending-actions button {
   min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  color: white; background: var(--purple); border: 0; border-radius: 9px;
-  font-size: .7rem; font-weight: 850; cursor: pointer;
+  padding: 0 10px; border-radius: 9px; font-size: .7rem; font-weight: 850; cursor: pointer;
 }
+.cash-pending-actions button.primary { color: white; background: var(--purple); border: 0; }
+.cash-pending-actions button.cancel { color: #a93c3c; background: white; border: 1px solid rgba(169,60,60,.22); }
+.cash-pending-actions button:disabled { cursor: not-allowed; opacity: .5; }
 
 .cash-empty { min-height: 310px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 30px; text-align: center; color: var(--muted); }
 .cash-empty.compact { min-height: 180px; }
@@ -229,7 +232,8 @@
 @media (max-width: 1000px) {
   .cash-stats { grid-template-columns: repeat(2,1fr); }
   .cash-pending-card { grid-template-columns: 110px minmax(0,1fr) 120px; }
-  .cash-pending-card > button { grid-column: 1 / -1; width: 100%; }
+  .cash-pending-actions { grid-column: 1 / -1; width: 100%; justify-content: stretch; }
+  .cash-pending-actions button { flex: 1; }
   .cash-movements-layout { grid-template-columns: 1fr; }
   .cash-movement-panel { border-right: 0; border-bottom: 1px solid var(--line); }
   .cash-cuts-list article { grid-template-columns: 40px minmax(0,1fr) 110px; }

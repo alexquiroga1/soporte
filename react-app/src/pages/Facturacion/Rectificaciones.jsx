@@ -665,6 +665,9 @@ export default function Rectificaciones() {
 
           INVOICE_INVALID_TYPE:
             "El documento seleccionado no es una factura.",
+
+          INVOICE_NOT_ISSUED:
+            "La factura ya fue anulada o cancelada y no admite nuevas rectificaciones.",
         };
 
         notify.error(
@@ -1146,21 +1149,26 @@ export default function Rectificaciones() {
 
                     </div>
 
-                    <button
-                      type="button"
+                    {selectedInvoice.estado ===
+                      "Emitida" && (
 
-                      onClick={() =>
-                        openNewRectification(
-                          selectedInvoice.id
-                        )
-                      }
-                    >
-                      <Plus
-                        size={15}
-                      />
+                      <button
+                        type="button"
 
-                      Agregar
-                    </button>
+                        onClick={() =>
+                          openNewRectification(
+                            selectedInvoice.id
+                          )
+                        }
+                      >
+                        <Plus
+                          size={15}
+                        />
+
+                        Agregar
+                      </button>
+
+                    )}
 
                   </div>
 

@@ -374,9 +374,13 @@ export default function Dashboard() {
     ]);
 
   const canBudgets =
+    hasAnyPermission(
+      MODULE_ACCESS.presupuestos || []
+    );
+
+  const canSecurity =
     hasAnyPermission([
-      PERMISSIONS.TICKETS,
-      PERMISSIONS.SALES,
+      PERMISSIONS.SECURITY,
     ]);
 
   /* =======================================
@@ -861,16 +865,18 @@ export default function Dashboard() {
                   Mi perfil
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    navigate("/configuracion");
-                  }}
-                >
-                  <Settings size={17} />
-                  Configuración
-                </button>
+                {canSecurity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate("/configuracion");
+                    }}
+                  >
+                    <Settings size={17} />
+                    Configuración
+                  </button>
+                )}
 
                 <div className="dropdown-divider" />
 

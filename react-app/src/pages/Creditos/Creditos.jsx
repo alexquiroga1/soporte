@@ -157,6 +157,7 @@ function statusClass(status) {
 function errorMessage(error) {
   const map = {
     CREDIT_CLIENT_REQUIRED: "Seleccioná un cliente.",
+    CLIENT_ARCHIVED: "El cliente está archivado. Restauralo antes de crear o refinanciar un crédito.",
     CREDIT_AMOUNT_INVALID: "Ingresá un monto válido.",
     CREDIT_ADVANCE_INVALID: "El anticipo debe ser menor al monto solicitado.",
     CREDIT_LIMIT_EXCEEDED: `Cupo insuficiente. Disponible: ${formatMoney(error?.available)}.`,

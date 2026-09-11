@@ -147,8 +147,11 @@ function isPaidTicket(ticket) {
   return (
     cashState === "cobrado" ||
     cashState === "pagado" ||
+    cashState === "financiado" ||
     paymentState === "pagado" ||
-    paymentState === "pagado total"
+    paymentState === "pagado total" ||
+    paymentState === "financiado" ||
+    paymentState === "pago parcial"
   );
 }
 
@@ -457,9 +460,19 @@ export default function Tickets() {
     } catch (firebaseError) {
       console.error(firebaseError);
 
+      const messages = {
+        TICKET_CASH_PENDING_LOCKED:
+          "El ticket tiene un cobro pendiente en Caja. Cancelalo o completá el cobro antes de moverlo.",
+        TICKET_PAYMENT_REQUIRED:
+          "Para entregar el equipo, el ticket debe estar cobrado o financiado y facturado.",
+        TICKET_FINANCIAL_REVERSAL_REQUIRED:
+          "El ticket ya tiene una operación financiera. Primero resolvé la factura o Nota de Crédito.",
+      };
+
       notify.error(
         "No se pudo mover el ticket",
-        "Revisá la conexión o los permisos de Firestore."
+        messages[firebaseError?.message] ||
+          "Revisá la conexión o los permisos de Firestore."
       );
     } finally {
       setUpdatingTicketId(null);
