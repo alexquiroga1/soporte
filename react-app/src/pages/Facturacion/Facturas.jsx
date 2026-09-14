@@ -9,25 +9,33 @@ import {
 } from "react-router-dom";
 
 import {
+  AnimatePresence,
   motion,
 } from "motion/react";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   BadgeDollarSign,
+  Banknote,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   CircleDollarSign,
   CreditCard,
+  Download,
+  FilePenLine,
   FileText,
-  Filter,
+  History,
+  Landmark,
   Link2,
+  Printer,
   ReceiptText,
   RotateCcw,
   Search,
+  Share2,
   Ticket,
   UserRound,
+  WalletCards,
   X,
   XCircle,
 } from "lucide-react";
@@ -44,6 +52,10 @@ import {
 } from "../../services/facturas.service.js";
 
 import {
+  addInvoiceRectification,
+} from "../../services/rectificaciones.service.js";
+
+import {
   notify,
 } from "../../services/notifications.js";
 
@@ -53,129 +65,216 @@ import "./Facturas.css";
    HELPERS
 ========================================= */
 
-function formatMoney(
-  value
-) {
-  return new Intl.NumberFormat(
-    "es-AR",
-    {
-      style:
-        "currency",
-
-      currency:
-        "ARS",
-
-      maximumFractionDigits:
-        0,
-    }
-  ).format(
-    Number(
-      value ||
-      0
-    )
-  );
+function formatMoney(value) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
 }
 
-function formatDate(
-  value
-) {
-  if (!value) {
-    return "—";
-  }
+function formatDate(value) {
+  if (!value) return "—";
 
-  const parts =
-    String(
-      value
-    ).split("-");
+  const text = String(value);
+  const parts = text.split("-");
 
-  if (
-    parts.length ===
-    3
-  ) {
-    const [
-      year,
-      month,
-      day,
-    ] = parts;
-
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [year, month, day] = parts;
     return `${day}/${month}/${year}`;
   }
 
-  return value;
+  return text;
 }
 
-function getInvoiceStatus(
-  invoice
-) {
-  switch (
-    invoice?.estado
+function normalizeDate(value) {
+  if (!value) return null;
+
+  if (value?.toDate instanceof Function) {
+    return value.toDate();
+  }
+
+  const text = String(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(text)
+    ? new Date(`${text}T12:00:00`)
+    : new Date(text);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isCurrentMonth(value) {
+  const date = normalizeDate(value);
+  if (!date) return false;
+
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth()
+  );
+}
+
+function getInvoiceDocumentStatus(invoice) {
+  if (invoice?.estado === "Anulada") {
+    return {
+      label: "Anulada",
+      className: "invoice-badge-danger",
+    };
+  }
+
+  if (invoice?.estado === "Cancelada") {
+    return {
+      label: "Cancelada",
+      className: "invoice-badge-danger",
+    };
+  }
+
+  if (
+    invoice?.estado === "Rectificada" ||
+    invoice?.rectificadoEn ||
+    invoice?.ultimaRectificacion
   ) {
-    case "Emitida":
-      return {
-        label:
-          "Emitida",
+    return {
+      label: "Rectificada",
+      className: "invoice-badge-violet",
+    };
+  }
 
-        className:
-          "invoice-status-issued",
+  if (invoice?.estado === "Emitida") {
+    return {
+      label: "Emitida",
+      className: "invoice-badge-success",
+    };
+  }
+
+  return {
+    label: invoice?.estado || "Sin estado",
+    className: "invoice-badge-neutral",
+  };
+}
+
+function getPaymentStatus(invoice) {
+  const state = String(invoice?.estadoPago || "").trim();
+
+  switch (state) {
+    case "Pagado Total":
+    case "Pagado":
+      return {
+        label: "Pagada",
+        className: "invoice-badge-success",
       };
 
-    case "Anulada":
+    case "Pago Parcial":
       return {
-        label:
-          "Anulada",
-
-        className:
-          "invoice-status-cancelled",
+        label: "Pago parcial",
+        className: "invoice-badge-warning",
       };
 
-    case "Cancelada":
+    case "Financiado":
       return {
-        label:
-          "Cancelada",
-
-        className:
-          "invoice-status-cancelled",
+        label: "Financiada",
+        className: "invoice-badge-violet",
       };
 
-    case "Rectificada":
+    case "Pendiente":
       return {
-        label:
-          "Rectificada",
+        label: "Pendiente",
+        className: "invoice-badge-warning",
+      };
 
-        className:
-          "invoice-status-adjusted",
+    case "Anulado":
+    case "Cancelado":
+      return {
+        label: "Revertida",
+        className: "invoice-badge-neutral",
       };
 
     default:
       return {
-        label:
-          invoice?.estado ||
-          "Sin estado",
-
-        className:
-          "invoice-status-neutral",
+        label: state || "—",
+        className: "invoice-badge-neutral",
       };
   }
 }
 
-function isInvoicePaid(
-  invoice
-) {
-  return (
-    invoice?.estadoPago ===
-      "Pagado Total" ||
-    invoice?.estadoPago ===
-      "Pagado"
-  );
+function isInvoicePaid(invoice) {
+  return [
+    "Pagado Total",
+    "Pagado",
+  ].includes(invoice?.estadoPago);
 }
 
-function isInvoicePartiallyPaid(
-  invoice
-) {
-  return (
-    invoice?.estadoPago ===
-    "Pago Parcial"
+function isInvoicePartiallyPaid(invoice) {
+  return invoice?.estadoPago === "Pago Parcial";
+}
+
+function getCollectedAmount(invoice) {
+  if (Number.isFinite(Number(invoice?.montoCobrado))) {
+    return Math.max(0, Number(invoice.montoCobrado));
+  }
+
+  return isInvoicePaid(invoice)
+    ? Math.max(0, Number(invoice?.total || 0))
+    : 0;
+}
+
+function getPendingAmount(invoice) {
+  if (Number.isFinite(Number(invoice?.saldoPendiente))) {
+    return Math.max(0, Number(invoice.saldoPendiente));
+  }
+
+  const total = Math.max(0, Number(invoice?.total || 0));
+  return Math.max(0, total - getCollectedAmount(invoice));
+}
+
+function getOriginLabel(invoice) {
+  return String(invoice?.refModulo || "Caja").trim() || "Caja";
+}
+
+function getOriginClass(invoice) {
+  const source = getOriginLabel(invoice).toLowerCase();
+
+  if (source.includes("ticket")) return "invoice-origin-ticket";
+  if (source.includes("presupuesto")) return "invoice-origin-budget";
+  if (source.includes("pos") || source.includes("venta")) {
+    return "invoice-origin-pos";
+  }
+
+  return "invoice-origin-neutral";
+}
+
+function getPaymentDetail(invoice) {
+  const details = invoice?.detallesPago || {};
+
+  if (details.referencia) {
+    return `Ref. ${details.referencia}`;
+  }
+
+  if (details.ultimos4) {
+    return `Terminación ${details.ultimos4}${
+      details.autorizacion ? ` · Aut. ${details.autorizacion}` : ""
+    }`;
+  }
+
+  if (Number(details.recibido) > 0) {
+    return `Recibido ${formatMoney(details.recibido)} · Vuelto ${formatMoney(
+      details.vuelto || 0
+    )}`;
+  }
+
+  return "";
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function getInvoiceSortTime(invoice) {
+  const date = normalizeDate(
+    invoice?.creadoEn || invoice?.fecha || invoice?.actualizadoEn
   );
+
+  return date?.getTime() || 0;
 }
 
 /* =========================================
@@ -183,13 +282,8 @@ function isInvoicePartiallyPaid(
 ========================================= */
 
 export default function Facturas() {
-  const navigate =
-    useNavigate();
-
-  const {
-    profile,
-    user,
-  } = useAuth();
+  const navigate = useNavigate();
+  const { profile, user } = useAuth();
 
   const author =
     profile?.nombre ||
@@ -197,1996 +291,1451 @@ export default function Facturas() {
     user?.email ||
     "Sistema";
 
-  /* =======================================
-     DATOS
-  ======================================= */
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [
-    documents,
-    setDocuments,
-  ] = useState([]);
+  const [activeTab, setActiveTab] = useState("invoices");
+  const [search, setSearch] = useState("");
+  const [documentStatusFilter, setDocumentStatusFilter] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
+  const [sortMode, setSortMode] = useState("recent");
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [previewInvoiceId, setPreviewInvoiceId] = useState(null);
+  const [printAfterOpen, setPrintAfterOpen] = useState(false);
 
-  const [
-    error,
-    setError,
-  ] = useState(null);
-
-  const [
-    selectedInvoiceId,
-    setSelectedInvoiceId,
-  ] = useState(null);
-
-  /* =======================================
-     FILTROS
-  ======================================= */
-
-  const [
-    search,
-    setSearch,
-  ] = useState("");
-
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] = useState("");
-
-  const [
-    originFilter,
-    setOriginFilter,
-  ] = useState("");
-
-  /* =======================================
-     OPERACIONES
-  ======================================= */
-
-  const [
-    operationModal,
-    setOperationModal,
-  ] = useState(null);
-
-  const [
-    operationReason,
-    setOperationReason,
-  ] = useState("");
-
-  const [
-    processing,
-    setProcessing,
-  ] = useState(false);
+  const [operationModal, setOperationModal] = useState(null);
+  const [operationReason, setOperationReason] = useState("");
+  const [processing, setProcessing] = useState(false);
 
   /* =======================================
      FIREBASE
   ======================================= */
 
   useEffect(() => {
-    setLoading(
-      true
+    setLoading(true);
+
+    const unsubscribe = subscribeToInvoices(
+      (data) => {
+        setDocuments(data);
+        setError(null);
+        setLoading(false);
+      },
+      (firebaseError) => {
+        console.error(firebaseError);
+        setError(firebaseError);
+        setLoading(false);
+
+        notify.error(
+          "No pudimos cargar las facturas",
+          "Revisá la conexión o los permisos de Firestore."
+        );
+      }
     );
 
-    const unsubscribe =
-      subscribeToInvoices(
-        (
-          data
-        ) => {
-          setDocuments(
-            data
-          );
-
-          setError(
-            null
-          );
-
-          setLoading(
-            false
-          );
-
-          const invoices =
-            data.filter(
-              (
-                document
-              ) =>
-                !document.tipo ||
-                document.tipo ===
-                  "Factura"
-            );
-
-          setSelectedInvoiceId(
-            (
-              current
-            ) => {
-              if (
-                current &&
-                invoices.some(
-                  (
-                    invoice
-                  ) =>
-                    invoice.id ===
-                    current
-                )
-              ) {
-                return current;
-              }
-
-              return (
-                invoices[0]?.id ||
-                null
-              );
-            }
-          );
-        },
-
-        (
-          firebaseError
-        ) => {
-          console.error(
-            firebaseError
-          );
-
-          setError(
-            firebaseError
-          );
-
-          setLoading(
-            false
-          );
-
-          notify.error(
-            "No pudimos cargar las facturas",
-            "Revisá la conexión o los permisos de Firestore."
-          );
-        }
-      );
-
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   /* =======================================
-     SOLO FACTURAS
+     DOCUMENTOS
   ======================================= */
 
-  const invoices =
-    useMemo(
-      () =>
-        documents.filter(
-          (
-            document
-          ) =>
-            !document.tipo ||
-            document.tipo ===
-              "Factura"
-        ),
+  const invoices = useMemo(
+    () =>
+      documents.filter(
+        (document) => !document.tipo || document.tipo === "Factura"
+      ),
+    [documents]
+  );
 
-      [
-        documents,
-      ]
+  const creditNotes = useMemo(
+    () =>
+      documents.filter(
+        (document) => document.tipo === "Nota de Crédito"
+      ),
+    [documents]
+  );
+
+  const previewInvoice = useMemo(
+    () =>
+      invoices.find((invoice) => invoice.id === previewInvoiceId) || null,
+    [invoices, previewInvoiceId]
+  );
+
+  const linkedCreditNotes = useMemo(() => {
+    if (!previewInvoice) return [];
+
+    return creditNotes.filter(
+      (note) =>
+        note.facturaOrigenId === previewInvoice.id ||
+        (note.refModulo === "Factura" && note.refId === previewInvoice.id)
     );
+  }, [creditNotes, previewInvoice]);
 
   /* =======================================
-     FILTRADAS
+     FILTROS / ORDEN
   ======================================= */
 
-  const filteredInvoices =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
-          .toLowerCase();
+  const filteredInvoices = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-      return invoices.filter(
-        (
-          invoice
-        ) => {
-          const source = [
-            invoice.id,
-            invoice.cliente,
-            invoice.doc,
-            invoice.refId,
-            invoice.refModulo,
-            invoice.refPago,
-            invoice.estado,
-            invoice.estadoPago,
-          ]
-            .filter(
-              Boolean
-            )
-            .join(" ")
-            .toLowerCase();
+    const filtered = invoices.filter((invoice) => {
+      const documentStatus = getInvoiceDocumentStatus(invoice).label;
+      const paymentStatus = getPaymentStatus(invoice).label;
 
-          const matchesSearch =
-            !query ||
-            source.includes(
-              query
-            );
+      const searchable = [
+        invoice.id,
+        invoice.numero,
+        invoice.cliente,
+        invoice.doc,
+        invoice.refModulo,
+        invoice.refId,
+        invoice.refPago,
+        invoice.ventaId,
+        invoice.presupuestoId,
+        invoice.creditoId,
+        documentStatus,
+        paymentStatus,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-          const matchesStatus =
-            !statusFilter ||
-            invoice.estado ===
-              statusFilter;
-
-          const matchesOrigin =
-            !originFilter ||
-            invoice.refModulo ===
-              originFilter;
-
-          return (
-            matchesSearch &&
-            matchesStatus &&
-            matchesOrigin
-          );
-        }
+      return (
+        (!query || searchable.includes(query)) &&
+        (!documentStatusFilter || documentStatus === documentStatusFilter) &&
+        (!paymentStatusFilter || paymentStatus === paymentStatusFilter)
       );
-    }, [
-      invoices,
-      search,
-      statusFilter,
-      originFilter,
-    ]);
+    });
 
-  /* =======================================
-     FACTURA SELECCIONADA
-  ======================================= */
-
-  const selectedInvoice =
-    useMemo(
-      () =>
-        invoices.find(
-          (
-            invoice
-          ) =>
-            invoice.id ===
-            selectedInvoiceId
-        ) ||
-        null,
-
-      [
-        invoices,
-        selectedInvoiceId,
-      ]
-    );
-
-  /* =======================================
-     NOTAS DE CRÉDITO RELACIONADAS
-  ======================================= */
-
-  const linkedCreditNotes =
-    useMemo(() => {
-      if (
-        !selectedInvoice
-      ) {
-        return [];
+    return [...filtered].sort((a, b) => {
+      if (sortMode === "oldest") {
+        return getInvoiceSortTime(a) - getInvoiceSortTime(b);
       }
 
-      return documents.filter(
-        (
-          document
-        ) =>
-          document.tipo ===
-            "Nota de Crédito" &&
-          document.refModulo ===
-            "Factura" &&
-          document.refId ===
-            selectedInvoice.id
-      );
-    }, [
-      documents,
-      selectedInvoice,
-    ]);
+      if (sortMode === "amount") {
+        return Number(b.total || 0) - Number(a.total || 0);
+      }
+
+      return getInvoiceSortTime(b) - getInvoiceSortTime(a);
+    });
+  }, [
+    invoices,
+    search,
+    documentStatusFilter,
+    paymentStatusFilter,
+    sortMode,
+  ]);
 
   /* =======================================
      MÉTRICAS
   ======================================= */
 
-  const metrics =
-    useMemo(() => {
-      const issued =
-        invoices.filter(
-          (
-            invoice
-          ) =>
-            invoice.estado ===
-            "Emitida"
-        );
-
-      return {
-        total:
-          invoices.length,
-
-        issued:
-          issued.length,
-
-        cancelled:
-          invoices.filter(
-            (
-              invoice
-            ) =>
-              invoice.estado ===
-                "Anulada" ||
-              invoice.estado ===
-                "Cancelada"
-          ).length,
-
-        amount:
-          issued.reduce(
-            (
-              total,
-              invoice
-            ) =>
-              total +
-              Number(
-                invoice.total ||
-                0
-              ),
-
-            0
-          ),
-
-        creditNotes:
-          documents.filter(
-            (
-              document
-            ) =>
-              document.tipo ===
-              "Nota de Crédito"
-          ).length,
-      };
-    }, [
-      invoices,
-      documents,
-    ]);
-
-  /* =======================================
-     FILTROS
-  ======================================= */
-
-  const clearFilters =
-    () => {
-      setSearch("");
-
-      setStatusFilter("");
-
-      setOriginFilter("");
-    };
-
-  const hasFilters =
-    Boolean(
-      search ||
-      statusFilter ||
-      originFilter
+  const metrics = useMemo(() => {
+    const monthInvoices = invoices.filter((invoice) => isCurrentMonth(invoice.fecha));
+    const validMonthInvoices = monthInvoices.filter(
+      (invoice) => !["Anulada", "Cancelada"].includes(invoice.estado)
     );
+    const monthCreditNotes = creditNotes.filter((note) => isCurrentMonth(note.fecha));
+
+    return {
+      issuedThisMonth: validMonthInvoices.length,
+      billedThisMonth: validMonthInvoices.reduce(
+        (total, invoice) => total + Number(invoice.total || 0),
+        0
+      ),
+      pendingCollection: invoices
+        .filter((invoice) => !["Anulada", "Cancelada"].includes(invoice.estado))
+        .reduce((total, invoice) => total + getPendingAmount(invoice), 0),
+      creditNotesAmount: monthCreditNotes.reduce(
+        (total, note) => total + Number(note.total || 0),
+        0
+      ),
+      rectified: invoices.filter(
+        (invoice) =>
+          Boolean(invoice.rectificadoEn || invoice.ultimaRectificacion) ||
+          invoice.estado === "Rectificada"
+      ).length,
+    };
+  }, [invoices, creditNotes]);
 
   /* =======================================
-     ABRIR OPERACIÓN
+     VISTA COMPLETA
   ======================================= */
 
-  const openAnnul =
-    (
-      invoice
-    ) => {
-      setOperationReason(
-        ""
-      );
+  const openInvoice = (invoice, shouldPrint = false) => {
+    if (!invoice?.id) return;
 
-      setOperationModal({
-        type:
-          "annul",
+    setPreviewInvoiceId(invoice.id);
+    setPrintAfterOpen(Boolean(shouldPrint));
+  };
 
-        invoice,
-      });
+  const closeInvoice = () => {
+    setPreviewInvoiceId(null);
+    setPrintAfterOpen(false);
+  };
+
+  useEffect(() => {
+    if (!previewInvoice || !printAfterOpen) return;
+
+    const timer = window.setTimeout(() => {
+      window.print();
+      setPrintAfterOpen(false);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [previewInvoice, printAfterOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && previewInvoiceId) {
+        closeInvoice();
+      }
     };
 
-  const openCancel =
-    (
-      invoice
-    ) => {
-      setOperationReason(
-        ""
-      );
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewInvoiceId]);
 
-      setOperationModal({
-        type:
-          "cancel",
+  /* =======================================
+     COMPARTIR
+  ======================================= */
 
-        invoice,
-      });
-    };
+  const shareInvoice = async (invoice) => {
+    if (!invoice) return;
 
-  const closeOperation =
-    () => {
-      if (
-        processing
-      ) {
+    const text = [
+      `Factura ${invoice.id}`,
+      invoice.cliente ? `Cliente: ${invoice.cliente}` : "",
+      `Total: ${formatMoney(invoice.total)}`,
+      `Fecha: ${formatDate(invoice.fecha)}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Factura ${invoice.id}`,
+          text,
+        });
+
         return;
       }
 
-      setOperationModal(
-        null
-      );
+      await navigator.clipboard.writeText(text);
+      notify.success("Datos copiados", "La factura quedó lista para compartir.");
+    } catch (shareError) {
+      if (shareError?.name === "AbortError") return;
 
-      setOperationReason(
-        ""
-      );
-    };
+      console.error(shareError);
+      notify.error("No se pudo compartir", "Copiá los datos manualmente.");
+    }
+  };
 
   /* =======================================
-     CONFIRMAR OPERACIÓN
+     EXPORTAR CSV
   ======================================= */
 
-  const confirmInvoiceOperation =
-    async () => {
-      const invoice =
-        operationModal?.invoice;
+  const exportInvoices = () => {
+    if (!filteredInvoices.length) {
+      notify.info("Sin datos para exportar", "No hay facturas con los filtros actuales.");
+      return;
+    }
 
-      const type =
-        operationModal?.type;
+    const rows = [
+      [
+        "Factura",
+        "Fecha",
+        "Cliente",
+        "Documento",
+        "Origen",
+        "Referencia",
+        "Estado documento",
+        "Estado cobro",
+        "Medio de pago",
+        "Total",
+        "Cobrado",
+        "Saldo pendiente",
+      ],
+      ...filteredInvoices.map((invoice) => [
+        invoice.id,
+        invoice.fecha || "",
+        invoice.cliente || "Consumidor Final",
+        invoice.doc || "C.F.",
+        getOriginLabel(invoice),
+        invoice.refId || "",
+        getInvoiceDocumentStatus(invoice).label,
+        getPaymentStatus(invoice).label,
+        invoice.refPago || "",
+        Number(invoice.total || 0),
+        getCollectedAmount(invoice),
+        getPendingAmount(invoice),
+      ]),
+    ];
 
-      if (
-        !invoice ||
-        !type
-      ) {
-        return;
-      }
+    const csv = rows
+      .map((row) => row.map(csvCell).join(";"))
+      .join("\n");
 
-      try {
-        setProcessing(
-          true
-        );
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8",
+    });
 
-        /* =================================
-           ANULAR
-        ================================= */
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `SERVIX_facturas_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
 
-        if (
-          type ===
-          "annul"
-        ) {
-          const result =
-            await annulInvoice(
-              invoice.id,
-              operationReason,
-              author
-            );
+    notify.success(
+      "Facturas exportadas",
+      `${filteredInvoices.length} comprobante${filteredInvoices.length === 1 ? "" : "s"} incluidos.`
+    );
+  };
 
-          notify.success(
-            "Factura anulada",
+  /* =======================================
+     OPERACIONES
+  ======================================= */
 
-            result.balanceCredited
-              ? `${result.creditNoteId} generada por ${formatMoney(
-                  result.amount
-                )}. ${formatMoney(
-                  result.refundableAmount
-                )} acreditados como saldo a favor.`
-              : `${result.creditNoteId} generada. No había un importe cobrado y cliente vinculado para acreditar saldo.`
-          );
-        }
+  const openRectification = (invoice) => {
+    setOperationReason("");
+    setOperationModal({ type: "rectify", invoice });
+  };
 
-        /* =================================
-           CANCELAR
-        ================================= */
+  const openAnnul = (invoice) => {
+    setOperationReason("");
+    setOperationModal({ type: "annul", invoice });
+  };
 
-        if (
-          type ===
-          "cancel"
-        ) {
-          await cancelInvoice(
-            invoice.id,
-            operationReason,
-            author
-          );
+  const openCancel = (invoice) => {
+    setOperationReason("");
+    setOperationModal({ type: "cancel", invoice });
+  };
 
-          notify.success(
-            "Factura cancelada",
-            `${invoice.id} fue cancelada sin movimiento de dinero.`
-          );
-        }
+  const closeOperation = () => {
+    if (processing) return;
 
-        setOperationModal(
-          null
-        );
+    setOperationModal(null);
+    setOperationReason("");
+  };
 
-        setOperationReason(
-          ""
-        );
-      } catch (
-        operationError
-      ) {
-        console.error(
-          operationError
-        );
+  const confirmInvoiceOperation = async () => {
+    const invoice = operationModal?.invoice;
+    const type = operationModal?.type;
 
-        const code =
-          operationError?.message;
+    if (!invoice || !type) return;
 
-        const messages = {
-          INVOICE_ALREADY_CREDITED:
-            "Esta factura ya tiene una Nota de Crédito asociada.",
+    if (type === "rectify" && !operationReason.trim()) {
+      notify.warning(
+        "Falta el detalle",
+        "Explicá qué se rectifica antes de confirmar."
+      );
+      return;
+    }
 
-          INVOICE_ALREADY_CLOSED:
-            "La factura ya se encuentra cerrada.",
+    try {
+      setProcessing(true);
 
-          INVOICE_NOT_PAID:
-            "Esta factura no está pagada. En ese caso corresponde cancelarla.",
+      if (type === "rectify") {
+        await addInvoiceRectification(invoice.id, operationReason, author);
 
-          INVOICE_IS_PAID:
-            "Esta factura ya fue pagada. Debe anularse mediante Nota de Crédito.",
-
-          INVOICE_PARTIALLY_PAID:
-            "La financiación ya tiene pagos aplicados. Debe anularse mediante Nota de Crédito, no cancelarse.",
-
-          INVOICE_NOT_ISSUED:
-            "La factura ya no se encuentra en estado Emitida.",
-
-          INVOICE_NOT_FOUND:
-            "No encontramos la factura en Firestore.",
-
-          INVOICE_INVALID_TYPE:
-            "El documento seleccionado no es una factura.",
-
-          INVOICE_ID_REQUIRED:
-            "No se pudo determinar el número de factura.",
-        };
-
-        notify.error(
-          "No se pudo completar",
-
-          messages[code] ||
-            code ||
-            "Ocurrió un error al procesar el comprobante."
-        );
-      } finally {
-        setProcessing(
-          false
+        notify.success(
+          "Rectificación registrada",
+          `${invoice.id} conserva el documento original y suma la observación al historial.`
         );
       }
-    };
 
-  /* =========================================
+      if (type === "annul") {
+        const result = await annulInvoice(invoice.id, operationReason, author);
+
+        notify.success(
+          "Factura anulada",
+          result.balanceCredited
+            ? `${result.creditNoteId} generada por ${formatMoney(
+                result.amount
+              )}. ${formatMoney(
+                result.refundableAmount
+              )} acreditados como saldo a favor.`
+            : `${result.creditNoteId} generada. No había un importe cobrado y cliente vinculado para acreditar saldo.`
+        );
+
+        if (previewInvoiceId === invoice.id) {
+          closeInvoice();
+        }
+      }
+
+      if (type === "cancel") {
+        await cancelInvoice(invoice.id, operationReason, author);
+
+        notify.success(
+          "Factura cancelada",
+          `${invoice.id} fue cancelada sin generar movimiento de dinero.`
+        );
+
+        if (previewInvoiceId === invoice.id) {
+          closeInvoice();
+        }
+      }
+
+      setOperationModal(null);
+      setOperationReason("");
+    } catch (operationError) {
+      console.error(operationError);
+
+      const code = operationError?.message;
+
+      const messages = {
+        RECTIFICATION_REQUIRED:
+          "Ingresá el detalle de la rectificación.",
+        INVOICE_ALREADY_CREDITED:
+          "Esta factura ya tiene una Nota de Crédito asociada.",
+        INVOICE_ALREADY_CLOSED:
+          "La factura ya se encuentra cerrada.",
+        INVOICE_NOT_PAID:
+          "Esta factura no está pagada. En ese caso corresponde cancelarla.",
+        INVOICE_IS_PAID:
+          "Esta factura ya fue pagada. Debe anularse mediante Nota de Crédito.",
+        INVOICE_PARTIALLY_PAID:
+          "La financiación ya tiene pagos aplicados. Debe anularse mediante Nota de Crédito, no cancelarse.",
+        INVOICE_NOT_ISSUED:
+          "La factura ya no se encuentra en estado Emitida.",
+        INVOICE_NOT_FOUND:
+          "No encontramos la factura en Firestore.",
+        INVOICE_INVALID_TYPE:
+          "El documento seleccionado no es una factura.",
+        INVOICE_ID_REQUIRED:
+          "No se pudo determinar el número de factura.",
+      };
+
+      notify.error(
+        "No se pudo completar",
+        messages[code] || code || "Ocurrió un error al procesar el comprobante."
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  /* =======================================
      RENDER
-  ========================================= */
+  ======================================= */
 
   return (
     <main className="invoices-page">
-
-      {/* =================================
-          HEADER
-      ================================= */}
-
       <header className="invoices-header">
-
-        <div className="invoices-header-left">
-
+        <div className="invoices-brand">
           <button
             type="button"
-
             className="invoices-back"
-
-            onClick={() =>
-              navigate(
-                "/facturacion"
-              )
-            }
-
+            onClick={() => navigate("/facturacion")}
             title="Volver a Facturación"
           >
-            <ArrowLeft
-              size={20}
-            />
+            <ArrowLeft size={20} />
           </button>
 
-          <div className="invoices-header-icon">
-
-            <ReceiptText
-              size={20}
-            />
-
+          <div className="invoices-brand-icon">
+            <ReceiptText size={20} />
           </div>
 
           <div>
-
-            <span>
-              Facturación
-            </span>
-
-            <h1>
-              Facturas
-            </h1>
-
+            <strong>Facturas</strong>
+            <span>SERVIX · Facturación / Documentos emitidos</span>
           </div>
-
         </div>
 
-        <div className="invoices-sync">
-
-          <span />
-
-          <div>
-
-            <strong>
-              Sincronizado
-            </strong>
-
-            <small>
-              Firestore en tiempo real
-            </small>
-
+        <div className="invoices-header-actions">
+          <div className="invoices-sync">
+            <i />
+            <span>Sincronizado</span>
           </div>
 
+          <div className="invoices-user-pill">
+            <div>{String(author).slice(0, 2).toUpperCase()}</div>
+            <strong>{author}</strong>
+          </div>
         </div>
-
       </header>
 
-      {/* =================================
-          CONTENT
-      ================================= */}
-
-      <div className="invoices-content">
-
-        {/* =================================
-            INTRO
-        ================================= */}
-
-        <motion.section
-          className="invoices-intro"
-
-          initial={{
-            opacity: 0,
-            y: 8,
-          }}
-
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-        >
-
+      <div className="invoices-shell">
+        <section className="invoices-hero">
           <div>
-
             <span className="invoices-kicker">
-              Comprobantes internos
+              <Landmark size={14} />
+              Gestión documental
             </span>
-
-            <h2>
-              Facturas emitidas
-            </h2>
-
+            <h1>Facturas</h1>
             <p>
-              Comprobantes generados desde Caja y operaciones
-              registradas en el sistema.
+              Emisión, cobro, rectificación y Notas de Crédito con trazabilidad completa.
             </p>
-
           </div>
 
-          <div className="invoices-intro-note">
+          <div className="invoices-hero-actions">
+            <button type="button" className="invoice-btn soft" onClick={exportInvoices}>
+              <Download size={16} />
+              Exportar
+            </button>
 
-            <BadgeDollarSign
-              size={18}
-            />
-
-            <div>
-
-              <strong>
-                Caja → Facturación
-              </strong>
-
-              <span>
-                La factura nace después del cobro
-              </span>
-
-            </div>
-
+            <button
+              type="button"
+              className="invoice-btn primary"
+              onClick={() => navigate("/caja")}
+            >
+              <CircleDollarSign size={16} />
+              Emitir desde Caja
+            </button>
           </div>
-
-        </motion.section>
-
-        {/* =================================
-            MÉTRICAS
-        ================================= */}
-
-        <section className="invoices-stats">
-
-          <article className="invoice-stat-card">
-
-            <div>
-
-              <span>
-                Facturas
-              </span>
-
-              <FileText
-                size={17}
-              />
-
-            </div>
-
-            <strong>
-              {metrics.total}
-            </strong>
-
-            <small>
-              Comprobantes registrados
-            </small>
-
-          </article>
-
-          <article className="invoice-stat-card stat-issued">
-
-            <div>
-
-              <span>
-                Emitidas
-              </span>
-
-              <CheckCircle2
-                size={17}
-              />
-
-            </div>
-
-            <strong>
-              {metrics.issued}
-            </strong>
-
-            <small>
-              Actualmente vigentes
-            </small>
-
-          </article>
-
-          <article className="invoice-stat-card stat-amount">
-
-            <div>
-
-              <span>
-                Facturado
-              </span>
-
-              <CircleDollarSign
-                size={17}
-              />
-
-            </div>
-
-            <strong className="invoice-stat-money">
-              {formatMoney(
-                metrics.amount
-              )}
-            </strong>
-
-            <small>
-              Total de facturas emitidas
-            </small>
-
-          </article>
-
-          <article className="invoice-stat-card stat-cancelled">
-
-            <div>
-
-              <span>
-                Anuladas
-              </span>
-
-              <XCircle
-                size={17}
-              />
-
-            </div>
-
-            <strong>
-              {metrics.cancelled}
-            </strong>
-
-            <small>
-              Con operación posterior
-            </small>
-
-          </article>
-
-          <article className="invoice-stat-card stat-credit">
-
-            <div>
-
-              <span>
-                Notas crédito
-              </span>
-
-              <RotateCcw
-                size={17}
-              />
-
-            </div>
-
-            <strong>
-              {metrics.creditNotes}
-            </strong>
-
-            <small>
-              Documentos asociados
-            </small>
-
-          </article>
-
         </section>
 
-        {/* =================================
-            WORKSPACE
-        ================================= */}
+        <section className="invoices-metrics">
+          <MetricCard
+            label="Emitidas este mes"
+            value={metrics.issuedThisMonth}
+            note="Documentos vigentes"
+            icon={<ReceiptText size={17} />}
+            tone="blue"
+          />
+
+          <MetricCard
+            label="Facturación del mes"
+            value={formatMoney(metrics.billedThisMonth)}
+            note="Total bruto vigente"
+            icon={<CircleDollarSign size={17} />}
+            tone="mint"
+          />
+
+          <MetricCard
+            label="Pendiente de cobro"
+            value={formatMoney(metrics.pendingCollection)}
+            note="Parcial, financiado o pendiente"
+            icon={<WalletCards size={17} />}
+            tone="amber"
+          />
+
+          <MetricCard
+            label="Notas de Crédito"
+            value={formatMoney(metrics.creditNotesAmount)}
+            note="Aplicadas este mes"
+            icon={<RotateCcw size={17} />}
+            tone="violet"
+          />
+
+          <MetricCard
+            label="Rectificadas"
+            value={metrics.rectified}
+            note="Con observaciones registradas"
+            icon={<FilePenLine size={17} />}
+            tone="pink"
+          />
+        </section>
 
         <section className="invoices-workspace">
+          <div className="invoices-workspace-top">
+            <div className="invoice-tabs">
+              <button
+                type="button"
+                className={activeTab === "invoices" ? "active" : ""}
+                onClick={() => setActiveTab("invoices")}
+              >
+                <ReceiptText size={16} />
+                Facturas
+              </button>
 
-          {/* =================================
-              TOOLBAR
-          ================================= */}
-
-          <div className="invoices-toolbar">
-
-            <div className="invoices-search">
-
-              <Search
-                size={17}
-              />
-
-              <input
-                type="search"
-
-                placeholder="Buscar factura, cliente, ticket o medio de pago..."
-
-                value={
-                  search
-                }
-
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-              />
-
-              {search && (
-
-                <button
-                  type="button"
-
-                  onClick={() =>
-                    setSearch("")
-                  }
-
-                  aria-label="Limpiar búsqueda"
-                >
-                  <X
-                    size={14}
-                  />
-                </button>
-
-              )}
-
+              <button
+                type="button"
+                className={activeTab === "credit-notes" ? "active" : ""}
+                onClick={() => setActiveTab("credit-notes")}
+              >
+                <RotateCcw size={16} />
+                Notas de Crédito
+              </button>
             </div>
 
-            <div className="invoices-filters">
-
-              <Filter
-                size={15}
-              />
-
-              <select
-                value={
-                  statusFilter
-                }
-
-                onChange={(event) =>
-                  setStatusFilter(
-                    event.target.value
-                  )
-                }
-              >
-
-                <option value="">
-                  Todos los estados
-                </option>
-
-                <option value="Emitida">
-                  Emitida
-                </option>
-
-                <option value="Anulada">
-                  Anulada
-                </option>
-
-                <option value="Cancelada">
-                  Cancelada
-                </option>
-
-                <option value="Rectificada">
-                  Rectificada
-                </option>
-
-              </select>
-
-              <select
-                value={
-                  originFilter
-                }
-
-                onChange={(event) =>
-                  setOriginFilter(
-                    event.target.value
-                  )
-                }
-              >
-
-                <option value="">
-                  Todos los orígenes
-                </option>
-
-                <option value="Ticket">
-                  Ticket
-                </option>
-
-                <option value="Venta">
-                  Venta
-                </option>
-
-                <option value="Manual">
-                  Manual
-                </option>
-
-              </select>
-
-              {hasFilters && (
-
-                <button
-                  type="button"
-
-                  className="invoices-clear"
-
-                  onClick={
-                    clearFilters
-                  }
-                >
-                  Limpiar
-                </button>
-
-              )}
-
-            </div>
-
+            <button
+              type="button"
+              className="invoice-btn compact"
+              onClick={() => navigate("/facturacion/historial")}
+            >
+              <History size={15} />
+              Auditoría
+            </button>
           </div>
 
-          {/* =================================
-              LAYOUT
-          ================================= */}
+          {activeTab === "invoices" ? (
+            <>
+              <div className="invoice-filters">
+                <label className="invoice-search">
+                  <Search size={17} />
+                  <input
+                    type="search"
+                    placeholder="Buscar factura, cliente, DNI/CUIT, Ticket, POS..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      aria-label="Limpiar búsqueda"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </label>
 
-          <div className="invoices-layout">
+                <select
+                  value={documentStatusFilter}
+                  onChange={(event) => setDocumentStatusFilter(event.target.value)}
+                >
+                  <option value="">Estado del documento</option>
+                  <option value="Emitida">Emitida</option>
+                  <option value="Rectificada">Rectificada</option>
+                  <option value="Anulada">Anulada</option>
+                  <option value="Cancelada">Cancelada</option>
+                </select>
 
-            {/* =================================
-                LISTA
-            ================================= */}
+                <select
+                  value={paymentStatusFilter}
+                  onChange={(event) => setPaymentStatusFilter(event.target.value)}
+                >
+                  <option value="">Estado de cobro</option>
+                  <option value="Pagada">Pagada</option>
+                  <option value="Pago parcial">Pago parcial</option>
+                  <option value="Financiada">Financiada</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Revertida">Revertida</option>
+                </select>
 
-            <section className="invoices-list-panel">
-
-              <div className="invoices-list-title">
-
-                <strong>
-                  {filteredInvoices.length}
-                </strong>
-
-                <span>
-                  {filteredInvoices.length ===
-                  1
-                    ? "factura"
-                    : "facturas"}
-                </span>
-
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value)}
+                >
+                  <option value="recent">Más recientes</option>
+                  <option value="oldest">Más antiguas</option>
+                  <option value="amount">Mayor importe</option>
+                </select>
               </div>
 
-              {/* LOADING */}
-
-              {loading && (
-
-                <div className="invoices-state">
-
-                  <div className="invoices-loader" />
-
-                  <strong>
-                    Cargando facturas
-                  </strong>
-
-                  <span>
-                    Sincronizando con Firestore...
-                  </span>
-
-                </div>
-
-              )}
-
-              {/* ERROR */}
-
-              {!loading &&
-                error && (
-
-                <div className="invoices-state invoices-error">
-
-                  <strong>
-                    No se pudieron cargar
-                  </strong>
-
-                  <span>
-                    Revisá conexión y permisos.
-                  </span>
-
-                </div>
-
-              )}
-
-              {/* VACÍO */}
-
-              {!loading &&
-                !error &&
-                filteredInvoices.length ===
-                  0 && (
-
-                <div className="invoices-state">
-
-                  <ReceiptText
-                    size={28}
-                  />
-
-                  <strong>
-                    No hay facturas
-                  </strong>
-
-                  <span>
-                    No encontramos comprobantes con estos filtros.
-                  </span>
-
-                </div>
-
-              )}
-
-              {/* FILAS */}
-
-              {!loading &&
-                !error &&
-                filteredInvoices.map(
-                  (
-                    invoice
-                  ) => {
-                    const status =
-                      getInvoiceStatus(
-                        invoice
-                      );
-
-                    const active =
-                      selectedInvoiceId ===
-                      invoice.id;
-
-                    return (
-                      <motion.button
-                        type="button"
-
-                        layout
-
-                        key={
-                          invoice.id
-                        }
-
-                        className={
-                          `invoice-row ${
-                            active
-                              ? "active"
-                              : ""
-                          }`
-                        }
-
-                        onClick={() =>
-                          setSelectedInvoiceId(
-                            invoice.id
-                          )
-                        }
-                      >
-
-                        <div className="invoice-row-main">
-
-                          <div className="invoice-row-top">
-
-                            <strong>
-                              {invoice.id}
-                            </strong>
-
-                            <span
-                              className={
-                                `invoice-status ${status.className}`
-                              }
-                            >
-                              {
-                                status.label
-                              }
-                            </span>
-
-                          </div>
-
-                          <h3>
-                            {invoice.cliente ||
-                              "Consumidor Final"}
-                          </h3>
-
-                          <div className="invoice-row-meta">
-
-                            <span>
-                              {invoice.refModulo ||
-                                "Manual"}
-                            </span>
-
-                            {invoice.refId &&
-                              invoice.refId !==
-                                "—" && (
-
-                                <>
-                                  <i />
-
-                                  <span>
-                                    {
-                                      invoice.refId
-                                    }
-                                  </span>
-                                </>
-
-                              )}
-
-                          </div>
-
-                        </div>
-
-                        <div className="invoice-row-side">
-
-                          <strong>
-                            {formatMoney(
-                              invoice.total
-                            )}
-                          </strong>
-
-                          <span>
-                            {formatDate(
-                              invoice.fecha
-                            )}
-                          </span>
-
-                        </div>
-
-                        <ChevronRight
-                          size={17}
-                        />
-
-                      </motion.button>
-                    );
-                  }
-                )}
-
-            </section>
-
-            {/* =================================
-                DETALLE
-            ================================= */}
-
-            <aside className="invoice-detail-panel">
-
-              {!selectedInvoice ? (
-
-                <div className="invoice-detail-empty">
-
-                  <ReceiptText
-                    size={30}
-                  />
-
-                  <strong>
-                    Seleccioná una factura
-                  </strong>
-
-                  <span>
-                    El detalle aparecerá acá.
-                  </span>
-
-                </div>
-
-              ) : (
-
-                <InvoiceDetail
-                  invoice={
-                    selectedInvoice
-                  }
-
-                  creditNotes={
-                    linkedCreditNotes
-                  }
-
-                  onOpenTicket={(
-                    ticketId
-                  ) =>
-                    navigate(
-                      `/tickets/${ticketId}`
-                    )
-                  }
-
-                  onAnnul={
-                    openAnnul
-                  }
-
-                  onCancel={
-                    openCancel
-                  }
-                />
-
-              )}
-
-            </aside>
-
-          </div>
-
+              <InvoiceTable
+                invoices={filteredInvoices}
+                loading={loading}
+                error={error}
+                onOpen={openInvoice}
+                onRectify={openRectification}
+                onAnnul={openAnnul}
+                onCancel={openCancel}
+              />
+            </>
+          ) : (
+            <CreditNotesPanel
+              notes={creditNotes}
+              invoices={invoices}
+              onOpenInvoice={openInvoice}
+              onOpenModule={() => navigate("/facturacion/notas-credito")}
+            />
+          )}
         </section>
-
       </div>
 
-      {/* =================================
-          MODAL OPERACIÓN
-      ================================= */}
+      <AnimatePresence>
+        {previewInvoice && (
+          <InvoiceFullscreen
+            key={previewInvoice.id}
+            invoice={previewInvoice}
+            linkedCreditNotes={linkedCreditNotes}
+            onClose={closeInvoice}
+            onShare={shareInvoice}
+            onRectify={openRectification}
+            onAnnul={openAnnul}
+            onCancel={openCancel}
+            onOpenTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+          />
+        )}
+      </AnimatePresence>
 
-      {operationModal && (
-
-        <div
-          className="invoice-operation-overlay"
-
-          onMouseDown={(event) => {
-            if (
-              event.target ===
-                event.currentTarget &&
-              !processing
-            ) {
-              closeOperation();
-            }
-          }}
-        >
-
-          <motion.div
-            className="invoice-operation-modal"
-
-            initial={{
-              opacity: 0,
-              scale: 0.96,
-              y: 8,
-            }}
-
-            animate={{
-              opacity: 1,
-              scale: 1,
-              y: 0,
-            }}
-          >
-
-            {/* ICONO */}
-
-            <div className="invoice-operation-icon">
-
-              {operationModal.type ===
-              "annul" ? (
-
-                <RotateCcw
-                  size={22}
-                />
-
-              ) : (
-
-                <XCircle
-                  size={22}
-                />
-
-              )}
-
-            </div>
-
-            {/* COPY */}
-
-            <div className="invoice-operation-copy">
-
-              <span>
-                {
-                  operationModal
-                    .invoice.id
-                }
-              </span>
-
-              <h3>
-                {operationModal.type ===
-                "annul"
-                  ? "Anular factura"
-                  : "Cancelar comprobante"}
-              </h3>
-
-              <p>
-                {operationModal.type ===
-                "annul"
-                  ? isInvoicePartiallyPaid(
-                      operationModal.invoice
-                    )
-                    ? "Se generará una Nota de Crédito por el total de la factura. Solo el importe efectivamente cobrado se acreditará como saldo a favor y el saldo financiado pendiente quedará cancelado."
-                    : "Se generará una Nota de Crédito por el total y, si existe un cliente asociado, el importe cobrado quedará como saldo a favor."
-                  : "El comprobante se cancelará sin generar movimiento de dinero."}
-              </p>
-
-            </div>
-
-            {/* TOTAL */}
-
-            <div className="invoice-operation-summary">
-
-              <span>
-                Total
-              </span>
-
-              <strong>
-                {formatMoney(
-                  operationModal
-                    .invoice.total
-                )}
-              </strong>
-
-            </div>
-
-            {/* MOTIVO */}
-
-            <label className="invoice-operation-reason">
-
-              <span>
-                Motivo
-              </span>
-
-              <textarea
-                rows={3}
-
-                placeholder="Ej: devolución del equipo, error de carga, operación cancelada..."
-
-                disabled={
-                  processing
-                }
-
-                value={
-                  operationReason
-                }
-
-                onChange={(event) =>
-                  setOperationReason(
-                    event.target.value
-                  )
-                }
-              />
-
-            </label>
-
-            {/* BOTONES */}
-
-            <div className="invoice-operation-buttons">
-
-              <button
-                type="button"
-
-                disabled={
-                  processing
-                }
-
-                onClick={
-                  closeOperation
-                }
-              >
-                Volver
-              </button>
-
-              <button
-                type="button"
-
-                className={
-                  operationModal.type ===
-                  "annul"
-                    ? "danger"
-                    : "warning"
-                }
-
-                disabled={
-                  processing
-                }
-
-                onClick={
-                  confirmInvoiceOperation
-                }
-              >
-
-                {processing
-                  ? "Procesando..."
-                  : operationModal.type ===
-                    "annul"
-                    ? "Confirmar anulación"
-                    : "Confirmar cancelación"}
-
-              </button>
-
-            </div>
-
-          </motion.div>
-
-        </div>
-
-      )}
-
+      <AnimatePresence>
+        {operationModal && (
+          <InvoiceOperationModal
+            key={`${operationModal.type}-${operationModal.invoice.id}`}
+            operation={operationModal}
+            reason={operationReason}
+            processing={processing}
+            onReasonChange={setOperationReason}
+            onClose={closeOperation}
+            onConfirm={confirmInvoiceOperation}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
 /* =========================================
-   DETALLE FACTURA
+   METRIC CARD
 ========================================= */
 
-function InvoiceDetail({
-  invoice,
-  creditNotes,
-  onOpenTicket,
+function MetricCard({ label, value, note, icon, tone }) {
+  return (
+    <motion.article
+      className={`invoice-metric tone-${tone}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24 }}
+      whileHover={{ y: -3 }}
+    >
+      <div>
+        <span>{label}</span>
+        <div className="invoice-metric-icon">{icon}</div>
+      </div>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </motion.article>
+  );
+}
+
+/* =========================================
+   TABLA
+========================================= */
+
+function InvoiceTable({
+  invoices,
+  loading,
+  error,
+  onOpen,
+  onRectify,
   onAnnul,
   onCancel,
 }) {
-  const status =
-    getInvoiceStatus(
-      invoice
+  if (loading) {
+    return (
+      <div className="invoice-list-state">
+        <div className="invoice-loader" />
+        <strong>Cargando facturas</strong>
+        <span>Sincronizando con Firestore...</span>
+      </div>
     );
+  }
 
-  const items =
-    normalizeInvoiceItems(
-      invoice
+  if (error) {
+    return (
+      <div className="invoice-list-state error">
+        <AlertTriangle size={25} />
+        <strong>No pudimos cargar las facturas</strong>
+        <span>Revisá la conexión y los permisos de Firestore.</span>
+      </div>
     );
+  }
 
-  const history =
-    Array.isArray(
-      invoice.historial
-    )
-      ? [
-          ...invoice.historial,
-        ].reverse()
-      : [];
-
-  const isTicket =
-    invoice.refModulo ===
-      "Ticket" &&
-    invoice.refId &&
-    invoice.refId !==
-      "—";
-
-  const paid =
-    isInvoicePaid(
-      invoice
+  if (!invoices.length) {
+    return (
+      <div className="invoice-list-state">
+        <ReceiptText size={27} />
+        <strong>Sin resultados</strong>
+        <span>No encontramos facturas con los filtros actuales.</span>
+      </div>
     );
-
-  const partiallyPaid =
-    isInvoicePartiallyPaid(
-      invoice
-    );
-
-  const canOperate =
-    invoice.estado ===
-    "Emitida";
+  }
 
   return (
-    <div className="invoice-detail">
-
-      {/* =================================
-          HEADER
-      ================================= */}
-
-      <div className="invoice-detail-header">
-
-        <div>
-
-          <span>
-            Factura
-          </span>
-
-          <h2>
-            {invoice.id}
-          </h2>
-
-        </div>
-
-        <span
-          className={
-            `invoice-status ${status.className}`
-          }
-        >
-          {status.label}
-        </span>
-
+    <div className="invoice-table-scroll">
+      <div className="invoice-table-head">
+        <div>Factura</div>
+        <div>Cliente</div>
+        <div>Origen</div>
+        <div>Documento</div>
+        <div>Cobro</div>
+        <div>Fecha</div>
+        <div>Total</div>
+        <div>Acciones</div>
       </div>
 
-      {/* =================================
-          ACCIONES
-      ================================= */}
+      <div className="invoice-table-body">
+        {invoices.map((invoice, index) => {
+          const documentStatus = getInvoiceDocumentStatus(invoice);
+          const paymentStatus = getPaymentStatus(invoice);
+          const canOperate = invoice.estado === "Emitida";
+          const paid = isInvoicePaid(invoice);
+          const partiallyPaid = isInvoicePartiallyPaid(invoice);
 
-      {canOperate && (
-
-        <div className="invoice-detail-actions">
-
-          {paid ||
-          partiallyPaid ? (
-
-            <button
-              type="button"
-
-              className="invoice-annul-button"
-
-              onClick={() =>
-                onAnnul(
-                  invoice
-                )
-              }
+          return (
+            <motion.div
+              key={invoice.id}
+              className="invoice-table-row"
+              role="button"
+              tabIndex={0}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(index * 0.025, 0.16) }}
+              onClick={() => onOpen(invoice)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpen(invoice);
+                }
+              }}
             >
-
-              <RotateCcw
-                size={16}
-              />
-
-              {partiallyPaid
-                ? "Anular financiación y generar NC"
-                : "Anular y generar NC"}
-
-            </button>
-
-          ) : (
-
-            <button
-              type="button"
-
-              className="invoice-cancel-button"
-
-              onClick={() =>
-                onCancel(
-                  invoice
-                )
-              }
-            >
-
-              <XCircle
-                size={16}
-              />
-
-              Cancelar comprobante
-
-            </button>
-
-          )}
-
-        </div>
-
-      )}
-
-      {/* =================================
-          CLIENTE
-      ================================= */}
-
-      <section className="invoice-detail-section">
-
-        <span className="invoice-detail-label">
-          Cliente
-        </span>
-
-        <div className="invoice-client">
-
-          <div className="invoice-client-icon">
-
-            <UserRound
-              size={18}
-            />
-
-          </div>
-
-          <div>
-
-            <strong>
-              {invoice.cliente ||
-                "Consumidor Final"}
-            </strong>
-
-            <span>
-              {invoice.doc ||
-                "C.F."}
-            </span>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =================================
-          DATOS
-      ================================= */}
-
-      <div className="invoice-detail-grid">
-
-        <div>
-
-          <CalendarDays
-            size={15}
-          />
-
-          <span>
-            Fecha
-          </span>
-
-          <strong>
-            {formatDate(
-              invoice.fecha
-            )}
-          </strong>
-
-        </div>
-
-        <div>
-
-          <CreditCard
-            size={15}
-          />
-
-          <span>
-            Medio de pago
-          </span>
-
-          <strong>
-            {invoice.refPago ||
-              "—"}
-          </strong>
-
-        </div>
-
-        <div>
-
-          <CheckCircle2
-            size={15}
-          />
-
-          <span>
-            Estado pago
-          </span>
-
-          <strong>
-            {invoice.estadoPago ||
-              "—"}
-          </strong>
-
-        </div>
-
-        <div>
-
-          <BadgeDollarSign
-            size={15}
-          />
-
-          <span>
-            Origen
-          </span>
-
-          <strong>
-            {invoice.refModulo ||
-              "Manual"}
-          </strong>
-
-        </div>
-
-      </div>
-
-      {/* =================================
-          TICKET
-      ================================= */}
-
-      {isTicket && (
-
-        <button
-          type="button"
-
-          className="invoice-ticket-link"
-
-          onClick={() =>
-            onOpenTicket(
-              invoice.refId
-            )
-          }
-        >
-
-          <Ticket
-            size={17}
-          />
-
-          <div>
-
-            <span>
-              Ticket asociado
-            </span>
-
-            <strong>
-              {invoice.refId}
-            </strong>
-
-          </div>
-
-          <Link2
-            size={16}
-          />
-
-        </button>
-
-      )}
-
-      {/* =================================
-          ITEMS
-      ================================= */}
-
-      <section className="invoice-detail-section">
-
-        <span className="invoice-detail-label">
-          Conceptos
-        </span>
-
-        {items.length ===
-        0 ? (
-
-          <div className="invoice-no-items">
-
-            Sin conceptos registrados.
-
-          </div>
-
-        ) : (
-
-          <div className="invoice-items">
-
-            {items.map(
-              (
-                item,
-                index
-              ) => (
-
-                <div
-                  className="invoice-item"
-
-                  key={
-                    `${item.description}-${index}`
-                  }
+              <div className="invoice-number-cell">
+                <strong>{invoice.numero || invoice.id}</strong>
+                <span>{invoice.tipo || "Factura"} SERVIX</span>
+              </div>
+
+              <div className="invoice-client-cell">
+                <strong>{invoice.cliente || "Consumidor Final"}</strong>
+                <span>{invoice.doc || "C.F."}</span>
+              </div>
+
+              <div>
+                <span className={`invoice-origin ${getOriginClass(invoice)}`}>
+                  {getOriginLabel(invoice)}
+                </span>
+              </div>
+
+              <div>
+                <span className={`invoice-badge ${documentStatus.className}`}>
+                  {documentStatus.label}
+                </span>
+              </div>
+
+              <div>
+                <span className={`invoice-badge ${paymentStatus.className}`}>
+                  {paymentStatus.label}
+                </span>
+              </div>
+
+              <div className="invoice-date-cell">{formatDate(invoice.fecha)}</div>
+
+              <div className="invoice-money-cell">{formatMoney(invoice.total)}</div>
+
+              <div className="invoice-row-actions">
+                <button
+                  type="button"
+                  className="preview"
+                  title="Ver factura"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpen(invoice);
+                  }}
                 >
+                  <FileText size={15} />
+                </button>
 
+                <button
+                  type="button"
+                  title="Imprimir"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpen(invoice, true);
+                  }}
+                >
+                  <Printer size={15} />
+                </button>
+
+                {canOperate && (
+                  <button
+                    type="button"
+                    title="Rectificar"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRectify(invoice);
+                    }}
+                  >
+                    <FilePenLine size={15} />
+                  </button>
+                )}
+
+                {canOperate && (paid || partiallyPaid) && (
+                  <button
+                    type="button"
+                    className="danger"
+                    title="Anular y generar Nota de Crédito"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAnnul(invoice);
+                    }}
+                  >
+                    <RotateCcw size={15} />
+                  </button>
+                )}
+
+                {canOperate && !paid && !partiallyPaid && (
+                  <button
+                    type="button"
+                    className="warning"
+                    title="Cancelar comprobante"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCancel(invoice);
+                    }}
+                  >
+                    <XCircle size={15} />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================
+   NOTAS DE CRÉDITO
+========================================= */
+
+function CreditNotesPanel({ notes, invoices, onOpenInvoice, onOpenModule }) {
+  const sortedNotes = useMemo(
+    () => [...notes].sort((a, b) => getInvoiceSortTime(b) - getInvoiceSortTime(a)),
+    [notes]
+  );
+
+  return (
+    <div className="credit-notes-panel">
+      <div className="credit-notes-heading">
+        <div>
+          <strong>Notas de Crédito</strong>
+          <span>
+            Documentos de anulación y devolución vinculados a las facturas originales.
+          </span>
+        </div>
+
+        <button type="button" className="invoice-btn compact" onClick={onOpenModule}>
+          <Link2 size={15} />
+          Abrir módulo completo
+        </button>
+      </div>
+
+      {!sortedNotes.length ? (
+        <div className="invoice-list-state">
+          <RotateCcw size={27} />
+          <strong>Sin Notas de Crédito</strong>
+          <span>Todavía no hay documentos asociados.</span>
+        </div>
+      ) : (
+        <div className="credit-note-grid">
+          {sortedNotes.map((note, index) => {
+            const originId = note.facturaOrigenId || note.refId;
+            const originInvoice = invoices.find((invoice) => invoice.id === originId);
+            const credited = Number(note.montoAcreditado || 0);
+
+            return (
+              <motion.article
+                key={note.id}
+                className="credit-note-card"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.035, 0.2) }}
+              >
+                <div className="credit-note-card-top">
                   <div>
-
-                    <strong>
-                      {
-                        item.description
-                      }
-                    </strong>
-
-                    <span>
-                      {item.quantity} ×{" "}
-                      {formatMoney(
-                        item.price
-                      )}
-                    </span>
-
+                    <strong>{note.id}</strong>
+                    <span>{formatDate(note.fecha)}</span>
                   </div>
-
-                  <strong>
-                    {formatMoney(
-                      item.subtotal
-                    )}
-                  </strong>
-
+                  <span className="invoice-badge invoice-badge-violet">
+                    {note.estadoPago || note.estado || "Aplicada"}
+                  </span>
                 </div>
 
-              )
-            )}
+                <p>
+                  {note.motivo ||
+                    `Nota de Crédito vinculada a ${originId || "una factura"}.`}
+                </p>
 
-          </div>
-
-        )}
-
-      </section>
-
-      {/* =================================
-          TOTAL
-      ================================= */}
-
-      <div className="invoice-total">
-
-        <span>
-          Total
-        </span>
-
-        <strong>
-          {formatMoney(
-            invoice.total
-          )}
-        </strong>
-
-      </div>
-
-      {/* =================================
-          NOTAS DE CRÉDITO
-      ================================= */}
-
-      {creditNotes.length >
-        0 && (
-
-        <section className="invoice-detail-section">
-
-          <span className="invoice-detail-label">
-            Documentos asociados
-          </span>
-
-          <div className="invoice-credit-notes">
-
-            {creditNotes.map(
-              (
-                note
-              ) => (
-
-                <article
-                  key={
-                    note.id
-                  }
-                >
-
-                  <RotateCcw
-                    size={16}
-                  />
-
+                <div className="credit-note-data">
                   <div>
-
-                    <strong>
-                      {note.id}
-                    </strong>
-
-                    <span>
-                      Nota de Crédito ·{" "}
-                      {formatMoney(
-                        note.total
-                      )}
-                    </span>
-
+                    <span>Factura origen</span>
+                    <strong>{originId || "—"}</strong>
                   </div>
+                  <div>
+                    <span>Importe NC</span>
+                    <strong>{formatMoney(note.total)}</strong>
+                  </div>
+                  <div>
+                    <span>Cliente</span>
+                    <strong>{note.cliente || "Consumidor Final"}</strong>
+                  </div>
+                  <div>
+                    <span>Saldo acreditado</span>
+                    <strong>{formatMoney(credited)}</strong>
+                  </div>
+                </div>
 
-                  <span>
-                    {note.estado ||
-                      "Emitida"}
-                  </span>
-
-                </article>
-
-              )
-            )}
-
-          </div>
-
-        </section>
-
+                {originInvoice && (
+                  <button
+                    type="button"
+                    className="credit-note-origin-button"
+                    onClick={() => onOpenInvoice(originInvoice)}
+                  >
+                    <FileText size={14} />
+                    Ver factura origen
+                  </button>
+                )}
+              </motion.article>
+            );
+          })}
+        </div>
       )}
+    </div>
+  );
+}
 
-      {/* =================================
-          AUDITORÍA
-      ================================= */}
+/* =========================================
+   FULLSCREEN
+========================================= */
 
-      <section className="invoice-detail-section">
+function InvoiceFullscreen({
+  invoice,
+  linkedCreditNotes,
+  onClose,
+  onShare,
+  onRectify,
+  onAnnul,
+  onCancel,
+  onOpenTicket,
+}) {
+  const documentStatus = getInvoiceDocumentStatus(invoice);
+  const paymentStatus = getPaymentStatus(invoice);
+  const items = normalizeInvoiceItems(invoice);
+  const history = Array.isArray(invoice.historial)
+    ? [...invoice.historial].reverse()
+    : [];
 
-        <span className="invoice-detail-label">
-          Auditoría
-        </span>
+  const collected = getCollectedAmount(invoice);
+  const pending = getPendingAmount(invoice);
+  const paymentDetail = getPaymentDetail(invoice);
 
-        <div className="invoice-audit">
+  const canOperate = invoice.estado === "Emitida";
+  const paid = isInvoicePaid(invoice);
+  const partiallyPaid = isInvoicePartiallyPaid(invoice);
+  const isTicket =
+    getOriginLabel(invoice).toLowerCase().includes("ticket") &&
+    invoice.refId &&
+    invoice.refId !== "—";
 
-          <UserRound
-            size={16}
-          />
+  return (
+    <motion.section
+      className="invoice-fullscreen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <header className="invoice-fullscreen-toolbar no-print">
+        <div className="invoice-fullscreen-toolbar-left">
+          <button type="button" className="invoices-back" onClick={onClose}>
+            <ArrowLeft size={20} />
+          </button>
 
           <div>
-
-            <span>
-              Emitida por
-            </span>
-
-            <strong>
-              {invoice.usuario ||
-                "Sistema"}
-            </strong>
-
+            <strong>Detalle de factura</strong>
+            <span>Documento completo · trazabilidad SERVIX</span>
           </div>
-
         </div>
 
-      </section>
+        <div className="invoice-fullscreen-toolbar-actions">
+          <button
+            type="button"
+            className="invoice-btn soft"
+            onClick={() => onShare(invoice)}
+          >
+            <Share2 size={16} />
+            Compartir
+          </button>
 
-      {/* =================================
-          HISTORIAL
-      ================================= */}
+          <button
+            type="button"
+            className="invoice-btn primary"
+            onClick={() => window.print()}
+          >
+            <Printer size={16} />
+            Imprimir
+          </button>
+        </div>
+      </header>
 
-      <section className="invoice-detail-section">
+      <div className="invoice-fullscreen-scroll">
+        <motion.article
+          className="invoice-document"
+          initial={{ opacity: 0, y: 14, scale: 0.988 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="invoice-document-head">
+            <div className="invoice-company">
+              <div className="invoice-company-logo">
+                <ReceiptText size={24} />
+              </div>
 
-        <span className="invoice-detail-label">
-          Historial
-        </span>
+              <div>
+                <strong>SERVIX</strong>
+                <span>Servicio técnico · Soluciones informáticas</span>
+                <span>Comprobante interno de operación</span>
+              </div>
+            </div>
 
-        {history.length ===
-        0 ? (
-
-          <div className="invoice-no-items">
-
-            Sin actividad registrada.
-
+            <div className="invoice-document-number">
+              <span>Factura</span>
+              <strong>{invoice.numero || invoice.id}</strong>
+              <span className={`invoice-badge ${documentStatus.className}`}>
+                {documentStatus.label}
+              </span>
+            </div>
           </div>
 
-        ) : (
+          <div className="invoice-document-info-grid">
+            <section className="invoice-document-box">
+              <label>Cliente</label>
+              <strong>{invoice.cliente || "Consumidor Final"}</strong>
+              <span>{invoice.doc || "C.F."}</span>
+              <span>
+                Origen: {getOriginLabel(invoice)}
+                {invoice.refId && invoice.refId !== "—" ? ` · ${invoice.refId}` : ""}
+              </span>
+            </section>
 
-          <div className="invoice-history">
+            <section className="invoice-document-box">
+              <label>Información</label>
+              <strong>Fecha: {formatDate(invoice.fecha)}</strong>
+              <span>Cobro: {paymentStatus.label}</span>
+              <span>Medio: {invoice.refPago || "—"}</span>
+              {paymentDetail && <span>{paymentDetail}</span>}
+            </section>
+          </div>
 
-            {history
-              .slice(
-                0,
-                10
-              )
-              .map(
-                (
-                  event,
-                  index
-                ) => (
+          <section className="invoice-payment-summary">
+            <div>
+              <WalletCards size={17} />
+              <span>Estado de cobro</span>
+              <strong>{paymentStatus.label}</strong>
+            </div>
+            <div>
+              <Banknote size={17} />
+              <span>Cobrado</span>
+              <strong>{formatMoney(collected)}</strong>
+            </div>
+            <div>
+              <BadgeDollarSign size={17} />
+              <span>Saldo pendiente</span>
+              <strong>{formatMoney(pending)}</strong>
+            </div>
+          </section>
 
-                  <article
-                    key={
-                      `${event.fecha}-${index}`
-                    }
-                  >
+          <div className="invoice-document-table">
+            <div className="invoice-document-table-head">
+              <div>Descripción</div>
+              <div>Cant.</div>
+              <div className="align-right">Unitario</div>
+              <div className="align-right">Subtotal</div>
+            </div>
 
-                    <div className="invoice-history-dot" />
+            {items.length ? (
+              items.map((item, index) => (
+                <div
+                  className="invoice-document-item"
+                  key={`${item.description}-${index}`}
+                >
+                  <div>
+                    <strong>{item.description}</strong>
+                    {item.sku && <small>SKU {item.sku}</small>}
+                  </div>
+                  <div>{item.quantity}</div>
+                  <div className="align-right">{formatMoney(item.price)}</div>
+                  <div className="align-right">{formatMoney(item.subtotal)}</div>
+                </div>
+              ))
+            ) : (
+              <div className="invoice-document-item">
+                <div>
+                  <strong>Sin conceptos detallados</strong>
+                  <small>Comprobante migrado o registro histórico.</small>
+                </div>
+                <div>—</div>
+                <div className="align-right">—</div>
+                <div className="align-right">{formatMoney(invoice.total)}</div>
+              </div>
+            )}
+          </div>
 
+          <div className="invoice-document-totals">
+            <div>
+              <span>Total</span>
+              <strong>{formatMoney(invoice.total)}</strong>
+            </div>
+          </div>
+
+          <section className="invoice-traceability">
+            <div className="invoice-document-section-head">
+              <div>
+                <Link2 size={16} />
+                <strong>Trazabilidad</strong>
+              </div>
+              <span>Referencias reales de la operación</span>
+            </div>
+
+            <div className="invoice-trace-grid">
+              <TraceItem label="Origen" value={getOriginLabel(invoice)} />
+              <TraceItem label="Referencia" value={invoice.refId || "—"} />
+              <TraceItem label="Venta" value={invoice.ventaId || "—"} />
+              <TraceItem label="Presupuesto" value={invoice.presupuestoId || "—"} />
+              <TraceItem label="Crédito" value={invoice.creditoId || "—"} />
+              <TraceItem label="Usuario" value={invoice.usuario || "Sistema"} />
+            </div>
+
+            {isTicket && (
+              <button
+                type="button"
+                className="invoice-open-origin no-print"
+                onClick={() => onOpenTicket(invoice.refId)}
+              >
+                <Ticket size={15} />
+                Abrir Ticket {invoice.refId}
+              </button>
+            )}
+          </section>
+
+          {linkedCreditNotes.length > 0 && (
+            <section className="invoice-linked-documents">
+              <div className="invoice-document-section-head">
+                <div>
+                  <RotateCcw size={16} />
+                  <strong>Notas de Crédito asociadas</strong>
+                </div>
+                <span>{linkedCreditNotes.length} documento(s)</span>
+              </div>
+
+              <div className="invoice-linked-list">
+                {linkedCreditNotes.map((note) => (
+                  <article key={note.id}>
                     <div>
-
-                      <div className="invoice-history-top">
-
-                        <strong>
-                          {event.accion ||
-                            "Actividad"}
-                        </strong>
-
-                        <span>
-                          {event.fecha ||
-                            "—"}
-                        </span>
-
-                      </div>
-
-                      {event.detalle && (
-
-                        <p>
-                          {event.detalle}
-                        </p>
-
-                      )}
-
+                      <strong>{note.id}</strong>
+                      <span>{formatDate(note.fecha)} · {note.estadoPago || note.estado || "Aplicada"}</span>
                     </div>
-
+                    <strong>{formatMoney(note.total)}</strong>
                   </article>
+                ))}
+              </div>
+            </section>
+          )}
 
-                )
-              )}
+          {history.length > 0 && (
+            <section className="invoice-history-section">
+              <div className="invoice-document-section-head">
+                <div>
+                  <History size={16} />
+                  <strong>Auditoría</strong>
+                </div>
+                <span>Últimos movimientos del documento</span>
+              </div>
 
+              <div className="invoice-history-list">
+                {history.slice(0, 8).map((event, index) => (
+                  <article key={`${event.fecha || "event"}-${index}`}>
+                    <i />
+                    <div>
+                      <div>
+                        <strong>{event.accion || "Actividad"}</strong>
+                        <span>{event.fecha || "—"}</span>
+                      </div>
+                      {event.detalle && <p>{event.detalle}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="invoice-document-note">
+            Este documento es un comprobante interno SERVIX. El estado del documento y el estado del cobro se administran por separado. Las anulaciones se conservan mediante Nota de Crédito; el documento original nunca se elimina del historial.
           </div>
 
+          {canOperate && (
+            <section className="invoice-document-actions no-print">
+              <button
+                type="button"
+                className="invoice-btn soft"
+                onClick={() => onRectify(invoice)}
+              >
+                <FilePenLine size={16} />
+                Rectificar
+              </button>
+
+              {paid || partiallyPaid ? (
+                <button
+                  type="button"
+                  className="invoice-btn danger"
+                  onClick={() => onAnnul(invoice)}
+                >
+                  <RotateCcw size={16} />
+                  {partiallyPaid
+                    ? "Anular financiación y generar NC"
+                    : "Anular y generar NC"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="invoice-btn warning"
+                  onClick={() => onCancel(invoice)}
+                >
+                  <XCircle size={16} />
+                  Cancelar comprobante
+                </button>
+              )}
+            </section>
+          )}
+        </motion.article>
+      </div>
+    </motion.section>
+  );
+}
+
+function TraceItem({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+/* =========================================
+   MODAL OPERACIÓN
+========================================= */
+
+function InvoiceOperationModal({
+  operation,
+  reason,
+  processing,
+  onReasonChange,
+  onClose,
+  onConfirm,
+}) {
+  const { type, invoice } = operation;
+
+  const partiallyPaid = isInvoicePartiallyPaid(invoice);
+  const title =
+    type === "rectify"
+      ? "Rectificar factura"
+      : type === "annul"
+        ? "Generar Nota de Crédito"
+        : "Cancelar comprobante";
+
+  const description =
+    type === "rectify"
+      ? "La factura original se conserva. La observación queda registrada en su historial sin alterar el total ni el estado del cobro."
+      : type === "annul"
+        ? partiallyPaid
+          ? "Se generará una Nota de Crédito por el total. Solo el importe realmente cobrado se acreditará como saldo a favor y el saldo financiado pendiente quedará cancelado."
+          : "Se generará una Nota de Crédito por el total de la factura. Si corresponde, el importe cobrado quedará como saldo a favor del cliente."
+        : "El comprobante se cancelará sin movimiento de dinero. Esta acción solo corresponde cuando todavía no hubo cobro.";
+
+  const Icon =
+    type === "rectify"
+      ? FilePenLine
+      : type === "annul"
+        ? RotateCcw
+        : XCircle;
+
+  return (
+    <motion.div
+      className="invoice-modal-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !processing) {
+          onClose();
+        }
+      }}
+    >
+      <motion.div
+        className={`invoice-modal invoice-modal-${type}`}
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 6 }}
+        transition={{ duration: 0.18 }}
+      >
+        <div className="invoice-modal-icon">
+          <Icon size={22} />
+        </div>
+
+        <div className="invoice-modal-copy">
+          <span>{invoice.id}</span>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+
+        <div className="invoice-modal-summary">
+          <div>
+            <span>Total factura</span>
+            <strong>{formatMoney(invoice.total)}</strong>
+          </div>
+          <div>
+            <span>Cobrado</span>
+            <strong>{formatMoney(getCollectedAmount(invoice))}</strong>
+          </div>
+          <div>
+            <span>Saldo pendiente</span>
+            <strong>{formatMoney(getPendingAmount(invoice))}</strong>
+          </div>
+        </div>
+
+        <label className="invoice-modal-field">
+          <span>{type === "rectify" ? "Detalle de la rectificación *" : "Motivo"}</span>
+          <textarea
+            rows={4}
+            value={reason}
+            disabled={processing}
+            placeholder={
+              type === "rectify"
+                ? "Ej.: corregir razón social, aclarar descripción, registrar ajuste administrativo..."
+                : "Ej.: devolución del equipo, error de carga, operación cancelada..."
+            }
+            onChange={(event) => onReasonChange(event.target.value)}
+          />
+        </label>
+
+        {type === "annul" && (
+          <div className="invoice-modal-alert danger">
+            <AlertTriangle size={16} />
+            <span>
+              La Nota de Crédito no borra el cobro de Caja. SERVIX conserva la trazabilidad y acredita únicamente el importe que corresponda.
+            </span>
+          </div>
         )}
 
-      </section>
+        {type === "cancel" && (
+          <div className="invoice-modal-alert warning">
+            <AlertTriangle size={16} />
+            <span>
+              Si hubo un cobro o pagos de una financiación, la operación debe resolverse mediante Nota de Crédito.
+            </span>
+          </div>
+        )}
 
-    </div>
+        <div className="invoice-modal-actions">
+          <button type="button" disabled={processing} onClick={onClose}>
+            Volver
+          </button>
+
+          <button
+            type="button"
+            className={type === "annul" ? "danger" : type === "cancel" ? "warning" : "primary"}
+            disabled={processing || (type === "rectify" && !reason.trim())}
+            onClick={onConfirm}
+          >
+            {processing
+              ? "Procesando..."
+              : type === "rectify"
+                ? "Registrar rectificación"
+                : type === "annul"
+                  ? "Generar Nota de Crédito"
+                  : "Cancelar comprobante"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -15,6 +15,7 @@
   --clients-warning: #ffd166;
 
   min-height: 100vh;
+  overflow: visible;
   padding: 22px 26px 70px;
   color: var(--clients-text);
   font-family: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -52,22 +53,47 @@
 ========================================= */
 
 .clients-topbar {
-  position: sticky;
+  --clients-bg: #f4f7f6;
+  --clients-text: #272d35;
+  --clients-muted: #73808c;
+  --clients-surface: #ffffff;
+  --clients-line: rgba(39, 45, 53, 0.075);
+  --clients-support: #ff8b6a;
+  --clients-diagnostic: #8b78fa;
+  --clients-success: #3bceac;
+  --clients-info: #4faaff;
+  --clients-danger: #ff6b8b;
+  --clients-warning: #ffd166;
+
+  color: var(--clients-text);
+  font-family: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  position: absolute;
   top: 14px;
-  z-index: 35;
+  left: 50%;
+  z-index: 100;
+  width: min(1540px, calc(100vw - 52px));
   min-height: 68px;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
   padding: 10px 12px 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.94);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.76);
-  backdrop-filter: blur(24px) saturate(150%);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   box-shadow:
-    0 13px 36px rgba(39, 45, 53, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    0 18px 44px rgba(39, 45, 53, 0.10),
+    0 2px 8px rgba(39, 45, 53, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  isolation: isolate;
+}
+
+.clients-topbar button {
+  font: inherit;
+  cursor: pointer;
 }
 
 .clients-brand,
@@ -248,7 +274,7 @@
 
 .clients-directory-view,
 .clients-profile-view {
-  padding-top: 24px;
+  padding-top: 96px;
 }
 
 .clients-directory-title {
@@ -1680,6 +1706,16 @@
     padding: 16px 16px 60px;
   }
 
+  .clients-topbar {
+    top: 12px;
+    width: calc(100vw - 32px);
+  }
+
+  .clients-directory-view,
+  .clients-profile-view {
+    padding-top: 94px;
+  }
+
   .clients-directory-toolbar {
     grid-template-columns: 1fr;
   }
@@ -1724,12 +1760,23 @@
 
   .clients-topbar {
     top: 8px;
+    width: calc(100vw - 20px);
+    min-height: 62px;
+    padding: 9px 10px;
     border-radius: 19px;
   }
 
+  .clients-directory-view {
+    padding-top: 86px;
+  }
+
   .clients-topbar.profile {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
+  }
+
+  .clients-profile-view {
+    padding-top: 150px;
   }
 
   .clients-profile-top-actions {
@@ -1802,6 +1849,10 @@
 }
 
 @media (max-width: 520px) {
+  .clients-topbar {
+    width: calc(100vw - 16px);
+  }
+
   .clients-topbar > .clients-action.primary {
     width: 42px;
     padding: 0;
@@ -1862,5 +1913,675 @@
 
   .clients-list-row:hover {
     transform: none;
+  }
+}
+
+/* =========================================================
+   AUDITORÍA INTERNA
+   ========================================================= */
+
+.clients-audit-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.clients-audit-hero,
+.clients-audit-card,
+.clients-audit-panel {
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 18px 42px rgba(39, 45, 53, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.clients-audit-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.clients-audit-hero-icon {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 17px;
+  color: #ffffff;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.22), transparent),
+    linear-gradient(135deg, #8b78fa, #4faaff);
+  box-shadow:
+    0 12px 26px rgba(112, 102, 235, 0.24),
+    inset 0 1px 0 rgba(255,255,255,.4),
+    inset 0 -7px 14px rgba(57, 60, 118, 0.18);
+}
+
+.clients-audit-hero span,
+.clients-audit-card header span,
+.clients-audit-panel header span {
+  display: block;
+  margin-bottom: 4px;
+  color: #8995a0;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.clients-audit-hero h3,
+.clients-audit-card h3,
+.clients-audit-panel h3 {
+  margin: 0;
+  color: #272d35;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.clients-audit-hero p,
+.clients-audit-card p {
+  margin: 6px 0 0;
+  max-width: 820px;
+  color: #73808c;
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
+.clients-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.clients-audit-card {
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.clients-audit-card::after {
+  content: "";
+  position: absolute;
+  right: -34px;
+  bottom: -42px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  opacity: .7;
+  pointer-events: none;
+}
+
+.clients-audit-card.credit::after {
+  background: rgba(59, 206, 172, .12);
+}
+
+.clients-audit-card.danger::after {
+  background: rgba(255, 107, 139, .13);
+}
+
+.clients-audit-card > header,
+.clients-audit-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.clients-audit-card.credit > header > svg {
+  color: #219677;
+}
+
+.clients-audit-card.danger > header > svg {
+  color: #ff527a;
+}
+
+.clients-audit-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 13px 15px;
+  border: 1px solid rgba(59, 206, 172, .18);
+  border-radius: 16px;
+  background: rgba(59, 206, 172, .07);
+}
+
+.clients-audit-value span {
+  color: #73808c;
+  font-size: .76rem;
+  font-weight: 700;
+}
+
+.clients-audit-value strong {
+  color: #219677;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.clients-audit-danger-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.clients-audit-danger-summary span {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 107, 139, .16);
+  border-radius: 999px;
+  color: #bd4562;
+  background: rgba(255, 107, 139, .08);
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.clients-audit-credit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.clients-audit-credit-actions .clients-audit-button {
+  flex: 1 1 210px;
+}
+
+.clients-audit-button {
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 13px;
+  font-size: .76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.clients-audit-button:hover {
+  transform: translateY(-2px);
+}
+
+.clients-audit-button.credit {
+  border: 1px solid rgba(59, 206, 172, .22);
+  color: #147b65;
+  background: rgba(59, 206, 172, .1);
+  box-shadow: 0 9px 20px rgba(59, 206, 172, .10);
+}
+
+.clients-audit-button.reverse {
+  border: 1px solid rgba(255, 209, 102, .32);
+  color: #8b6812;
+  background: rgba(255, 209, 102, .14);
+  box-shadow: 0 9px 20px rgba(255, 209, 102, .10);
+}
+
+.clients-audit-button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.clients-audit-button.danger {
+  border: 1px solid rgba(255, 107, 139, .24);
+  color: #c34160;
+  background: rgba(255, 107, 139, .10);
+  box-shadow: 0 9px 20px rgba(255, 107, 139, .10);
+}
+
+.clients-audit-panel {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.clients-audit-panel > header > svg {
+  color: #667782;
+}
+
+.clients-audit-ticket-list,
+.clients-audit-history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clients-audit-ticket-list > article,
+.clients-audit-history > article {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 45, 53, .07);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .82);
+}
+
+.clients-audit-ticket-list > article > div:first-child,
+.clients-audit-history .grow {
+  min-width: 0;
+  flex: 1;
+}
+
+.clients-audit-ticket-list strong,
+.clients-audit-history strong {
+  display: block;
+  color: #2d343d;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.clients-audit-ticket-list span,
+.clients-audit-history span,
+.clients-audit-history small {
+  display: block;
+  margin-top: 3px;
+  color: #83909b;
+  font-size: .69rem;
+  line-height: 1.4;
+}
+
+.clients-audit-ticket-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clients-audit-ticket-actions button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgba(39, 45, 53, .08);
+  border-radius: 11px;
+  color: #62717d;
+  background: #ffffff;
+  font-size: .69rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.clients-audit-ticket-actions button.danger {
+  border-color: rgba(255, 107, 139, .2);
+  color: #cb4665;
+  background: rgba(255, 107, 139, .07);
+}
+
+.clients-audit-history-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.clients-audit-history-icon.credit {
+  color: #16876e;
+  background: rgba(59, 206, 172, .12);
+}
+
+.clients-audit-history-icon.danger {
+  color: #c84261;
+  background: rgba(255, 107, 139, .12);
+}
+
+.clients-audit-history-icon.reverse {
+  color: #9a7415;
+  background: rgba(255, 209, 102, .18);
+}
+
+.clients-audit-history-reverse {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 209, 102, .32);
+  border-radius: 11px;
+  color: #8a6710;
+  background: rgba(255, 209, 102, .12);
+  font-size: .68rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.clients-audit-history-reverse:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(255, 209, 102, .13);
+}
+
+.clients-audit-modal {
+  width: min(560px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow:
+    0 34px 80px rgba(39, 45, 53, .20),
+    inset 0 1px 0 rgba(255,255,255,.95);
+}
+
+.clients-audit-modal > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(39, 45, 53, .07);
+}
+
+.clients-audit-modal.credit > header {
+  background: linear-gradient(135deg, rgba(59,206,172,.12), rgba(79,170,255,.05));
+}
+
+.clients-audit-modal.reverse > header {
+  background: linear-gradient(135deg, rgba(255,209,102,.18), rgba(255,139,106,.05));
+}
+
+.clients-audit-modal.danger > header {
+  background: linear-gradient(135deg, rgba(255,107,139,.14), rgba(255,209,102,.05));
+}
+
+.clients-audit-modal > header span {
+  display: block;
+  color: #89949e;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.clients-audit-modal > header h3 {
+  margin: 3px 0 0;
+  color: #272d35;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.clients-audit-modal-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+}
+
+.clients-audit-modal.credit .clients-audit-modal-icon {
+  color: #137d66;
+  background: rgba(59,206,172,.14);
+}
+
+.clients-audit-modal.reverse .clients-audit-modal-icon {
+  color: #936d0a;
+  background: rgba(255,209,102,.20);
+}
+
+.clients-audit-modal.danger .clients-audit-modal-icon {
+  color: #cf4565;
+  background: rgba(255,107,139,.14);
+  animation: clientsAuditPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes clientsAuditPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,139,.18); }
+  50% { box-shadow: 0 0 0 8px rgba(255,107,139,0); }
+}
+
+.clients-audit-modal-close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(39,45,53,.08);
+  border-radius: 12px;
+  color: #73808c;
+  background: #fff;
+  cursor: pointer;
+}
+
+.clients-audit-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+}
+
+.clients-audit-modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.clients-audit-modal-body label > span {
+  color: #5f6e79;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.clients-audit-modal-body input,
+.clients-audit-modal-body select,
+.clients-audit-modal-body textarea {
+  width: 100%;
+  border: 1px solid rgba(39,45,53,.10);
+  border-radius: 13px;
+  outline: none;
+  color: #272d35;
+  background: #f9fbfb;
+  font: inherit;
+  font-size: .8rem;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.clients-audit-modal-body input,
+.clients-audit-modal-body select {
+  min-height: 43px;
+  padding: 0 13px;
+}
+
+.clients-audit-modal-body textarea {
+  min-height: 86px;
+  resize: vertical;
+  padding: 11px 13px;
+}
+
+.clients-audit-modal-body input:focus,
+.clients-audit-modal-body select:focus,
+.clients-audit-modal-body textarea:focus {
+  border-color: rgba(79, 170, 255, .35);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(79, 170, 255, .08);
+}
+
+.clients-audit-balance-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid rgba(59,206,172,.16);
+  border-radius: 15px;
+  background: rgba(59,206,172,.07);
+}
+
+.clients-audit-balance-preview span {
+  color: #73808c;
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.clients-audit-balance-preview strong {
+  color: #18846d;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.clients-audit-balance-preview.reverse {
+  border-color: rgba(255,209,102,.26);
+  background: rgba(255,209,102,.10);
+}
+
+.clients-audit-balance-preview.reverse strong {
+  color: #8c6810;
+}
+
+.clients-audit-info-box,
+.clients-audit-delete-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.clients-audit-info-box {
+  color: #426c82;
+  border: 1px solid rgba(79,170,255,.16);
+  background: rgba(79,170,255,.07);
+}
+
+.clients-audit-info-box.reverse {
+  color: #7f651f;
+  border-color: rgba(255,209,102,.28);
+  background: rgba(255,209,102,.11);
+}
+
+.clients-audit-delete-preview {
+  color: #8d4053;
+  border: 1px solid rgba(255,107,139,.18);
+  background: rgba(255,107,139,.08);
+}
+
+.clients-audit-delete-preview svg,
+.clients-audit-info-box svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.clients-audit-delete-preview strong,
+.clients-audit-delete-preview span {
+  display: block;
+}
+
+.clients-audit-delete-preview span {
+  margin-top: 3px;
+  color: #8d6570;
+}
+
+.clients-audit-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(39,45,53,.06);
+}
+
+.clients-audit-modal > footer button {
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: 13px;
+  font-size: .74rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clients-audit-modal > footer .ghost {
+  border: 1px solid rgba(39,45,53,.09);
+  color: #687681;
+  background: #fff;
+}
+
+.clients-audit-modal > footer .audit-credit {
+  border: 1px solid rgba(59,206,172,.24);
+  color: #126f5c;
+  background: rgba(59,206,172,.14);
+}
+
+.clients-audit-modal > footer .audit-reverse {
+  border: 1px solid rgba(255,209,102,.38);
+  color: #7d5d0c;
+  background: rgba(255,209,102,.18);
+}
+
+.clients-audit-modal > footer .audit-danger {
+  border: 1px solid rgba(255,107,139,.28);
+  color: #b73554;
+  background: rgba(255,107,139,.15);
+}
+
+.clients-audit-modal > footer button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+@media (max-width: 900px) {
+  .clients-audit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-audit-ticket-list > article {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .clients-audit-ticket-actions {
+    width: 100%;
+  }
+
+  .clients-audit-ticket-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .clients-audit-hero,
+  .clients-audit-card,
+  .clients-audit-panel {
+    border-radius: 20px;
+    padding: 16px;
+  }
+
+  .clients-audit-ticket-actions {
+    flex-direction: column;
+  }
+
+  .clients-audit-ticket-actions button {
+    width: 100%;
+  }
+
+  .clients-audit-history > article {
+    align-items: flex-start;
+  }
+
+  .clients-audit-history-reverse {
+    width: 100%;
+  }
+
+  .clients-audit-modal > footer {
+    flex-direction: column-reverse;
+  }
+
+  .clients-audit-modal > footer button {
+    width: 100%;
   }
 }

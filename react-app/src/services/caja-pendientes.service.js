@@ -11,6 +11,11 @@ import {
   db,
 } from "./firebase.js";
 
+import {
+  DEFAULT_CREDIT_SETTINGS,
+  getCreditFinancials,
+} from "./creditos.service.js";
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -752,6 +757,119 @@ export async function sendBudgetToCash(
       ticketId: null,
       total,
       cliente: budget.cliente || "Mostrador",
+    };
+  });
+}
+
+/* =========================================
+   ENVIAR COBRO DE CRÉDITO A CAJA
+========================================= */
+
+export async function sendCreditPaymentToCash(
+  creditId,
+  amount,
+  {
+    forgiveLateFees = false,
+    author = "Sistema",
+  } = {}
+) {
+  const cleanCreditId = cleanText(creditId);
+  const numericAmount = Math.max(0, Number(amount || 0));
+  const cleanAuthor = cleanText(author) || "Sistema";
+
+  if (!cleanCreditId) {
+    throw new Error("CREDIT_ID_REQUIRED");
+  }
+
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new Error("CASH_PENDING_AMOUNT_INVALID");
+  }
+
+  const safeId = cleanCreditId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const pendingId = `credito_${safeId}`;
+  const pendingRef = doc(db, "caja_pendientes", pendingId);
+  const creditRef = doc(db, "creditos", cleanCreditId);
+  const settingsRef = doc(db, "negocio", "configuracion");
+
+  return runTransaction(db, async (transaction) => {
+    const creditSnapshot = await transaction.get(creditRef);
+    const pendingSnapshot = await transaction.get(pendingRef);
+    const settingsSnapshot = await transaction.get(settingsRef);
+
+    if (!creditSnapshot.exists()) {
+      throw new Error("CREDIT_NOT_FOUND");
+    }
+
+    if (pendingSnapshot.exists()) {
+      throw new Error("CASH_PENDING_EXISTS");
+    }
+
+    const credit = {
+      id: creditSnapshot.id,
+      ...creditSnapshot.data(),
+    };
+    const state = cleanText(credit.estado).toLowerCase();
+    const settings = settingsSnapshot.exists()
+      ? settingsSnapshot.data()
+      : DEFAULT_CREDIT_SETTINGS;
+    const financials = getCreditFinancials(credit, settings);
+
+    if (
+      ["saldado", "refinanciado", "cancelado", "anulado"].includes(state) ||
+      financials.capitalBalance <= 0
+    ) {
+      throw new Error("CREDIT_CLOSED");
+    }
+
+    const maxPayable = Boolean(forgiveLateFees)
+      ? financials.capitalBalance
+      : financials.totalDue;
+
+    if (numericAmount > maxPayable + 0.01) {
+      const error = new Error("CASH_PENDING_AMOUNT_EXCEEDS_DEBT");
+      error.available = maxPayable;
+      throw error;
+    }
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+
+    transaction.set(pendingRef, {
+      id: pendingId,
+      origen: "Crédito",
+      ref: cleanCreditId,
+      creditoId: cleanCreditId,
+      facturaId: cleanText(credit.facturaId) || null,
+      clienteId: cleanText(credit.clienteId) || null,
+      cliente: cleanText(credit.cliente) || "Cliente",
+      concepto: `Cobranza ${cleanCreditId}`,
+      total: numericAmount,
+      importeSolicitado: numericAmount,
+      forgiveLateFees: Boolean(forgiveLateFees),
+      estado: "Pendiente",
+      creadoEn: nowISO,
+      fecha: nowISO.split("T")[0],
+      hora: now.toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      autor: cleanAuthor,
+      articulosCart: [
+        {
+          sku: "",
+          nombre: `Cobranza crédito ${cleanCreditId}`,
+          descripcion: `Pago a cuenta de ${cleanCreditId}`,
+          cantidad: 1,
+          precio: numericAmount,
+          tipo: "Servicio",
+        },
+      ],
+    });
+
+    return {
+      pendingId,
+      creditId: cleanCreditId,
+      total: numericAmount,
     };
   });
 }

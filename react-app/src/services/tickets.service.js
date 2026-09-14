@@ -15,6 +15,10 @@ import {
 
 import { db } from "./firebase.js";
 
+import {
+  releaseTicketStockInTransaction,
+} from "./productos.service.js";
+
 
 /* =========================================
    ESTADOS DE TICKET
@@ -1276,6 +1280,44 @@ export async function updateTicketStage(
         logDetail +=
           ` | Garantía activada por ${warrantyDays} días` +
           ` (hasta ${formatDisplayYMD(expirationYMD)}).`;
+      }
+
+      if (
+        [
+          "cancelado",
+          "noreparable",
+          "presupuesto_rechazado",
+        ].includes(
+          newStage
+        ) &&
+        currentTicket.presupuestoAprobado ===
+          true
+      ) {
+        const released =
+          await releaseTicketStockInTransaction(
+            transaction,
+            {
+              ticketId:
+                ticket.id,
+              pieces:
+                currentTicket.piezas ||
+                [],
+              author,
+              reference:
+                currentTicket.presupuestoId ||
+                ticket.id,
+              reason:
+                `Ticket pasó a ${newStageLabel}`,
+            }
+          );
+
+        if (
+          released.released >
+          0
+        ) {
+          logDetail +=
+            ` | Reserva liberada: ${released.released} un.`;
+        }
       }
 
       const historyEntry =
@@ -2689,6 +2731,24 @@ export async function unlockTicketBudget(
         new Date()
           .toISOString();
 
+      const releasedReservation =
+        await releaseTicketStockInTransaction(
+          transaction,
+          {
+            ticketId:
+              cleanTicketId,
+            pieces:
+              ticketData.piezas ||
+              [],
+            author,
+            reference:
+              presupuestoId ||
+              cleanTicketId,
+            reason:
+              "Presupuesto desbloqueado",
+          }
+        );
+
       const ticketHistoryEntry =
         createHistoryEntry({
           author,
@@ -2697,9 +2757,16 @@ export async function unlockTicketBudget(
             "Presupuesto desbloqueado",
 
           detail:
-            presupuestoId
-              ? `Se habilitó la edición del presupuesto ${presupuestoId}.`
-              : "Se habilitó nuevamente la edición del presupuesto.",
+            (
+              presupuestoId
+                ? `Se habilitó la edición del presupuesto ${presupuestoId}.`
+                : "Se habilitó nuevamente la edición del presupuesto."
+            ) +
+            (
+              releasedReservation.released > 0
+                ? ` Reserva liberada: ${releasedReservation.released} un.`
+                : ""
+            ),
         });
 
       const ticketHistory =

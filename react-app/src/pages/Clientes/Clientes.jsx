@@ -16,6 +16,10 @@ import {
 } from "motion/react";
 
 import {
+  createPortal,
+} from "react-dom";
+
+import {
   AlertTriangle,
   Archive,
   ArchiveRestore,
@@ -31,12 +35,17 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  RotateCcw,
   Search,
   ShoppingBag,
   Ticket,
   Trash2,
   UserRound,
   WalletCards,
+  ShieldCheck,
+  ShieldAlert,
+  History,
+  CircleDollarSign,
   X,
 } from "lucide-react";
 
@@ -47,7 +56,6 @@ import {
 import {
   addClientNote,
   createClient,
-  deleteClient,
   getClientActivity,
   getClientDisplayName,
   getClientDocument,
@@ -63,6 +71,15 @@ import {
   getCreditStatus,
   refinanceClientCredits,
 } from "../../services/creditos.service.js";
+
+import {
+  createAuditCreditNote,
+  reverseAuditCreditNote,
+  reverseLegacyClientBalance,
+  deleteClientByAudit,
+  deleteTicketByAudit,
+  subscribeToClientAudit,
+} from "../../services/client-audit.service.js";
 
 import {
   PERMISSIONS,
@@ -252,6 +269,20 @@ function errorMessage(error) {
     CREDIT_CLIENT_BLOCKED: `El cliente registra ${error?.daysLate || 0} días de mora. Gestioná la excepción desde Créditos.`,
     CREDIT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
     CLIENT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
+    AUDIT_AMOUNT_INVALID: "Ingresá un monto mayor a cero.",
+    AUDIT_CREDIT_NOTE_REQUIRED: "Seleccioná la acreditación que querés revertir.",
+    AUDIT_CREDIT_NOTE_NOT_FOUND: "No se encontró la Nota de Crédito original.",
+    AUDIT_CREDIT_NOTE_INVALID: "La acreditación seleccionada no pertenece a este cliente o no fue creada por Auditoría.",
+    AUDIT_CREDIT_NOT_REVERSIBLE: "Esta acreditación ya no tiene saldo disponible para revertir.",
+    AUDIT_BALANCE_NOT_AVAILABLE: "El cliente no tiene saldo a favor disponible para revertir.",
+    AUDIT_REVERSAL_EXCEEDS_AVAILABLE: `Solo podés revertir hasta ${formatMoney(error?.available)}.`,
+    AUDIT_REASON_REQUIRED: "Ingresá un motivo administrativo.",
+    AUDIT_CONFIRM_REQUIRED: "Escribí ELIMINAR para confirmar la operación.",
+    AUDIT_TOO_MANY_TICKETS: `Hay demasiados tickets asociados (${error?.count || 0}). Eliminá algunos tickets desde Auditoría antes de borrar el cliente.`,
+    CLIENT_NOT_FOUND: "El cliente ya no existe.",
+    TICKET_ID_REQUIRED: "No pudimos identificar el ticket.",
+    TICKET_NOT_FOUND: "El ticket ya no existe.",
+    TICKET_CLIENT_MISMATCH: "El ticket no pertenece al cliente seleccionado.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";
@@ -301,7 +332,7 @@ export default function Clientes() {
     canSales &&
     canCredits;
 
-  const canDeleteClient =
+  const canAudit =
     profileHasPermission(
       profile,
       PERMISSIONS.ALL
@@ -322,6 +353,7 @@ export default function Clientes() {
       ...(canCredits ? ["credits"] : []),
       ...(canBudgets ? ["budgets"] : []),
       ...(canAccount ? ["account"] : []),
+      ...(canAudit ? ["audit"] : []),
     ],
     [
       canTickets,
@@ -330,6 +362,7 @@ export default function Clientes() {
       canCredits,
       canBudgets,
       canAccount,
+      canAudit,
     ]
   );
 
@@ -362,7 +395,6 @@ export default function Clientes() {
   const [editingClient, setEditingClient] = useState(false);
   const [clientForm, setClientForm] = useState(EMPTY_CLIENT);
   const [savingClient, setSavingClient] = useState(false);
-  const [deletingClient, setDeletingClient] = useState(false);
   const [archivingClient, setArchivingClient] = useState(false);
 
   const [creditModal, setCreditModal] = useState(false);
@@ -377,6 +409,13 @@ export default function Clientes() {
   const [savingLimit, setSavingLimit] = useState(false);
 
   const [toasts, setToasts] = useState([]);
+
+  const [auditRows, setAuditRows] = useState([]);
+  const [auditAction, setAuditAction] = useState(null);
+  const [auditReason, setAuditReason] = useState("");
+  const [auditConfirmText, setAuditConfirmText] = useState("");
+  const [auditAmount, setAuditAmount] = useState("");
+  const [savingAudit, setSavingAudit] = useState(false);
 
   const dismissToast = useCallback((toastId) => {
     setToasts((current) =>
@@ -468,6 +507,25 @@ export default function Clientes() {
     uiNotify,
   ]);
 
+  useEffect(() => {
+    if (!canAudit || !selectedClientId) {
+      setAuditRows([]);
+      return undefined;
+    }
+
+    return subscribeToClientAudit(
+      selectedClientId,
+      setAuditRows,
+      (error) => {
+        console.error(error);
+        uiNotify.error(
+          "Auditoría interna",
+          "No se pudo cargar el historial de auditoría."
+        );
+      }
+    );
+  }, [canAudit, selectedClientId, uiNotify]);
+
   /* =======================================
      CONTEXTO DE CLIENTE EN LA URL
      Permite volver al mismo perfil y pestaña.
@@ -543,6 +601,36 @@ export default function Clientes() {
         : null,
     [selectedClient, index]
   );
+
+  const reversibleAuditCredits = useMemo(() => {
+    const reversedByNote = new Map();
+
+    auditRows
+      .filter((row) => row.accion === "SALDO_ACREDITACION_REVERTIDA")
+      .forEach((row) => {
+        const noteId = String(row.notaCreditoId || "").trim();
+        if (!noteId) return;
+
+        reversedByNote.set(
+          noteId,
+          (reversedByNote.get(noteId) || 0) + Number(row.monto || 0)
+        );
+      });
+
+    return auditRows
+      .filter((row) => row.accion === "SALDO_ACREDITADO_NC" && row.notaCreditoId)
+      .map((row) => {
+        const original = Number(row.monto || 0);
+        const reversed = Number(reversedByNote.get(row.notaCreditoId) || 0);
+        return {
+          ...row,
+          originalAmount: original,
+          reversedAmount: reversed,
+          remainingAmount: Math.max(0, original - reversed),
+        };
+      })
+      .filter((row) => row.remainingAmount > 0.0001);
+  }, [auditRows]);
 
 
   const selectedDevices = useMemo(() => {
@@ -762,52 +850,183 @@ export default function Clientes() {
     }
   };
 
-  const handleDeleteClient = async () => {
-    if (
-      !selectedClient ||
-      !canDeleteClient
-    ) {
+  const openAuditAction = (type, payload = null) => {
+    let nextPayload = payload;
+
+    if (type === "credit-reverse" && !nextPayload) {
+      nextPayload = reversibleAuditCredits[0] || {
+        legacy: true,
+        notaCreditoId: "__legacy__",
+        remainingAmount: Number(selectedClient?.saldoAFavor || 0),
+      };
+    }
+
+    setAuditAction({ type, payload: nextPayload });
+    setAuditReason("");
+    setAuditConfirmText("");
+
+    if (type === "credit-reverse" && nextPayload) {
+      const maxAmount = nextPayload.legacy
+        ? Number(selectedClient?.saldoAFavor || 0)
+        : Math.min(
+            Number(nextPayload.remainingAmount || nextPayload.monto || 0),
+            Number(selectedClient?.saldoAFavor || 0)
+          );
+      setAuditAmount(maxAmount > 0 ? String(maxAmount) : "");
+    } else {
+      setAuditAmount("");
+    }
+  };
+
+  const closeAuditAction = () => {
+    if (savingAudit) return;
+    setAuditAction(null);
+    setAuditReason("");
+    setAuditConfirmText("");
+    setAuditAmount("");
+  };
+
+  const handleAuditAction = async () => {
+    if (!selectedClient || !canAudit || !auditAction) {
       return;
     }
 
-    const name =
-      getClientDisplayName(
-        selectedClient
-      );
+    const reason = auditReason.trim();
 
-    const confirmed =
-      window.confirm(
-        `¿Eliminar definitivamente a ${name}?\n\nSolo se permitirá si no tiene tickets, créditos, ventas, facturas, presupuestos, movimientos de Caja o cuenta corriente asociados.`
+    if (!reason) {
+      uiNotify.warning(
+        "Motivo obligatorio",
+        "Indicá por qué se realiza esta acción administrativa."
       );
-
-    if (!confirmed) {
       return;
     }
 
     try {
-      setDeletingClient(true);
+      setSavingAudit(true);
 
-      await deleteClient(
-        selectedClient
-      );
+      if (auditAction.type === "credit") {
+        const amount = Number(auditAmount);
 
-      setClientContext(
-        null
-      );
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("AUDIT_AMOUNT_INVALID");
+        }
 
-      uiNotify.success(
-        "Cliente eliminado",
-        `${name} fue eliminado de la base de clientes.`
-      );
+        const result = await createAuditCreditNote({
+          clientId: selectedClient.id,
+          amount,
+          reason,
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        uiNotify.success(
+          "Saldo acreditado",
+          `${result.noteId} · +${formatMoney(result.amount)} · Nuevo saldo ${formatMoney(result.balance)}`
+        );
+      }
+
+      if (auditAction.type === "credit-reverse") {
+        const amount = Number(auditAmount);
+        const source = auditAction.payload;
+
+        if (!source) {
+          throw new Error("AUDIT_CREDIT_NOTE_REQUIRED");
+        }
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("AUDIT_AMOUNT_INVALID");
+        }
+
+        const result = source.legacy
+          ? await reverseLegacyClientBalance({
+              clientId: selectedClient.id,
+              amount,
+              reason,
+              author,
+              actorUid: user?.uid || null,
+            })
+          : await reverseAuditCreditNote({
+              clientId: selectedClient.id,
+              creditAudit: source,
+              amount,
+              reason,
+              author,
+              actorUid: user?.uid || null,
+            });
+
+        uiNotify.success(
+          source.legacy ? "Saldo anterior revertido" : "Acreditación revertida",
+          `${result.debitNoteId} · -${formatMoney(result.amount)} · Nuevo saldo ${formatMoney(result.balance)}`
+        );
+      }
+
+      if (auditAction.type === "ticket-delete") {
+        if (auditConfirmText.trim().toUpperCase() !== "ELIMINAR") {
+          throw new Error("AUDIT_CONFIRM_REQUIRED");
+        }
+
+        const ticket = auditAction.payload;
+
+        await deleteTicketByAudit({
+          ticketId: ticket?.id,
+          clientId: selectedClient.id,
+          clientName: getClientDisplayName(selectedClient),
+          reason,
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        uiNotify.success(
+          "Ticket eliminado",
+          `${ticket?.numero || ticket?.codigo || ticket?.id || "Ticket"} quedó registrado en Auditoría.`
+        );
+      }
+
+      if (auditAction.type === "client-delete") {
+        if (auditConfirmText.trim().toUpperCase() !== "ELIMINAR") {
+          throw new Error("AUDIT_CONFIRM_REQUIRED");
+        }
+
+        const name = getClientDisplayName(selectedClient);
+
+        const result = await deleteClientByAudit({
+          client: selectedClient,
+          reason,
+          summary: {
+            tickets: selectedActivity?.tickets.length || 0,
+            ventas: selectedActivity?.sales.length || 0,
+            facturas: selectedActivity?.invoices.length || 0,
+            creditos: selectedActivity?.credits.length || 0,
+            presupuestos: selectedActivity?.budgets.length || 0,
+            cuentaCorriente: selectedActivity?.account.length || 0,
+            deuda: selectedActivity?.debt || 0,
+          },
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        setAuditAction(null);
+        setClientContext(null);
+
+        const deletedTickets = Number(result?.deletedTickets || 0);
+
+        uiNotify.success(
+          "Cliente eliminado por auditoría",
+          `${name} fue eliminado junto con ${deletedTickets} ${deletedTickets === 1 ? "ticket asociado" : "tickets asociados"}. El historial financiero y la Auditoría se conservan.`
+        );
+
+        return;
+      }
+
+      closeAuditAction();
     } catch (error) {
       console.error(error);
-
       uiNotify.error(
-        "No se pudo eliminar",
+        "Auditoría interna",
         errorMessage(error)
       );
     } finally {
-      setDeletingClient(false);
+      setSavingAudit(false);
     }
   };
 
@@ -1152,6 +1371,101 @@ export default function Clientes() {
   return (
     <main className="clients-page">
       <div className="clients-shell">
+        {typeof document !== "undefined" &&
+          createPortal(
+            <header className={`clients-topbar${selectedClient ? " profile" : ""}`}>
+              {!selectedClient ? (
+                <>
+                  <div className="clients-brand">
+                    <button
+                      type="button"
+                      className="clients-icon-button"
+                      onClick={() => navigate("/dashboard")}
+                      title="Volver al Dashboard"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+            
+                    <div className="clients-brand-mark">
+                      <UserRound size={20} />
+                    </div>
+            
+                    <div>
+                      <strong>ALEX SOPORTE TECNICO</strong>
+                      <span>Clientes</span>
+                    </div>
+                  </div>
+            
+                  <button
+                    type="button"
+                    className="clients-action primary"
+                    onClick={openNewClient}
+                  >
+                    <Plus size={17} />
+                    Nuevo cliente
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="clients-brand">
+                    <button
+                      type="button"
+                      className="clients-icon-button"
+                      onClick={() => setClientContext(null)}
+                      title="Volver a Clientes"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+            
+                    <div className="clients-brand-mark profile">
+                      {initials(getClientDisplayName(selectedClient))}
+                    </div>
+            
+                    <div>
+                      <strong>{getClientDisplayName(selectedClient)}</strong>
+                      <span>Perfil de cliente</span>
+                    </div>
+                  </div>
+            
+                  <div className="clients-profile-top-actions">
+                    <button
+                      type="button"
+                      className="clients-action"
+                      onClick={openEditClient}
+                    >
+                      <Pencil size={16} />
+                      Editar
+                    </button>
+            
+                    {canManageClientLifecycle && (
+                      <button
+                        type="button"
+                        className={`clients-action ${
+                          selectedClient.archivado === true
+                            ? "restore"
+                            : "archive"
+                        }`}
+                        disabled={archivingClient}
+                        onClick={handleArchiveClient}
+                      >
+                        {selectedClient.archivado === true ? (
+                          <ArchiveRestore size={16} />
+                        ) : (
+                          <Archive size={16} />
+                        )}
+                        {selectedClient.archivado === true ? "Restaurar" : "Archivar"}
+                      </button>
+                    )}
+            
+                  </div>
+                </>
+              )}
+            </header>
+            ,
+            document.body
+          )}
+
+
         <AnimatePresence mode="wait">
           {!selectedClient ? (
             <motion.section
@@ -1162,36 +1476,7 @@ export default function Clientes() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
             >
-              <header className="clients-topbar">
-                <div className="clients-brand">
-                  <button
-                    type="button"
-                    className="clients-icon-button"
-                    onClick={() => navigate("/dashboard")}
-                    title="Volver al Dashboard"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
 
-                  <div className="clients-brand-mark">
-                    <UserRound size={20} />
-                  </div>
-
-                  <div>
-                    <strong>SERVIX</strong>
-                    <span>Clientes</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="clients-action primary"
-                  onClick={openNewClient}
-                >
-                  <Plus size={17} />
-                  Nuevo cliente
-                </button>
-              </header>
 
               <div className="clients-directory-title">
                 <div>
@@ -1389,70 +1674,7 @@ export default function Clientes() {
               exit={{ opacity: 0, x: -12 }}
               transition={{ duration: 0.24 }}
             >
-              <header className="clients-topbar profile">
-                <div className="clients-brand">
-                  <button
-                    type="button"
-                    className="clients-icon-button"
-                    onClick={() => setClientContext(null)}
-                    title="Volver a Clientes"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
 
-                  <div className="clients-brand-mark profile">
-                    {initials(getClientDisplayName(selectedClient))}
-                  </div>
-
-                  <div>
-                    <strong>{getClientDisplayName(selectedClient)}</strong>
-                    <span>Perfil de cliente</span>
-                  </div>
-                </div>
-
-                <div className="clients-profile-top-actions">
-                  <button
-                    type="button"
-                    className="clients-action"
-                    onClick={openEditClient}
-                  >
-                    <Pencil size={16} />
-                    Editar
-                  </button>
-
-                  {canManageClientLifecycle && (
-                    <button
-                      type="button"
-                      className={`clients-action ${
-                        selectedClient.archivado === true
-                          ? "restore"
-                          : "archive"
-                      }`}
-                      disabled={archivingClient}
-                      onClick={handleArchiveClient}
-                    >
-                      {selectedClient.archivado === true ? (
-                        <ArchiveRestore size={16} />
-                      ) : (
-                        <Archive size={16} />
-                      )}
-                      {selectedClient.archivado === true ? "Restaurar" : "Archivar"}
-                    </button>
-                  )}
-
-                  {canDeleteClient && (
-                    <button
-                      type="button"
-                      className="clients-action danger"
-                      disabled={deletingClient || archivingClient}
-                      onClick={handleDeleteClient}
-                    >
-                      <Trash2 size={16} />
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-              </header>
 
               <section className="clients-profile-hero">
                 <div className="clients-profile-identity">
@@ -1628,6 +1850,9 @@ export default function Clientes() {
                     : []),
                   ...(canAccount
                     ? [["account", "Cuenta corriente", WalletCards]]
+                    : []),
+                  ...(canAudit
+                    ? [["audit", "Auditoría interna", ShieldCheck]]
                     : []),
                 ].map(([id, label, Icon]) => (
                   <button
@@ -2106,6 +2331,233 @@ export default function Clientes() {
                       </div>
                     </section>
                   )}
+
+                  {activeTab === "audit" && canAudit && (
+                    <div className="clients-audit-layout">
+                      <section className="clients-audit-hero">
+                        <div className="clients-audit-hero-icon">
+                          <ShieldCheck size={28} />
+                        </div>
+                        <div>
+                          <span>Acceso administrativo</span>
+                          <h3>Auditoría interna</h3>
+                          <p>
+                            Las acciones de esta sección son sensibles. Cada operación
+                            exige un motivo y queda registrada con usuario, fecha y datos
+                            de respaldo.
+                          </p>
+                        </div>
+                      </section>
+
+                      <div className="clients-audit-grid">
+                        <section className="clients-audit-card credit">
+                          <header>
+                            <div>
+                              <span>Ajuste financiero</span>
+                              <h3>Acreditar saldo</h3>
+                            </div>
+                            <CircleDollarSign size={22} />
+                          </header>
+
+                          <p>
+                            Agrega saldo a favor y genera automáticamente una Nota de
+                            Crédito interna, un movimiento de cuenta corriente y un
+                            registro de auditoría.
+                          </p>
+
+                          <div className="clients-audit-value">
+                            <span>Saldo actual</span>
+                            <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                          </div>
+
+                          <div className="clients-audit-credit-actions">
+                            <button
+                              type="button"
+                              className="clients-audit-button credit"
+                              onClick={() => openAuditAction("credit")}
+                            >
+                              <Plus size={16} />
+                              Acreditar con Nota de Crédito
+                            </button>
+
+                            <button
+                              type="button"
+                              className="clients-audit-button reverse"
+                              disabled={Number(selectedClient.saldoAFavor || 0) <= 0}
+                              onClick={() => openAuditAction("credit-reverse")}
+                              title={
+                                Number(selectedClient.saldoAFavor || 0) > 0
+                                  ? "Revertir una acreditación registrada o saldo anterior"
+                                  : "El cliente no tiene saldo a favor disponible"
+                              }
+                            >
+                              <RotateCcw size={16} />
+                              Revertir acreditación
+                            </button>
+                          </div>
+                        </section>
+
+                        <section className="clients-audit-card danger">
+                          <header>
+                            <div>
+                              <span>Zona crítica</span>
+                              <h3>Eliminar cliente</h3>
+                            </div>
+                            <ShieldAlert size={22} />
+                          </header>
+
+                          <p>
+                            Permite eliminar el cliente aunque tenga saldo a favor. También se
+                            eliminan sus tickets asociados, dejando una copia completa en
+                            Auditoría. Los comprobantes y movimientos financieros no se eliminan.
+                          </p>
+
+                          <div className="clients-audit-danger-summary">
+                            <span>{selectedActivity?.tickets.length || 0} tickets</span>
+                            <span>{selectedActivity?.credits.length || 0} créditos</span>
+                            <span>Deuda {formatMoney(selectedActivity?.debt)}</span>
+                            <span>Saldo {formatMoney(selectedClient.saldoAFavor)}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="clients-audit-button danger"
+                            onClick={() => openAuditAction("client-delete")}
+                          >
+                            <Trash2 size={16} />
+                            Eliminar cliente por auditoría
+                          </button>
+                        </section>
+                      </div>
+
+                      <section className="clients-audit-panel">
+                        <header>
+                          <div>
+                            <span>Eliminación controlada</span>
+                            <h3>Tickets vinculados</h3>
+                          </div>
+                          <Ticket size={20} />
+                        </header>
+
+                        <div className="clients-audit-ticket-list">
+                          {(selectedActivity?.tickets || []).map((ticket) => (
+                            <article key={ticket.id}>
+                              <div>
+                                <strong>
+                                  {ticket.numero || ticket.codigo || ticket.nro || ticket.id}
+                                </strong>
+                                <span>
+                                  {ticket.equipo || ticket.dispositivo || ticket.modelo || "Equipo"}
+                                  {ticket.estado ? ` · ${STAGES[ticket.estado] || ticket.estado}` : ""}
+                                </span>
+                              </div>
+
+                              <div className="clients-audit-ticket-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                >
+                                  <ExternalLink size={15} />
+                                  Ver ticket
+                                </button>
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  onClick={() => openAuditAction("ticket-delete", ticket)}
+                                >
+                                  <Trash2 size={15} />
+                                  Eliminar por auditoría
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+
+                          {!selectedActivity?.tickets.length && (
+                            <div className="clients-empty compact">
+                              <Ticket size={23} />
+                              <strong>Sin tickets vinculados</strong>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                      <section className="clients-audit-panel history">
+                        <header>
+                          <div>
+                            <span>Trazabilidad</span>
+                            <h3>Historial de auditoría</h3>
+                          </div>
+                          <History size={20} />
+                        </header>
+
+                        <div className="clients-audit-history">
+                          {auditRows.map((row) => (
+                            <article key={row.id}>
+                              <div className={`clients-audit-history-icon ${
+                                String(row.accion || "").includes("ELIMINADO")
+                                  ? "danger"
+                                  : ["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion)
+                                    ? "reverse"
+                                    : "credit"
+                              }`}>
+                                {String(row.accion || "").includes("ELIMINADO") ? (
+                                  <Trash2 size={16} />
+                                ) : ["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? (
+                                  <RotateCcw size={16} />
+                                ) : (
+                                  <CircleDollarSign size={16} />
+                                )}
+                              </div>
+                              <div className="grow">
+                                <strong>
+                                  {row.accion === "CLIENTE_ELIMINADO"
+                                    ? "Cliente eliminado"
+                                    : row.accion === "TICKET_ELIMINADO"
+                                      ? `Ticket eliminado · ${row.ticketNumero || row.entidadId || ""}`
+                                      : row.accion === "SALDO_ACREDITADO_NC"
+                                        ? `Saldo acreditado · ${row.notaCreditoId || "NC"}`
+                                        : row.accion === "SALDO_ACREDITACION_REVERTIDA"
+                                          ? `Acreditación revertida · ${row.notaDebitoId || "NDA"}`
+                                          : row.accion === "SALDO_EXISTENTE_REVERTIDO"
+                                            ? `Saldo anterior revertido · ${row.notaDebitoId || "NDA"}`
+                                            : row.accion || "Acción administrativa"}
+                                </strong>
+                                <span>{row.motivo || "Sin detalle"}</span>
+                                <small>
+                                  {formatDate(row.creadoEn)} · {row.actorNombre || "Sistema"}
+                                </small>
+                              </div>
+                              {Number(row.monto || 0) > 0 && (
+                                <strong className={`clients-money ${["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? "negative" : "positive"}`}>
+                                  {["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? "−" : "+"} {formatMoney(row.monto)}
+                                </strong>
+                              )}
+                              {row.accion === "SALDO_ACREDITADO_NC" && Number(selectedClient.saldoAFavor || 0) > 0 && reversibleAuditCredits.some((item) => item.id === row.id) && (
+                                <button
+                                  type="button"
+                                  className="clients-audit-history-reverse"
+                                  onClick={() => openAuditAction(
+                                    "credit-reverse",
+                                    reversibleAuditCredits.find((item) => item.id === row.id)
+                                  )}
+                                >
+                                  <RotateCcw size={14} />
+                                  Revertir
+                                </button>
+                              )}
+                            </article>
+                          ))}
+
+                          {!auditRows.length && (
+                            <div className="clients-empty compact">
+                              <History size={23} />
+                              <strong>Todavía no hay acciones registradas</strong>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </div>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </motion.section>
@@ -2347,6 +2799,221 @@ export default function Clientes() {
                 onClick={handleSaveClient}
               >
                 {savingClient ? "Guardando..." : "Guardar cliente"}
+              </button>
+            </footer>
+          </motion.div>
+        </div>
+      )}
+
+      {auditAction && canAudit && selectedClient && (
+        <div
+          className="clients-modal-overlay audit"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeAuditAction();
+            }
+          }}
+        >
+          <motion.div
+            className={`clients-audit-modal ${auditAction.type === "credit" ? "credit" : auditAction.type === "credit-reverse" ? "reverse" : "danger"}`}
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+          >
+            <header>
+              <div className="clients-audit-modal-icon">
+                {auditAction.type === "credit" ? (
+                  <CircleDollarSign size={24} />
+                ) : auditAction.type === "credit-reverse" ? (
+                  <RotateCcw size={24} />
+                ) : (
+                  <ShieldAlert size={24} />
+                )}
+              </div>
+              <div>
+                <span>Auditoría interna</span>
+                <h3>
+                  {auditAction.type === "credit"
+                    ? "Acreditar saldo con Nota de Crédito"
+                    : auditAction.type === "credit-reverse"
+                      ? "Revertir acreditación"
+                    : auditAction.type === "ticket-delete"
+                      ? "Eliminar ticket permanentemente"
+                      : "Eliminar cliente permanentemente"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="clients-audit-modal-close"
+                disabled={savingAudit}
+                onClick={closeAuditAction}
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="clients-audit-modal-body">
+              {auditAction.type === "credit" ? (
+                <>
+                  <div className="clients-audit-balance-preview">
+                    <span>Saldo actual</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                  </div>
+
+                  <label>
+                    <span>Monto a acreditar *</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={auditAmount}
+                      onChange={(event) => setAuditAmount(event.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <div className="clients-audit-info-box">
+                    <FileText size={18} />
+                    <span>
+                      Se generará una Nota de Crédito interna y el importe se
+                      acreditará automáticamente en la cuenta corriente del cliente.
+                    </span>
+                  </div>
+                </>
+              ) : auditAction.type === "credit-reverse" ? (
+                <>
+                  <div className="clients-audit-balance-preview reverse">
+                    <span>Saldo actual</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                  </div>
+
+                  <label>
+                    <span>Acreditación original *</span>
+                    <select
+                      value={auditAction.payload?.notaCreditoId || ""}
+                      onChange={(event) => {
+                        const selectedValue = event.target.value;
+                        const nextSource = selectedValue === "__legacy__"
+                          ? {
+                              legacy: true,
+                              notaCreditoId: "__legacy__",
+                              remainingAmount: Number(selectedClient.saldoAFavor || 0),
+                            }
+                          : reversibleAuditCredits.find(
+                              (item) => item.notaCreditoId === selectedValue
+                            );
+                        setAuditAction({ type: "credit-reverse", payload: nextSource || null });
+                        const maxAmount = nextSource?.legacy
+                          ? Number(selectedClient.saldoAFavor || 0)
+                          : Math.min(
+                              Number(nextSource?.remainingAmount || 0),
+                              Number(selectedClient.saldoAFavor || 0)
+                            );
+                        setAuditAmount(maxAmount > 0 ? String(maxAmount) : "");
+                      }}
+                    >
+                      {reversibleAuditCredits.map((item) => (
+                        <option key={item.id} value={item.notaCreditoId}>
+                          {item.notaCreditoId} · acreditado {formatMoney(item.originalAmount)} · disponible {formatMoney(Math.min(item.remainingAmount, Number(selectedClient.saldoAFavor || 0)))}
+                        </option>
+                      ))}
+                      <option value="__legacy__">
+                        Saldo existente anterior / sin NC de Auditoría · disponible {formatMoney(selectedClient.saldoAFavor)}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Monto a revertir *</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      max={auditAction.payload?.legacy
+                        ? Number(selectedClient.saldoAFavor || 0)
+                        : Math.min(
+                            Number(auditAction.payload?.remainingAmount || 0),
+                            Number(selectedClient.saldoAFavor || 0)
+                          )}
+                      value={auditAmount}
+                      onChange={(event) => setAuditAmount(event.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <div className="clients-audit-info-box reverse">
+                    <RotateCcw size={18} />
+                    <span>
+                      {auditAction.payload?.legacy
+                        ? "SERVIX descontará saldo existente anterior, generará una Nota de Débito interna y dejará registrado que la reversión no tenía una NC de Auditoría asociada."
+                        : "No se borra la acreditación original. SERVIX generará una Nota de Débito interna, descontará el saldo y registrará la reversión en cuenta corriente y Auditoría."}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="clients-audit-delete-preview">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>
+                      {auditAction.type === "ticket-delete"
+                        ? auditAction.payload?.numero || auditAction.payload?.codigo || auditAction.payload?.id
+                        : getClientDisplayName(selectedClient)}
+                    </strong>
+                    <span>
+                      Esta acción es permanente. El evento y los datos de respaldo
+                      quedarán conservados en Auditoría interna.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <label>
+                <span>Motivo administrativo *</span>
+                <textarea
+                  rows="3"
+                  value={auditReason}
+                  onChange={(event) => setAuditReason(event.target.value)}
+                  placeholder="Ej.: cliente duplicado, ticket creado por error, compensación comercial..."
+                />
+              </label>
+
+              {!["credit", "credit-reverse"].includes(auditAction.type) && (
+                <label>
+                  <span>Escribí ELIMINAR para confirmar *</span>
+                  <input
+                    value={auditConfirmText}
+                    onChange={(event) => setAuditConfirmText(event.target.value)}
+                    placeholder="ELIMINAR"
+                    autoComplete="off"
+                  />
+                </label>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="ghost"
+                disabled={savingAudit}
+                onClick={closeAuditAction}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={auditAction.type === "credit" ? "audit-credit" : auditAction.type === "credit-reverse" ? "audit-reverse" : "audit-danger"}
+                disabled={savingAudit}
+                onClick={handleAuditAction}
+              >
+                {savingAudit
+                  ? "Procesando..."
+                  : auditAction.type === "credit"
+                    ? "Generar crédito + NC"
+                    : auditAction.type === "credit-reverse"
+                      ? "Revertir saldo + NDA"
+                    : auditAction.type === "ticket-delete"
+                      ? "Eliminar ticket"
+                      : "Eliminar cliente"}
               </button>
             </footer>
           </motion.div>

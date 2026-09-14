@@ -16,93 +16,51 @@ function cleanText(value) {
 
 function toNumber(value) {
   const parsed = Number(value);
-
-  return Number.isFinite(parsed)
-    ? parsed
-    : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function localDateKey(date) {
-  if (
-    !(date instanceof Date) ||
-    Number.isNaN(date.getTime())
-  ) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return "";
   }
 
-  const year =
-    date.getFullYear();
-
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(
-      2,
-      "0"
-    );
-
-  const day =
-    String(
-      date.getDate()
-    ).padStart(
-      2,
-      "0"
-    );
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
 
-/* =========================================
-   FECHAS
-========================================= */
-
 export function parseReportDate(value) {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
-  if (
-    value instanceof Date
-  ) {
-    return Number.isNaN(
-      value.getTime()
-    )
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
       ? null
       : value;
   }
 
   if (
-    typeof value ===
-      "object" &&
-    typeof value.toDate ===
-      "function"
+    typeof value === "object" &&
+    typeof value.toDate === "function"
   ) {
-    const date =
-      value.toDate();
+    const date = value.toDate();
 
-    return Number.isNaN(
-      date.getTime()
-    )
+    return Number.isNaN(date.getTime())
       ? null
       : date;
   }
 
   const text =
-    cleanText(
-      value
-    );
+    cleanText(value);
 
-  if (!text) {
-    return null;
-  }
+  if (!text) return null;
 
   /*
    * ISO / YYYY-MM-DD
    */
   if (
-    /^\d{4}-\d{2}-\d{2}/.test(
-      text
-    )
+    /^\d{4}-\d{2}-\d{2}/.test(text)
   ) {
     const date =
       new Date(
@@ -111,14 +69,13 @@ export function parseReportDate(value) {
           : text
       );
 
-    return Number.isNaN(
-      date.getTime()
-    )
+    return Number.isNaN(date.getTime())
       ? null
       : date;
   }
 
   /*
+   * Formato argentino:
    * DD/MM/YYYY
    * DD/MM/YYYY HH:mm
    */
@@ -148,37 +105,25 @@ export function parseReportDate(value) {
         Number(second)
       );
 
-    return Number.isNaN(
-      date.getTime()
-    )
+    return Number.isNaN(date.getTime())
       ? null
       : date;
   }
 
   const fallback =
-    new Date(
-      text
-    );
+    new Date(text);
 
-  return Number.isNaN(
-    fallback.getTime()
-  )
+  return Number.isNaN(fallback.getTime())
     ? null
     : fallback;
 }
-
-/* =========================================
-   PERÍODOS
-========================================= */
 
 export function getReportPeriodRange(
   period = "month",
   now = new Date()
 ) {
   const end =
-    new Date(
-      now
-    );
+    new Date(now);
 
   end.setHours(
     23,
@@ -188,24 +133,17 @@ export function getReportPeriodRange(
   );
 
   if (
-    period ===
-    "all"
+    period === "all"
   ) {
     return {
-      start:
-        null,
-
+      start: null,
       end,
-
-      label:
-        "Todo el historial",
+      label: "Todo el historial",
     };
   }
 
   const start =
-    new Date(
-      now
-    );
+    new Date(now);
 
   start.setHours(
     0,
@@ -215,44 +153,35 @@ export function getReportPeriodRange(
   );
 
   if (
-    period ===
-    "30d"
+    period === "30d"
   ) {
     start.setDate(
-      start.getDate() -
-        29
+      start.getDate() - 29
     );
 
     return {
       start,
       end,
-
-      label:
-        "Últimos 30 días",
+      label: "Últimos 30 días",
     };
   }
 
   if (
-    period ===
-    "90d"
+    period === "90d"
   ) {
     start.setDate(
-      start.getDate() -
-        89
+      start.getDate() - 89
     );
 
     return {
       start,
       end,
-
-      label:
-        "Últimos 90 días",
+      label: "Últimos 90 días",
     };
   }
 
   if (
-    period ===
-    "year"
+    period === "year"
   ) {
     start.setMonth(
       0,
@@ -262,9 +191,7 @@ export function getReportPeriodRange(
     return {
       start,
       end,
-
-      label:
-        "Año actual",
+      label: "Año actual",
     };
   }
 
@@ -278,9 +205,7 @@ export function getReportPeriodRange(
   return {
     start,
     end,
-
-    label:
-      "Mes actual",
+    label: "Mes actual",
   };
 }
 
@@ -288,7 +213,9 @@ function isDateInsidePeriod(
   date,
   period
 ) {
-  if (!date) {
+  if (
+    !date
+  ) {
     return false;
   }
 
@@ -314,14 +241,12 @@ function isDateInsidePeriod(
   );
 }
 
-/* =========================================
-   CLIENTES
-========================================= */
-
 function getClientDisplayName(
   client
 ) {
-  if (!client) {
+  if (
+    !client
+  ) {
     return "";
   }
 
@@ -330,13 +255,7 @@ function getClientDisplayName(
       client.razonSocial
     ) ||
     cleanText(
-      `${
-        client.nombre ||
-        ""
-      } ${
-        client.apellido ||
-        ""
-      }`
+      `${client.nombre || ""} ${client.apellido || ""}`
     ) ||
     cleanText(
       client.cliente
@@ -371,9 +290,10 @@ export function subscribeToReports(
     invoices: [],
     sales: [],
     tickets: [],
+    products: [],
+    budgets: [],
     cashCuts: [],
-    currentCash:
-      null,
+    currentCash: null,
   };
 
   const emit =
@@ -394,6 +314,12 @@ export function subscribeToReports(
         tickets:
           state.tickets,
 
+        products:
+          state.products,
+
+        budgets:
+          state.budgets,
+
         cashCuts:
           state.cashCuts,
 
@@ -403,9 +329,7 @@ export function subscribeToReports(
     };
 
   const mapSnapshot =
-    (
-      snapshot
-    ) =>
+    (snapshot) =>
       snapshot.docs.map(
         (
           snapshotDoc
@@ -417,154 +341,176 @@ export function subscribeToReports(
         })
       );
 
-  const unsubscribers =
-    [
-      onSnapshot(
-        collection(
-          db,
-          "creditos"
-        ),
-
-        (
-          snapshot
-        ) => {
-          state.credits =
-            mapSnapshot(
-              snapshot
-            );
-
-          emit();
-        },
-
-        onError
+  const unsubscribers = [
+    onSnapshot(
+      collection(
+        db,
+        "creditos"
       ),
 
-      onSnapshot(
-        collection(
-          db,
-          "clientes"
-        ),
+      (snapshot) => {
+        state.credits =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.clients =
-            mapSnapshot(
-              snapshot
-            );
+        emit();
+      },
 
-          emit();
-        },
+      onError
+    ),
 
-        onError
+    onSnapshot(
+      collection(
+        db,
+        "clientes"
       ),
 
-      onSnapshot(
-        collection(
-          db,
-          "facturas"
-        ),
+      (snapshot) => {
+        state.clients =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.invoices =
-            mapSnapshot(
-              snapshot
-            );
+        emit();
+      },
 
-          emit();
-        },
+      onError
+    ),
 
-        onError
+    onSnapshot(
+      collection(
+        db,
+        "facturas"
       ),
 
-      onSnapshot(
-        collection(
-          db,
-          "ventas"
-        ),
+      (snapshot) => {
+        state.invoices =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.sales =
-            mapSnapshot(
-              snapshot
-            );
+        emit();
+      },
 
-          emit();
-        },
+      onError
+    ),
 
-        onError
+    onSnapshot(
+      collection(
+        db,
+        "ventas"
       ),
 
-      onSnapshot(
-        collection(
-          db,
-          "tickets"
-        ),
+      (snapshot) => {
+        state.sales =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.tickets =
-            mapSnapshot(
-              snapshot
-            );
+        emit();
+      },
 
-          emit();
-        },
+      onError
+    ),
 
-        onError
+    onSnapshot(
+      collection(
+        db,
+        "tickets"
       ),
 
-      onSnapshot(
-        collection(
-          db,
-          "caja_cortes"
-        ),
+      (snapshot) => {
+        state.tickets =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.cashCuts =
-            mapSnapshot(
-              snapshot
-            );
+        emit();
+      },
 
-          emit();
-        },
+      onError
+    ),
 
-        onError
+
+    onSnapshot(
+      collection(
+        db,
+        "productos"
       ),
 
-      onSnapshot(
-        doc(
-          db,
-          "negocio",
-          "caja_activa"
-        ),
+      (snapshot) => {
+        state.products =
+          mapSnapshot(
+            snapshot
+          );
 
-        (
-          snapshot
-        ) => {
-          state.currentCash =
-            snapshot.exists()
-              ? {
-                  id:
-                    snapshot.id,
+        emit();
+      },
 
-                  ...snapshot.data(),
-                }
-              : null;
+      onError
+    ),
 
-          emit();
-        },
-
-        onError
+    onSnapshot(
+      collection(
+        db,
+        "presupuestos"
       ),
-    ];
+
+      (snapshot) => {
+        state.budgets =
+          mapSnapshot(
+            snapshot
+          );
+
+        emit();
+      },
+
+      onError
+    ),
+
+    onSnapshot(
+      collection(
+        db,
+        "caja_cortes"
+      ),
+
+      (snapshot) => {
+        state.cashCuts =
+          mapSnapshot(
+            snapshot
+          );
+
+        emit();
+      },
+
+      onError
+    ),
+
+    onSnapshot(
+      doc(
+        db,
+        "negocio",
+        "caja_activa"
+      ),
+
+      (snapshot) => {
+        state.currentCash =
+          snapshot.exists()
+            ? {
+                id:
+                  snapshot.id,
+
+                ...snapshot.data(),
+              }
+            : null;
+
+        emit();
+      },
+
+      onError
+    ),
+  ];
 
   return () => {
     unsubscribers.forEach(
@@ -583,11 +529,8 @@ export function subscribeToReports(
 function normalizeCashMovement(
   movement,
   {
-    fallbackDate =
-      null,
-
-    source =
-      "Caja",
+    fallbackDate = null,
+    source = "Caja",
   } = {}
 ) {
   const explicitDate =
@@ -638,7 +581,7 @@ function collectCashMovements(
     [];
 
   /*
-   * Cortes históricos
+   * Cortes históricos.
    */
   (
     data?.cashCuts ||
@@ -654,14 +597,13 @@ function collectCashMovements(
           cut.creadoEn
         );
 
-      const cutMovements =
+      (
         Array.isArray(
           cut.movs
         )
           ? cut.movs
-          : [];
-
-      cutMovements.forEach(
+          : []
+      ).forEach(
         (
           movement
         ) => {
@@ -670,7 +612,6 @@ function collectCashMovements(
               movement,
               {
                 fallbackDate,
-
                 source:
                   cut.id ||
                   "Corte",
@@ -683,21 +624,23 @@ function collectCashMovements(
   );
 
   /*
-   * Turno actual
+   * Turno actual.
+   * Los movimientos viejos no siempre tienen fecha,
+   * por eso, si están en caja_activa, se consideran
+   * del turno actual.
    */
   const today =
     new Date();
 
-  const activeMovements =
+  (
     Array.isArray(
       data?.currentCash
         ?.movs
     )
       ? data.currentCash
           .movs
-      : [];
-
-  activeMovements.forEach(
+      : []
+  ).forEach(
     (
       movement
     ) => {
@@ -736,14 +679,13 @@ function collectCreditPayments(
     (
       credit
     ) => {
-      const payments =
+      (
         Array.isArray(
           credit.abonos
         )
           ? credit.abonos
-          : [];
-
-      payments.forEach(
+          : []
+      ).forEach(
         (
           payment,
           index
@@ -775,10 +717,10 @@ function collectCreditPayments(
               toNumber(
                 payment.monto
               ) ||
-                (
-                  capital +
-                  penalties
-                )
+              (
+                capital +
+                penalties
+              )
             );
 
           rows.push({
@@ -892,7 +834,9 @@ function buildOverdueClients(
           client
         );
 
-      if (name) {
+      if (
+        name
+      ) {
         clientByName.set(
           name.toLowerCase(),
           client
@@ -931,14 +875,13 @@ function buildOverdueClients(
       let overdueCapital =
         0;
 
-      const installments =
+      (
         Array.isArray(
           credit.cuotas
         )
           ? credit.cuotas
-          : [];
-
-      installments.forEach(
+          : []
+      ).forEach(
         (
           installment
         ) => {
@@ -947,7 +890,9 @@ function buildOverdueClients(
               installment.vence
             );
 
-          if (!dueDate) {
+          if (
+            !dueDate
+          ) {
             return;
           }
 
@@ -968,7 +913,7 @@ function buildOverdueClients(
 
           const capitalPaid =
             installment.capitalPagado !==
-            undefined
+              undefined
               ? Math.max(
                   0,
                   toNumber(
@@ -989,12 +934,11 @@ function buildOverdueClients(
             Math.max(
               0,
               importe -
-                capitalPaid
+              capitalPaid
             );
 
           if (
-            pending <=
-              0 ||
+            pending <= 0 ||
             dueDate >=
               today
           ) {
@@ -1007,7 +951,7 @@ function buildOverdueClients(
                 today -
                 dueDate
               ) /
-                86400000
+              86400000
             );
 
           maxDays =
@@ -1160,9 +1104,19 @@ export function buildReportData(
       ? data.tickets
       : [];
 
-  /* =======================================
-     CAJA
-  ======================================= */
+  const products =
+    Array.isArray(
+      data?.products
+    )
+      ? data.products
+      : [];
+
+  const budgets =
+    Array.isArray(
+      data?.budgets
+    )
+      ? data.budgets
+      : [];
 
   const cashMovements =
     collectCashMovements(
@@ -1218,10 +1172,6 @@ export function buildReportData(
         0
       );
 
-  /* =======================================
-     COBRANZAS
-  ======================================= */
-
   const creditPayments =
     collectCreditPayments(
       credits
@@ -1270,10 +1220,6 @@ export function buildReportData(
         payment.punitorios,
       0
     );
-
-  /* =======================================
-     CRÉDITOS OTORGADOS
-  ======================================= */
 
   const creditRows =
     credits
@@ -1343,10 +1289,6 @@ export function buildReportData(
       0
     );
 
-  /* =======================================
-     CARTERA
-  ======================================= */
-
   const activePortfolio =
     credits.reduce(
       (
@@ -1390,10 +1332,6 @@ export function buildReportData(
         client.vencido,
       0
     );
-
-  /* =======================================
-     FACTURACIÓN
-  ======================================= */
 
   const invoiceRows =
     invoices
@@ -1464,10 +1402,6 @@ export function buildReportData(
       0
     );
 
-  /* =======================================
-     VENTAS
-  ======================================= */
-
   const salesRows =
     sales
       .map(
@@ -1492,10 +1426,6 @@ export function buildReportData(
             period
           )
       );
-
-  /* =======================================
-     TICKETS ENTREGADOS
-  ======================================= */
 
   const deliveredTickets =
     tickets.filter(
@@ -1523,9 +1453,337 @@ export function buildReportData(
       }
     );
 
-  /* =======================================
-     RESULTADO
-  ======================================= */
+  const productRows =
+    products
+      .filter(
+        (product) =>
+          product?.activo !== false
+      )
+      .map(
+        (product) => {
+          const stock =
+            Math.max(
+              0,
+              toNumber(
+                product.stock
+              )
+            );
+
+          const reserved =
+            Math.max(
+              0,
+              toNumber(
+                product.stockReservado ||
+                product.reservado
+              )
+            );
+
+          const cost =
+            Math.max(
+              0,
+              toNumber(
+                product.costo ||
+                product.cost
+              )
+            );
+
+          const price =
+            Math.max(
+              0,
+              toNumber(
+                product.precio ||
+                product.price
+              )
+            );
+
+          const minimum =
+            Math.max(
+              0,
+              toNumber(
+                product.stockMinimo ||
+                product.minimo
+              )
+            );
+
+          return {
+            ...product,
+            stock,
+            reserved,
+            available:
+              Math.max(
+                0,
+                stock - reserved
+              ),
+            cost,
+            price,
+            minimum,
+          };
+        }
+      );
+
+  const inventoryCost =
+    productRows.reduce(
+      (sum, product) =>
+        sum +
+        product.stock *
+          product.cost,
+      0
+    );
+
+  const inventoryRetail =
+    productRows.reduce(
+      (sum, product) =>
+        sum +
+        product.stock *
+          product.price,
+      0
+    );
+
+  const lowStockProducts =
+    productRows.filter(
+      (product) =>
+        product.minimum > 0 &&
+        product.available <=
+          product.minimum
+    );
+
+  const budgetRows =
+    budgets
+      .map(
+        (budget) => ({
+          ...budget,
+          reportDate:
+            parseReportDate(
+              budget.creadoEn ||
+              budget.fecha ||
+              budget.actualizadoEn
+            ),
+          reportTotal:
+            Math.max(
+              0,
+              toNumber(
+                budget.total ||
+                budget.totalFinal ||
+                budget.importe
+              )
+            ),
+          reportStatus:
+            cleanText(
+              budget.respuesta ||
+              budget.estado
+            ).toLowerCase(),
+        })
+      )
+      .filter(
+        (budget) =>
+          isDateInsidePeriod(
+            budget.reportDate,
+            period
+          )
+      );
+
+  const acceptedBudgets =
+    budgetRows.filter(
+      (budget) =>
+        budget.reportStatus ===
+          "aceptado" ||
+        budget.reportStatus ===
+          "aceptada"
+    );
+
+  const rejectedBudgets =
+    budgetRows.filter(
+      (budget) =>
+        budget.reportStatus ===
+          "rechazado" ||
+        budget.reportStatus ===
+          "rechazada"
+    );
+
+  const decidedBudgets =
+    acceptedBudgets.length +
+    rejectedBudgets.length;
+
+  const budgetConversion =
+    decidedBudgets > 0
+      ? (
+          acceptedBudgets.length /
+          decidedBudgets
+        ) * 100
+      : 0;
+
+  const openBudgetValue =
+    budgets.reduce(
+      (sum, budget) => {
+        const status =
+          cleanText(
+            budget.respuesta ||
+            budget.estado
+          ).toLowerCase();
+
+        if (
+          [
+            "aceptado",
+            "aceptada",
+            "rechazado",
+            "rechazada",
+            "vencido",
+            "cancelado",
+          ].includes(status)
+        ) {
+          return sum;
+        }
+
+        return (
+          sum +
+          Math.max(
+            0,
+            toNumber(
+              budget.total ||
+              budget.totalFinal ||
+              budget.importe
+            )
+          )
+        );
+      },
+      0
+    );
+
+  const salesAmount =
+    salesRows.reduce(
+      (sum, sale) =>
+        sum +
+        Math.max(
+          0,
+          toNumber(
+            sale.total ||
+            sale.importe
+          )
+        ),
+      0
+    );
+
+  const averageSale =
+    salesRows.length > 0
+      ? salesAmount /
+        salesRows.length
+      : 0;
+
+  const ticketRows =
+    tickets
+      .map(
+        (ticket) => ({
+          ...ticket,
+          reportDate:
+            parseReportDate(
+              ticket.ingreso ||
+              ticket.creadoEn ||
+              ticket.actualizadoEn
+            ),
+        })
+      )
+      .filter(
+        (ticket) =>
+          isDateInsidePeriod(
+            ticket.reportDate,
+            period
+          )
+      );
+
+  const deliveryRate =
+    ticketRows.length > 0
+      ? (
+          deliveredTickets.length /
+          ticketRows.length
+        ) * 100
+      : 0;
+
+  const soldProductMap =
+    new Map();
+
+  salesRows.forEach(
+    (sale) => {
+      const items =
+        Array.isArray(
+          sale.articulosCart
+        )
+          ? sale.articulosCart
+          : Array.isArray(
+                sale.items
+              )
+            ? sale.items
+            : [];
+
+      items.forEach(
+        (item) => {
+          const name =
+            cleanText(
+              item.nombre ||
+              item.desc ||
+              item.descripcion ||
+              item.producto
+            ) ||
+            "Concepto";
+
+          const quantity =
+            Math.max(
+              0,
+              toNumber(
+                item.cantidad ||
+                item.cant ||
+                item.qty ||
+                1
+              )
+            );
+
+          const unitPrice =
+            Math.max(
+              0,
+              toNumber(
+                item.precio ||
+                item.price ||
+                item.precioUnitario
+              )
+            );
+
+          const current =
+            soldProductMap.get(
+              name
+            ) || {
+              name,
+              quantity: 0,
+              amount: 0,
+            };
+
+          current.quantity +=
+            quantity;
+
+          current.amount +=
+            quantity *
+            unitPrice;
+
+          soldProductMap.set(
+            name,
+            current
+          );
+        }
+      );
+    }
+  );
+
+  const topProducts =
+    Array.from(
+      soldProductMap.values()
+    )
+      .sort(
+        (a, b) =>
+          b.amount -
+          a.amount
+      )
+      .slice(
+        0,
+        8
+      );
 
   return {
     period:
@@ -1535,7 +1793,6 @@ export function buildReportData(
 
     metrics: {
       cashIncome,
-
       cashExpenses,
 
       netCash:
@@ -1543,19 +1800,12 @@ export function buildReportData(
         cashExpenses,
 
       invoiced,
-
       activePortfolio,
-
       overduePortfolio,
-
       overdueCapital,
-
       creditsGranted,
-
       creditCollections,
-
       capitalCollected,
-
       penaltiesCollected,
 
       salesCount:
@@ -1569,10 +1819,27 @@ export function buildReportData(
 
       overdueClients:
         overdueClients.length,
+
+      inventoryCost,
+      inventoryRetail,
+      lowStockProducts:
+        lowStockProducts.length,
+
+      budgetsCreated:
+        budgetRows.length,
+      budgetsAccepted:
+        acceptedBudgets.length,
+      budgetConversion,
+      openBudgetValue,
+
+      salesAmount,
+      averageSale,
+      ticketsCreated:
+        ticketRows.length,
+      deliveryRate,
     },
 
     creditRows,
-
     creditPayments:
       periodCreditPayments,
 
@@ -1582,7 +1849,11 @@ export function buildReportData(
       periodCashMovements,
 
     invoiceRows,
-
     salesRows,
+    budgetRows,
+    productRows,
+    lowStockProducts,
+    topProducts,
+    ticketRows,
   };
 }

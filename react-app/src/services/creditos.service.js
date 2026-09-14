@@ -1438,6 +1438,8 @@ export async function registerCreditPayment({
   forgiveLateFees = false,
   author = "Sistema",
   settings = DEFAULT_CREDIT_SETTINGS,
+  cashPendingId = null,
+  paymentDetails = {},
 }) {
   const id =
     cleanText(
@@ -1520,6 +1522,32 @@ export async function registerCreditPayment({
 
         ...creditSnapshot.data(),
       };
+
+      let cashPendingRef = null;
+      let cashPendingSnapshot = null;
+
+      if (cleanText(cashPendingId)) {
+        cashPendingRef = doc(
+          db,
+          "caja_pendientes",
+          cleanText(cashPendingId)
+        );
+
+        cashPendingSnapshot = await transaction.get(cashPendingRef);
+
+        if (!cashPendingSnapshot.exists()) {
+          throw new Error("CASH_PENDING_NOT_FOUND");
+        }
+
+        const pending = cashPendingSnapshot.data();
+
+        if (
+          cleanText(pending.creditoId || pending.ref) !== id ||
+          cleanText(pending.origen).toLowerCase() !== "crédito"
+        ) {
+          throw new Error("CASH_PENDING_CREDIT_MISMATCH");
+        }
+      }
 
       if (
         credit?.saldo !== undefined &&
@@ -1836,6 +1864,16 @@ export async function registerCreditPayment({
           Boolean(
             forgiveLateFees
           ),
+
+        detallesPago: {
+          reference: cleanText(paymentDetails?.reference),
+          last4: cleanText(paymentDetails?.last4),
+          authorization: cleanText(paymentDetails?.authorization),
+          received: Math.max(0, toNumber(paymentDetails?.received)),
+        },
+
+        origenCajaPendienteId:
+          cleanText(cashPendingId) || null,
       };
 
       const previousHistory =
@@ -2187,6 +2225,21 @@ export async function registerCreditPayment({
 
             referencia:
               id,
+
+            origen:
+              "Crédito",
+
+            origenRef:
+              id,
+
+            cliente:
+              credit.cliente || "Cliente",
+
+            clienteId:
+              credit.clienteId || null,
+
+            facturaId:
+              credit.facturaId || null,
           });
         }
 
@@ -2243,6 +2296,21 @@ export async function registerCreditPayment({
 
             referencia:
               id,
+
+            origen:
+              "Crédito",
+
+            origenRef:
+              id,
+
+            cliente:
+              credit.cliente || "Cliente",
+
+            clienteId:
+              credit.clienteId || null,
+
+            facturaId:
+              credit.facturaId || null,
           });
         }
 
@@ -2272,6 +2340,10 @@ export async function registerCreditPayment({
             }
           );
         }
+      }
+
+      if (cashPendingRef && cashPendingSnapshot?.exists()) {
+        transaction.delete(cashPendingRef);
       }
 
       return {

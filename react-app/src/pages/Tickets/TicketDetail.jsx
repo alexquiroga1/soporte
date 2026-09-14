@@ -128,6 +128,15 @@ const STAGES = {
   },
 };
 
+const WORKFLOW_STAGES = [
+  { key: "pendiente", label: "Ingresado" },
+  { key: "diagnostico", label: "Diagnóstico" },
+  { key: "presupuesto", label: "Presupuesto" },
+  { key: "reparacion", label: "Reparación" },
+  { key: "listo", label: "Listo" },
+  { key: "entregado", label: "Entregado" },
+];
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -493,6 +502,20 @@ export default function TicketDetail() {
   const stage =
     getStage(
       ticket?.stage
+    );
+
+  const workflowStageKey =
+    ({
+      presupuesto_rechazado: "presupuesto",
+      repuesto: "reparacion",
+      garantia: "entregado",
+    })[ticket?.stage] ||
+    ticket?.stage ||
+    "pendiente";
+
+  const workflowStageIndex =
+    WORKFLOW_STAGES.findIndex(
+      (item) => item.key === workflowStageKey
     );
 
   const budgetLocked =
@@ -1890,7 +1913,7 @@ export default function TicketDetail() {
           <div className="ticket-detail-title">
 
             <span>
-              Orden de servicio
+              ALEX SOPORTE TÉCNICO · Orden de servicio
             </span>
 
             <div>
@@ -1982,7 +2005,7 @@ export default function TicketDetail() {
             <div className="ticket-detail-hero-copy">
 
               <span className="ticket-detail-kicker">
-                Equipo recibido
+                Equipo recibido · seguimiento técnico
               </span>
 
               <h2>
@@ -2015,6 +2038,34 @@ export default function TicketDetail() {
             </div>
 
           </motion.section>
+
+          <section className="ticket-workflow" aria-label="Flujo del ticket">
+            {WORKFLOW_STAGES.map((item, index) => {
+              const isCurrent = index === workflowStageIndex;
+              const isDone =
+                workflowStageIndex >= 0 &&
+                index < workflowStageIndex;
+
+              return (
+                <div
+                  key={item.key}
+                  className={`ticket-workflow-step ${
+                    isDone ? "done" : ""
+                  } ${isCurrent ? "current" : ""}`}
+                >
+                  <span className="ticket-workflow-marker">
+                    {isDone ? (
+                      <CheckCircle2 size={14} />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+
+                  <strong>{item.label}</strong>
+                </div>
+              );
+            })}
+          </section>
 
           {/* CLIENTE / EQUIPO */}
 

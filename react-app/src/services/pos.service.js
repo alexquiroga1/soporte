@@ -609,6 +609,9 @@ export async function sendPosSaleToCash({
             item.categoria
           ),
 
+        manual:
+          item.manual === true,
+
         cantidad:
           Math.max(
             1,
@@ -632,10 +635,11 @@ export async function sendPosSaleToCash({
 
   if (
     normalizedCart.some(
-      (
-        item
-      ) =>
-        !item.sku
+      (item) =>
+        (!item.manual && !item.sku) ||
+        !item.nombre ||
+        item.cantidad <= 0 ||
+        item.precio < 0
     )
   ) {
     throw new Error(
@@ -694,6 +698,12 @@ export async function sendPosSaleToCash({
         const item of
         normalizedCart
       ) {
+        if (
+          item.manual === true
+        ) {
+          continue;
+        }
+
         /*
          * El proyecto actual utiliza
          * productos/{sku}.
@@ -769,8 +779,23 @@ export async function sendPosSaleToCash({
             )
           );
 
+        const reserved =
+          Math.max(
+            0,
+            toNumber(
+              product.stockReservado
+            )
+          );
+
+        const available =
+          Math.max(
+            0,
+            stock -
+              reserved
+          );
+
         if (
-          stock <
+          available <
           item.cantidad
         ) {
           const error =
@@ -783,7 +808,7 @@ export async function sendPosSaleToCash({
             item.nombre;
 
           error.available =
-            stock;
+            available;
 
           error.required =
             item.cantidad;

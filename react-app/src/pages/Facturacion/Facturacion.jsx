@@ -1,32 +1,22 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-
-import { useAuth } from "../../context/AuthContext.jsx";
-import { PERMISSIONS } from "../../security/permissions.js";
-
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeDollarSign,
-  BookOpenCheck,
-  CircleDollarSign,
   ClipboardList,
   FilePenLine,
-  FileText,
   History,
   ReceiptText,
   RotateCcw,
   ShieldCheck,
   Undo2,
-  WalletCards,
 } from "lucide-react";
 
-import "./Facturacion.css";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { PERMISSIONS } from "../../security/permissions.js";
 
-/* =========================================
-   COMPONENTE
-========================================= */
+import "./FacturacionSuite.css";
 
 export default function Facturacion() {
   const navigate = useNavigate();
@@ -35,80 +25,53 @@ export default function Facturacion() {
   const canSales = hasPermission(PERMISSIONS.SALES);
   const canTickets = hasPermission(PERMISSIONS.TICKETS);
 
-  /* =======================================
-     MÓDULOS
-  ======================================= */
-
   const modules = useMemo(
     () => [
       {
         id: "presupuestos",
         title: "Presupuestos",
-        description:
-          "Generados desde tickets o creados manualmente.",
+        description: "Propuestas manuales o vinculadas a tickets, con versionado y seguimiento comercial.",
         icon: ClipboardList,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/presupuestos",
         visible: canTickets || canSales,
       },
-
       {
         id: "facturas",
         title: "Facturas",
-        description:
-          "Comprobantes emitidos desde Caja y seguimiento posterior.",
+        description: "Comprobantes emitidos, estados de cobro, impresión y trazabilidad completa.",
         icon: ReceiptText,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/facturas",
         visible: canSales,
       },
-
       {
         id: "notas-credito",
         title: "Notas de crédito",
-        description:
-          "Correcciones económicas y devoluciones sobre comprobantes.",
+        description: "Devoluciones y anulaciones documentadas, vinculadas a la factura de origen.",
         icon: RotateCcw,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/notas-credito",
         visible: canSales,
       },
-
       {
         id: "rectificaciones",
         title: "Rectificaciones",
-        description:
-          "Correcciones formales sin modificar importes ni movimientos.",
+        description: "Correcciones formales auditables sin borrar ni reemplazar el comprobante original.",
         icon: FilePenLine,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/rectificaciones",
         visible: canSales,
       },
-
       {
         id: "anulaciones",
         title: "Anulaciones",
-        description:
-          "Gestión de comprobantes anulados, devoluciones y trazabilidad.",
+        description: "Control de facturas anuladas o canceladas y sus documentos compensatorios.",
         icon: Undo2,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/anulaciones",
         visible: canSales,
       },
-
       {
         id: "historial",
         title: "Historial y auditoría",
-        description:
-          "Registro central de acciones y movimientos de facturación.",
+        description: "Registro central de acciones sobre presupuestos, facturas y notas de crédito.",
         icon: History,
-        meta: "Operativo",
-        status: "ready",
         route: "/facturacion/historial",
         visible: canSales,
       },
@@ -116,329 +79,117 @@ export default function Facturacion() {
     [canSales, canTickets]
   );
 
-  /* =======================================
-     ABRIR MÓDULO
-  ======================================= */
-
-  const handleModuleOpen = (module) => {
-    navigate(module.route);
-  };
-
-  /* =========================================
-     RENDER
-  ========================================= */
+  const visibleModules = modules.filter((module) => module.visible);
 
   return (
-    <main className="billing-page">
+    <main className="fb-page">
+      <div className="fb-shell">
+        <header className="fb-topbar">
+          <div className="fb-brand">
+            <button
+              type="button"
+              className="fb-icon-button"
+              onClick={() => navigate("/dashboard")}
+              title="Volver al Dashboard"
+            >
+              <ArrowLeft size={19} />
+            </button>
 
-      {/* =================================
-          HEADER
-      ================================= */}
+            <div className="fb-brand-icon">
+              <ReceiptText size={21} />
+            </div>
 
-      <header className="billing-header">
-        <div className="billing-header-left">
-
-          <button
-            type="button"
-            className="billing-back"
-            onClick={() => navigate("/dashboard")}
-            title="Volver al Dashboard"
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <div className="billing-header-logo">
-            <BadgeDollarSign size={21} />
+            <div className="fb-brand-copy">
+              <strong>Facturación</strong>
+              <span>SERVIX · Gestión documental y comercial</span>
+            </div>
           </div>
 
-          <div className="billing-header-title">
-            <span>Administración</span>
-            <h1>Facturación</h1>
+          <div className="fb-top-actions">
+            <div className="fb-status">
+              <span className="fb-status-dot" />
+              Módulo operativo
+            </div>
           </div>
+        </header>
 
-        </div>
-
-        <div className="billing-header-status">
-          <span className="billing-header-status-dot" />
-
+        <section className="fb-page-head">
           <div>
-            <strong>Sistema operativo</strong>
-            <small>Gestión interna</small>
-          </div>
-        </div>
-      </header>
-
-      {/* =================================
-          CONTENIDO
-      ================================= */}
-
-      <div className="billing-content">
-
-        {/* =================================
-            INTRO
-        ================================= */}
-
-        <motion.section
-          className="billing-intro"
-          initial={{
-            opacity: 0,
-            y: 8,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-        >
-          <div>
-            <span className="billing-kicker">
-              Gestión económica
-            </span>
-
-            <h2>Centro de facturación</h2>
-
+            <div className="fb-kicker">
+              <ShieldCheck size={15} />
+              Centro de facturación
+            </div>
+            <h1>Documentos y trazabilidad</h1>
             <p>
-              Presupuestos, comprobantes, correcciones,
-              anulaciones y trazabilidad comercial.
+              Presupuestos, comprobantes, correcciones y auditoría sin eliminación destructiva.
             </p>
           </div>
+        </section>
 
-          <div className="billing-intro-badge">
-            <ShieldCheck size={18} />
-
-            <div>
-              <strong>Trazabilidad</strong>
-              <span>Sin eliminación destructiva</span>
+        <motion.section
+          className="fb-flow"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="fb-flow-steps">
+            <div className="fb-flow-step">
+              <span>01</span>
+              <strong>Presupuesto</strong>
+              <small>Propuesta y aceptación</small>
+            </div>
+            <div className="fb-flow-step">
+              <span>02</span>
+              <strong>Caja</strong>
+              <small>Cobro o financiación</small>
+            </div>
+            <div className="fb-flow-step">
+              <span>03</span>
+              <strong>Factura</strong>
+              <small>Comprobante vinculado</small>
+            </div>
+            <div className="fb-flow-step">
+              <span>04</span>
+              <strong>Corrección</strong>
+              <small>Rectificación / Nota de Crédito</small>
             </div>
           </div>
         </motion.section>
 
-        {/* =================================
-            FLUJO
-        ================================= */}
+        <section className="fb-modules">
+          {visibleModules.map((module, index) => {
+            const Icon = module.icon;
 
-        <section className="billing-flow">
-
-          <div className="billing-flow-title">
-            <span>Flujo operativo</span>
-
-            <strong>
-              Desde el trabajo técnico hasta el comprobante
-            </strong>
-          </div>
-
-          <div className="billing-flow-steps">
-
-            <div className="billing-flow-step">
-              <span>01</span>
-
-              <div>
-                <strong>Ticket</strong>
-                <small>Diagnóstico</small>
-              </div>
-            </div>
-
-            <ArrowRight size={18} />
-
-            <div className="billing-flow-step">
-              <span>02</span>
-
-              <div>
-                <strong>Presupuesto</strong>
-                <small>Aprobación</small>
-              </div>
-            </div>
-
-            <ArrowRight size={18} />
-
-            <div className="billing-flow-step">
-              <span>03</span>
-
-              <div>
-                <strong>Caja</strong>
-                <small>Cobro</small>
-              </div>
-            </div>
-
-            <ArrowRight size={18} />
-
-            <div className="billing-flow-step">
-              <span>04</span>
-
-              <div>
-                <strong>Factura</strong>
-                <small>Comprobante</small>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* =================================
-            MÓDULOS
-        ================================= */}
-
-        <section className="billing-modules-section">
-
-          <div className="billing-section-heading">
-            <div>
-              <span>Herramientas</span>
-              <h3>Operaciones de facturación</h3>
-            </div>
-          </div>
-
-          <div className="billing-modules-grid">
-
-            {modules.filter((module) => module.visible).map((module, index) => {
-              const Icon = module.icon;
-
-              return (
-                <motion.button
-                  type="button"
-                  key={module.id}
-                  className="billing-module-card is-ready"
-
-                  initial={{
-                    opacity: 0,
-                    y: 10,
-                  }}
-
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-
-                  transition={{
-                    delay: index * 0.035,
-                  }}
-
-                  whileHover={{
-                    y: -2,
-                  }}
-
-                  whileTap={{
-                    scale: 0.99,
-                  }}
-
-                  onClick={() =>
-                    handleModuleOpen(module)
+            return (
+              <motion.article
+                key={module.id}
+                className="fb-module-card"
+                role="button"
+                tabIndex={0}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, delay: index * 0.035 }}
+                onClick={() => navigate(module.route)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate(module.route);
                   }
-                >
-                  <div className="billing-module-top">
-
-                    <div className="billing-module-icon">
-                      <Icon size={22} />
-                    </div>
-
-                    <span className="billing-module-status ready">
-                      {module.meta}
-                    </span>
-
-                  </div>
-
-                  <div className="billing-module-copy">
-                    <h4>{module.title}</h4>
-                    <p>{module.description}</p>
-                  </div>
-
-                  <div className="billing-module-footer">
-                    <span>Abrir módulo</span>
-                    <ArrowRight size={17} />
-                  </div>
-
-                </motion.button>
-              );
-            })}
-
-          </div>
+                }}
+              >
+                <div className="fb-module-icon">
+                  <Icon size={20} />
+                </div>
+                <h3>{module.title}</h3>
+                <p>{module.description}</p>
+                <div className="fb-module-foot">
+                  <span>Operativo</span>
+                  <ArrowRight size={16} />
+                </div>
+              </motion.article>
+            );
+          })}
         </section>
-
-        {/* =================================
-            INFORMACIÓN
-        ================================= */}
-
-        <section className="billing-info-grid">
-
-          <article className="billing-info-card">
-            <div className="billing-info-icon">
-              <CircleDollarSign size={20} />
-            </div>
-
-            <div>
-              <span>Presupuesto</span>
-
-              <h3>
-                Ticket y presupuesto sincronizados
-              </h3>
-
-              <p>
-                Un presupuesto generado desde un ticket queda
-                registrado también en el módulo Presupuestos.
-              </p>
-            </div>
-          </article>
-
-          <article className="billing-info-card">
-            <div className="billing-info-icon">
-              <WalletCards size={20} />
-            </div>
-
-            <div>
-              <span>Caja</span>
-
-              <h3>
-                El cobro ocurre antes de facturar
-              </h3>
-
-              <p>
-                Caja registra el medio de pago y cierra la
-                operación antes de generar el comprobante.
-              </p>
-            </div>
-          </article>
-
-          <article className="billing-info-card">
-            <div className="billing-info-icon">
-              <BookOpenCheck size={20} />
-            </div>
-
-            <div>
-              <span>Auditoría</span>
-
-              <h3>
-                Cada cambio mantiene historial
-              </h3>
-
-              <p>
-                Rectificaciones, anulaciones y notas quedan
-                registradas en lugar de eliminar documentos.
-              </p>
-            </div>
-          </article>
-
-        </section>
-
-        {/* =================================
-            NOTA DEL SISTEMA
-        ================================= */}
-
-        <section className="billing-system-note">
-
-          <FileText size={17} />
-
-          <div>
-            <strong>
-              Facturación electrónica externa todavía no conectada
-            </strong>
-
-            <span>
-              Esta etapa administra el flujo interno del sistema.
-              La integración fiscal podrá incorporarse después
-              sin modificar la arquitectura general.
-            </span>
-          </div>
-
-        </section>
-
       </div>
     </main>
   );

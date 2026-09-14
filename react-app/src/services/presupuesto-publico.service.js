@@ -11,6 +11,10 @@ import {
   db,
 } from "./firebase.js";
 
+import {
+  reserveTicketStockInTransaction,
+} from "./productos.service.js";
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -639,6 +643,27 @@ export async function publishBudget(
             budget.observaciones
           ),
 
+        revision:
+          Math.max(
+            1,
+            Math.trunc(
+              toNumber(
+                budget.revision,
+                1
+              )
+            )
+          ),
+
+        plazoEstimado:
+          cleanText(
+            budget.plazoEstimado
+          ),
+
+        garantia:
+          cleanText(
+            budget.garantia
+          ),
+
         fecha:
           budget.fecha ||
           null,
@@ -1137,6 +1162,27 @@ export async function applyPublicBudgetResponse(
           author
         ) ||
         "Sistema";
+
+      if (
+        response ===
+          "Aceptado" &&
+        ticketRef &&
+        ticket
+      ) {
+        await reserveTicketStockInTransaction(
+          transaction,
+          {
+            ticketId,
+            pieces:
+              ticket.piezas ||
+              [],
+            author:
+              cleanAuthor,
+            reference:
+              budgetId,
+          }
+        );
+      }
 
       const budgetHistory =
         Array.isArray(

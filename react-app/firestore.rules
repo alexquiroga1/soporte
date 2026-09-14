@@ -21,17 +21,34 @@ service cloud.firestore {
 
     function isActiveUser() {
       return hasUserProfile()
-        && userProfile().activo != false
-        && userProfile().enabled != false;
+        && userProfile().get("activo", true) != false
+        && userProfile().get("enabled", true) != false;
+    }
+
+    /*
+     * Compatibilidad real con perfiles legacy.
+     *
+     * La app normaliza el rol con trim + lowercase. Las reglas anteriores
+     * comparaban valores exactos y un perfil como " Administrador " podía
+     * verse como Admin en React pero quedar bloqueado por Firestore.
+     */
+    function isAdminRoleValue(value) {
+      return value is string
+        && value.matches('^ *[Aa][Dd][Mm][Ii][Nn][Ii][Ss][Tt][Rr][Aa][Dd][Oo][Rr] *$');
+    }
+
+    function storedPermissions() {
+      return userProfile().get("permisos", []);
     }
 
     function isAdmin() {
       return isActiveUser()
         && (
-          userProfile().rol == "Administrador"
+          isAdminRoleValue(userProfile().get("rol", ""))
+          || isAdminRoleValue(userProfile().get("role", ""))
           || (
-            userProfile().permisos is list
-            && userProfile().permisos.hasAny([
+            storedPermissions() is list
+            && storedPermissions().hasAny([
               "Acceso total al sistema"
             ])
           )
@@ -43,8 +60,8 @@ service cloud.firestore {
         && (
           isAdmin()
           || (
-            userProfile().permisos is list
-            && userProfile().permisos.hasAny([permission])
+            storedPermissions() is list
+            && storedPermissions().hasAny([permission])
           )
         );
     }
@@ -54,8 +71,8 @@ service cloud.firestore {
         && (
           isAdmin()
           || (
-            userProfile().permisos is list
-            && userProfile().permisos.hasAny(permissions)
+            storedPermissions() is list
+            && storedPermissions().hasAny(permissions)
           )
         );
     }
@@ -264,7 +281,10 @@ service cloud.firestore {
       allow get: if canTickets() || canSales() || canReports();
       allow list: if canTickets() || canReports();
 
-      allow create, delete: if canTickets();
+      allow create: if canTickets();
+
+      // El borrado físico queda reservado a Auditoría interna / administrador.
+      allow delete: if isAdmin();
 
       allow update: if
         canTickets()
@@ -351,26 +371,59 @@ service cloud.firestore {
 
       allow create, delete: if canCredits();
 
+      // Créditos administra la carpeta completa. Caja/Ventas únicamente puede
+      // aplicar pagos y actualizar el estado financiero derivado del cobro.
       allow update: if
         canCredits()
         || (
           canSales()
-          && resource.data.origen == "Caja"
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            "estado",
+            "cuotas",
             "saldo",
-            "canceladoEn",
+            "abonos",
+            "estado",
             "actualizadoEn",
             "actualizadoPor",
-            "canceladaPorFacturaId",
-            "historial"
+            "historial",
+            "canceladoEn",
+            "canceladaPorFacturaId"
           ])
         );
     }
 
     match /productos/{productId} {
       allow read: if isActiveUser();
-      allow write: if canProducts() || canSales();
+
+      allow create, delete: if canProducts() || canSales();
+
+      allow update: if
+        canProducts()
+        || canSales()
+        || (
+          canTickets()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "stockReservado",
+            "stockReservas",
+            "actualizadoEn",
+            "actualizadoPor"
+          ])
+        );
+    }
+
+    // Libro mayor de inventario. Los movimientos se crean desde Catálogo/Stock
+    // o como consecuencia de una venta confirmada en Caja. Una vez registrados
+    // son inmutables: las correcciones se realizan mediante otro movimiento.
+    match /stock_movimientos/{movementId} {
+      allow read: if isActiveUser();
+      allow create: if
+        canProducts()
+        || canSales()
+        || (
+          canTickets()
+          && request.resource.data.tipo in ["Reserva", "Liberación"]
+          && request.resource.data.origen == "Ticket"
+        );
+      allow update, delete: if false;
     }
 
     match /promociones/{promotionId} {
@@ -394,7 +447,20 @@ service cloud.firestore {
     match /facturas/{invoiceId} {
       allow read: if canSales() || canCredits() || canReports();
 
-      allow create, delete: if canSales();
+      // Las NC generadas desde Auditoría interna solo pueden ser creadas
+      // por administrador. El resto de los comprobantes conserva el flujo
+      // comercial habitual de Ventas.
+      allow create: if
+        isAdmin()
+        || (
+          canSales()
+          && (
+            !request.resource.data.keys().hasAny(["origenAuditoria"])
+            || request.resource.data.origenAuditoria != true
+          )
+        );
+
+      allow delete: if canSales();
 
       // El módulo Créditos puede sincronizar únicamente el estado financiero
       // de una factura originada por una financiación. No puede modificar
@@ -419,18 +485,23 @@ service cloud.firestore {
         "Ver y actualizar tickets asignados",
         "Registrar ventas y cobros",
         "Abrir y cerrar corte de caja",
+        "Aprobar créditos y descuentos",
         "Ver reportes financieros"
       ]);
 
-      // Ventas puede gestionar cualquier pendiente. Tickets solo puede crear
-      // o retirar pendientes nacidos de un Ticket; no puede fabricar cobros
-      // manuales ni alterar pendientes comerciales desde Firestore.
+      // Ventas puede gestionar cualquier pendiente. Tickets y Créditos solo
+      // crean/retiran pendientes correspondientes a su propio flujo.
       allow create: if
         canSales()
         || (
           canTickets()
           && request.resource.data.origen == "Ticket"
           && request.resource.data.ticketId != null
+        )
+        || (
+          canCredits()
+          && request.resource.data.origen == "Crédito"
+          && request.resource.data.creditoId != null
         );
 
       allow update: if canSales();
@@ -441,6 +512,11 @@ service cloud.firestore {
           canTickets()
           && resource.data.origen == "Ticket"
           && resource.data.ticketId != null
+        )
+        || (
+          canCredits()
+          && resource.data.origen == "Crédito"
+          && resource.data.creditoId != null
         );
     }
 
@@ -452,6 +528,17 @@ service cloud.firestore {
     match /cuenta_corriente/{movementId} {
       allow read: if canSales() || canCredits() || canReports();
       allow write: if canSales() || canCredits();
+    }
+
+    /* =====================================
+       AUDITORÍA INTERNA DE CLIENTES
+       - inmutable desde la aplicación
+       - solo administrador puede leer/crear
+    ===================================== */
+
+    match /auditoria_clientes/{auditId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
     }
 
     /* =====================================

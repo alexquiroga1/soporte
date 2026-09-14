@@ -1,933 +1,210 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  useNavigate,
-} from "react-router-dom";
-
-import {
-  motion,
-} from "motion/react";
-
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
   Ban,
-  CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
-  FileText,
-  Link2,
+  History,
+  Printer,
   ReceiptText,
   RotateCcw,
   Search,
-  UserRound,
+  Undo2,
   X,
-  XCircle,
 } from "lucide-react";
 
-import {
-  subscribeToInvoices,
-} from "../../services/facturas.service.js";
+import { subscribeToInvoices } from "../../services/facturas.service.js";
+import { notify } from "../../services/notifications.js";
 
-import {
-  notify,
-} from "../../services/notifications.js";
-
-import "./Anulaciones.css";
-
-/* =========================================
-   HELPERS
-========================================= */
+import "./FacturacionSuite.css";
 
 function formatMoney(value) {
-  return new Intl.NumberFormat(
-    "es-AR",
-    {
-      style: "currency",
-      currency: "ARS",
-      maximumFractionDigits: 0,
-    }
-  ).format(
-    Number(value || 0)
-  );
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
 function formatDate(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const parts =
-    String(value).split("-");
-
-  if (parts.length === 3) {
-    const [
-      year,
-      month,
-      day,
-    ] = parts;
-
-    return `${day}/${month}/${year}`;
-  }
-
-  return value;
+  if (!value) return "—";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value);
 }
 
-function isClosedInvoice(invoice) {
-  return (
-    invoice?.estado === "Anulada" ||
-    invoice?.estado === "Cancelada"
-  );
+function isClosed(invoice) {
+  return invoice?.estado === "Anulada" || invoice?.estado === "Cancelada";
 }
-
-function getStatusData(invoice) {
-  if (
-    invoice?.estado === "Anulada"
-  ) {
-    return {
-      label: "Anulada",
-      className: "annulment-status-annulled",
-    };
-  }
-
-  return {
-    label: "Cancelada",
-    className: "annulment-status-cancelled",
-  };
-}
-
-/* =========================================
-   COMPONENTE
-========================================= */
 
 export default function Anulaciones() {
-  const navigate =
-    useNavigate();
-
-  const [
-    documents,
-    setDocuments,
-  ] = useState([]);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    error,
-    setError,
-  ] = useState(null);
-
-  const [
-    search,
-    setSearch,
-  ] = useState("");
-
-  const [
-    selectedId,
-    setSelectedId,
-  ] = useState(null);
-
-  /* =======================================
-     FIREBASE
-  ======================================= */
+  const navigate = useNavigate();
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-
-    const unsubscribe =
-      subscribeToInvoices(
-        (data) => {
-          setDocuments(data);
-
-          setLoading(false);
-
-          setError(null);
-        },
-
-        (firebaseError) => {
-          console.error(
-            firebaseError
-          );
-
-          setError(
-            firebaseError
-          );
-
-          setLoading(false);
-
-          notify.error(
-            "No pudimos cargar anulaciones",
-            "Revisá la conexión o los permisos de Firestore."
-          );
-        }
-      );
-
-    return () => {
-      unsubscribe();
-    };
+    const unsubscribe = subscribeToInvoices(
+      (data) => {
+        setDocuments(data);
+        setLoading(false);
+        setError(null);
+      },
+      (firebaseError) => {
+        console.error(firebaseError);
+        setError(firebaseError);
+        setLoading(false);
+        notify.error("No pudimos cargar las anulaciones", "Revisá la conexión o los permisos de Firestore.");
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
-  /* =======================================
-     FACTURAS CERRADAS
-  ======================================= */
+  const invoices = useMemo(
+    () => documents.filter((document) => (!document.tipo || document.tipo === "Factura") && isClosed(document)),
+    [documents]
+  );
 
-  const closedInvoices =
-    useMemo(
-      () =>
-        documents.filter(
-          (document) =>
-            (
-              !document.tipo ||
-              document.tipo === "Factura"
-            ) &&
-            isClosedInvoice(document)
-        ),
+  const notes = useMemo(
+    () => documents.filter((document) => document.tipo === "Nota de Crédito"),
+    [documents]
+  );
 
-      [documents]
-    );
+  const noteByInvoice = useMemo(() => {
+    const map = new Map();
+    notes.forEach((note) => {
+      const key = note.facturaOrigenId || note.refId;
+      if (key) map.set(key, note);
+    });
+    return map;
+  }, [notes]);
 
-  /* =======================================
-     FILTRADO
-  ======================================= */
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return invoices.filter((invoice) => {
+      const haystack = [invoice.id, invoice.cliente, invoice.doc, invoice.refId, invoice.notaCreditoId]
+        .filter(Boolean).join(" ").toLowerCase();
+      const matchesSearch = !term || haystack.includes(term);
+      const matchesStatus = !statusFilter || invoice.estado === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, search, statusFilter]);
 
-  const filteredInvoices =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
-          .toLowerCase();
+  const selected = useMemo(
+    () => invoices.find((invoice) => invoice.id === selectedId) || null,
+    [invoices, selectedId]
+  );
 
-      if (!query) {
-        return closedInvoices;
-      }
+  const selectedNote = selected ? noteByInvoice.get(selected.id) || null : null;
 
-      return closedInvoices.filter(
-        (invoice) => {
-          const source = [
-            invoice.id,
-            invoice.cliente,
-            invoice.doc,
-            invoice.refId,
-            invoice.estado,
-            invoice.refPago,
-            invoice.notaCreditoId,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-          return source.includes(
-            query
-          );
-        }
-      );
-    }, [
-      closedInvoices,
-      search,
-    ]);
-
-  /* =======================================
-     SELECCIÓN
-  ======================================= */
-
-  useEffect(() => {
-    if (
-      selectedId &&
-      closedInvoices.some(
-        (invoice) =>
-          invoice.id ===
-          selectedId
-      )
-    ) {
-      return;
-    }
-
-    setSelectedId(
-      closedInvoices[0]?.id ||
-      null
-    );
-  }, [
-    closedInvoices,
-    selectedId,
-  ]);
-
-  const selectedInvoice =
-    useMemo(
-      () =>
-        closedInvoices.find(
-          (invoice) =>
-            invoice.id ===
-            selectedId
-        ) ||
-        null,
-
-      [
-        closedInvoices,
-        selectedId,
-      ]
-    );
-
-  /* =======================================
-     NC ASOCIADAS
-  ======================================= */
-
-  const linkedCreditNotes =
-    useMemo(() => {
-      if (!selectedInvoice) {
-        return [];
-      }
-
-      return documents.filter(
-        (document) =>
-          document.tipo ===
-            "Nota de Crédito" &&
-          (
-            document.refId ===
-              selectedInvoice.id ||
-            document.facturaOrigenId ===
-              selectedInvoice.id
-          )
-      );
-    }, [
-      documents,
-      selectedInvoice,
-    ]);
-
-  /* =======================================
-     MÉTRICAS
-  ======================================= */
-
-  const metrics =
-    useMemo(() => {
-      const annulled =
-        closedInvoices.filter(
-          (invoice) =>
-            invoice.estado ===
-            "Anulada"
-        );
-
-      const cancelled =
-        closedInvoices.filter(
-          (invoice) =>
-            invoice.estado ===
-            "Cancelada"
-        );
-
-      return {
-        total:
-          closedInvoices.length,
-
-        annulled:
-          annulled.length,
-
-        cancelled:
-          cancelled.length,
-
-        amount:
-          annulled.reduce(
-            (total, invoice) =>
-              total +
-              Number(
-                invoice.total ||
-                0
-              ),
-
-            0
-          ),
-      };
-    }, [
-      closedInvoices,
-    ]);
-
-  /* =========================================
-     RENDER
-  ========================================= */
+  const metrics = useMemo(() => ({
+    total: invoices.length,
+    annulled: invoices.filter((invoice) => invoice.estado === "Anulada").length,
+    cancelled: invoices.filter((invoice) => invoice.estado === "Cancelada").length,
+    credited: invoices.reduce((sum, invoice) => sum + Number(noteByInvoice.get(invoice.id)?.montoAcreditado || 0), 0),
+    withNote: invoices.filter((invoice) => noteByInvoice.has(invoice.id) || invoice.notaCreditoId).length,
+  }), [invoices, noteByInvoice]);
 
   return (
-    <main className="annulments-page">
-
-      {/* HEADER */}
-
-      <header className="annulments-header">
-
-        <div className="annulments-header-left">
-
-          <button
-            type="button"
-            className="annulments-back"
-            onClick={() =>
-              navigate(
-                "/facturacion"
-              )
-            }
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <div className="annulments-header-icon">
-            <Ban size={20} />
+    <main className="fb-page">
+      <div className="fb-shell">
+        <header className="fb-topbar">
+          <div className="fb-brand">
+            <button className="fb-icon-button" type="button" onClick={() => navigate("/facturacion")}><ArrowLeft size={19} /></button>
+            <div className="fb-brand-icon"><Undo2 size={21} /></div>
+            <div className="fb-brand-copy"><strong>Anulaciones</strong><span>SERVIX · Comprobantes cerrados y trazabilidad</span></div>
           </div>
+          <div className="fb-status"><span className="fb-status-dot" />Auditoría activa</div>
+        </header>
 
+        <section className="fb-page-head">
           <div>
-            <span>Facturación</span>
-            <h1>Anulaciones</h1>
+            <div className="fb-kicker"><Ban size={15} />Control de cierre</div>
+            <h1>Anulaciones y cancelaciones</h1>
+            <p>Revisá qué comprobantes fueron cerrados, por qué y qué Nota de Crédito los compensa.</p>
           </div>
-
-        </div>
-
-        <div className="annulments-sync">
-          <span />
-
-          <div>
-            <strong>
-              Sincronizado
-            </strong>
-
-            <small>
-              Firestore en tiempo real
-            </small>
+          <div className="fb-actions">
+            <button className="fb-button" type="button" onClick={() => navigate("/facturacion/facturas")}><ReceiptText size={16} />Ir a Facturas</button>
+            <button className="fb-button soft" type="button" onClick={() => navigate("/facturacion/notas-credito")}><RotateCcw size={16} />Notas de Crédito</button>
           </div>
-        </div>
-
-      </header>
-
-      <div className="annulments-content">
-
-        {/* INTRO */}
-
-        <motion.section
-          className="annulments-intro"
-          initial={{
-            opacity: 0,
-            y: 8,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-        >
-          <div>
-            <span className="annulments-kicker">
-              Control documental
-            </span>
-
-            <h2>
-              Comprobantes cerrados
-            </h2>
-
-            <p>
-              Consulta de facturas anuladas o canceladas
-              manteniendo su trazabilidad original.
-            </p>
-          </div>
-
-          <div className="annulments-info">
-            <FileText size={18} />
-
-            <div>
-              <strong>
-                Sin eliminación
-              </strong>
-
-              <span>
-                Los documentos permanecen auditables
-              </span>
-            </div>
-          </div>
-
-        </motion.section>
-
-        {/* MÉTRICAS */}
-
-        <section className="annulments-stats">
-
-          <article>
-            <span>
-              Operaciones cerradas
-            </span>
-
-            <strong>
-              {metrics.total}
-            </strong>
-
-            <small>
-              Total histórico
-            </small>
-          </article>
-
-          <article className="annulled">
-            <span>
-              Anuladas
-            </span>
-
-            <strong>
-              {metrics.annulled}
-            </strong>
-
-            <small>
-              Con devolución económica
-            </small>
-          </article>
-
-          <article className="cancelled">
-            <span>
-              Canceladas
-            </span>
-
-            <strong>
-              {metrics.cancelled}
-            </strong>
-
-            <small>
-              Sin movimiento económico
-            </small>
-          </article>
-
-          <article className="amount">
-            <span>
-              Importe anulado
-            </span>
-
-            <strong className="annulments-money">
-              {formatMoney(
-                metrics.amount
-              )}
-            </strong>
-
-            <small>
-              Asociado a anulaciones
-            </small>
-          </article>
-
         </section>
 
-        {/* WORKSPACE */}
-
-        <section className="annulments-workspace">
-
-          <div className="annulments-toolbar">
-
-            <div className="annulments-search">
-
-              <Search size={17} />
-
-              <input
-                type="search"
-                placeholder="Buscar factura, cliente, ticket o NC..."
-                value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSearch("")
-                  }
-                >
-                  <X size={14} />
-                </button>
-              )}
-
-            </div>
-
-            <span className="annulments-results">
-              {filteredInvoices.length} comprobantes
-            </span>
-
-          </div>
-
-          <div className="annulments-layout">
-
-            {/* LISTA */}
-
-            <section className="annulments-list">
-
-              {loading && (
-                <div className="annulments-state">
-                  <div className="annulments-loader" />
-
-                  <strong>
-                    Cargando operaciones
-                  </strong>
-
-                  <span>
-                    Sincronizando con Firestore...
-                  </span>
-                </div>
-              )}
-
-              {!loading &&
-                error && (
-                <div className="annulments-state">
-                  <strong>
-                    No pudimos cargar los datos
-                  </strong>
-
-                  <span>
-                    Revisá conexión y permisos.
-                  </span>
-                </div>
-              )}
-
-              {!loading &&
-                !error &&
-                filteredInvoices.length ===
-                  0 && (
-                <div className="annulments-state">
-                  <Ban size={29} />
-
-                  <strong>
-                    No hay operaciones cerradas
-                  </strong>
-
-                  <span>
-                    Las anulaciones y cancelaciones aparecerán acá.
-                  </span>
-                </div>
-              )}
-
-              {!loading &&
-                !error &&
-                filteredInvoices.map(
-                  (invoice) => {
-                    const status =
-                      getStatusData(
-                        invoice
-                      );
-
-                    const active =
-                      invoice.id ===
-                      selectedId;
-
-                    return (
-                      <motion.button
-                        type="button"
-                        layout
-                        key={invoice.id}
-                        className={
-                          `annulment-row ${
-                            active
-                              ? "active"
-                              : ""
-                          }`
-                        }
-                        onClick={() =>
-                          setSelectedId(
-                            invoice.id
-                          )
-                        }
-                      >
-                        <div>
-
-                          <div className="annulment-row-top">
-                            <strong>
-                              {invoice.id}
-                            </strong>
-
-                            <span
-                              className={
-                                status.className
-                              }
-                            >
-                              {status.label}
-                            </span>
-                          </div>
-
-                          <h3>
-                            {invoice.cliente ||
-                              "Consumidor Final"}
-                          </h3>
-
-                          <small>
-                            {invoice.refModulo ||
-                              "Manual"}
-
-                            {invoice.refId &&
-                              ` · ${invoice.refId}`}
-                          </small>
-
-                        </div>
-
-                        <div className="annulment-row-total">
-                          <strong>
-                            {formatMoney(
-                              invoice.total
-                            )}
-                          </strong>
-
-                          <span>
-                            {formatDate(
-                              invoice.fecha
-                            )}
-                          </span>
-                        </div>
-
-                        <ChevronRight
-                          size={17}
-                        />
-
-                      </motion.button>
-                    );
-                  }
-                )}
-
-            </section>
-
-            {/* DETALLE */}
-
-            <aside className="annulments-detail">
-
-              {!selectedInvoice ? (
-                <div className="annulments-detail-empty">
-                  <Ban size={30} />
-
-                  <strong>
-                    Seleccioná un comprobante
-                  </strong>
-
-                  <span>
-                    El detalle aparecerá acá.
-                  </span>
-                </div>
-              ) : (
-                <AnnulmentDetail
-                  invoice={
-                    selectedInvoice
-                  }
-                  creditNotes={
-                    linkedCreditNotes
-                  }
-                  onInvoices={() =>
-                    navigate(
-                      "/facturacion/facturas"
-                    )
-                  }
-                />
-              )}
-
-            </aside>
-
-          </div>
-
+        <section className="fb-metrics">
+          <Metric label="Comprobantes cerrados" value={metrics.total} hint="Anulados + cancelados" icon={Undo2} />
+          <Metric label="Anulados" value={metrics.annulled} hint="Con operación económica revertida" icon={RotateCcw} tone="pink" />
+          <Metric label="Cancelados" value={metrics.cancelled} hint="Sin cobro efectivo" icon={Ban} tone="amber" />
+          <Metric label="Con Nota de Crédito" value={metrics.withNote} hint="Documento compensatorio" icon={ReceiptText} tone="violet" />
+          <Metric label="Saldo acreditado" value={formatMoney(metrics.credited)} hint="Importe efectivamente reconocido" icon={History} tone="mint" />
         </section>
 
+        <section className="fb-workspace">
+          <div className="fb-workspace-head"><div className="fb-workspace-title"><strong>Comprobantes cerrados</strong><span>La factura original permanece visible y auditable</span></div></div>
+          <div className="fb-filters" style={{ gridTemplateColumns: "minmax(0,1fr) 190px 180px 130px" }}>
+            <div className="fb-search"><Search size={17} /><input className="fb-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar factura, cliente o Nota de Crédito..." /></div>
+            <select className="fb-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="">Todos los estados</option><option value="Anulada">Anulada</option><option value="Cancelada">Cancelada</option></select>
+            <div />
+            <div className="fb-inline" style={{ justifyContent: "flex-end", color: "var(--fb-muted)", fontSize: ".55rem" }}>{filtered.length} resultados</div>
+          </div>
+
+          {loading ? <State icon={Undo2} title="Cargando anulaciones" text="Sincronizando comprobantes..." />
+            : error ? <State icon={X} title="No pudimos cargar la información" text="Revisá conexión o permisos." />
+            : filtered.length === 0 ? <State icon={Undo2} title="Sin comprobantes cerrados" text="No hay resultados para los filtros seleccionados." />
+            : (
+              <div className="fb-table-wrap">
+                <div className="fb-table-head fb-annul-row"><div>Factura</div><div>Cliente</div><div>Estado</div><div>Nota de Crédito</div><div>Fecha</div><div>Total</div><div>Acciones</div></div>
+                {filtered.map((invoice) => {
+                  const note = noteByInvoice.get(invoice.id);
+                  return (
+                    <motion.div key={invoice.id} className="fb-table-row fb-annul-row clickable" role="button" tabIndex={0} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} onClick={() => setSelectedId(invoice.id)}>
+                      <div className="fb-cell"><strong>{invoice.id}</strong><span>{invoice.refModulo || "Factura"}</span></div>
+                      <div className="fb-cell"><strong>{invoice.cliente || "Consumidor Final"}</strong><span>{invoice.doc || "C.F."}</span></div>
+                      <div><span className={`fb-badge ${invoice.estado === "Anulada" ? "red" : "amber"}`}>{invoice.estado}</span></div>
+                      <div className="fb-cell"><strong>{invoice.notaCreditoId || note?.id || "—"}</strong><span>{note ? formatMoney(note.montoAcreditado ?? note.total) : "Sin NC"}</span></div>
+                      <div className="fb-cell"><strong>{formatDate(invoice.fecha)}</strong><span>{invoice.anuladaEn || invoice.actualizadoEn ? "Cierre registrado" : ""}</span></div>
+                      <div className="fb-money">{formatMoney(invoice.total)}</div>
+                      <div className="fb-row-actions"><button className="fb-row-button preview" type="button" title="Ver detalle" onClick={(e) => { e.stopPropagation(); setSelectedId(invoice.id); }}><History size={16} /></button><button className="fb-row-button" type="button" title="Imprimir" onClick={(e) => { e.stopPropagation(); setSelectedId(invoice.id); setTimeout(() => window.print(), 120); }}><Printer size={16} /></button></div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+        </section>
       </div>
 
+      <AnimatePresence>
+        {selected && (
+          <motion.section className="fb-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <header className="fb-screen-toolbar">
+              <div className="fb-brand"><button className="fb-icon-button" type="button" onClick={() => setSelectedId(null)}><ArrowLeft size={19} /></button><div className="fb-screen-title"><strong>{selected.id}</strong><span>Informe de cierre documental</span></div></div>
+              <div className="fb-toolbar-actions"><button className="fb-button soft" type="button" onClick={() => navigate("/facturacion/notas-credito")}><RotateCcw size={16} />Notas de Crédito</button><button className="fb-button primary" type="button" onClick={() => window.print()}><Printer size={16} />Imprimir</button></div>
+            </header>
+            <div className="fb-screen-scroll">
+              <article className="fb-document">
+                <div className="fb-document-head">
+                  <div className="fb-doc-brand"><div className="fb-doc-logo"><Undo2 size={22} /></div><div><strong>SERVIX</strong><span>Informe de anulación / cancelación</span><span>Comprobante original conservado</span></div></div>
+                  <div className="fb-doc-number"><span>Factura</span><strong>{selected.id}</strong><span className={`fb-badge ${selected.estado === "Anulada" ? "red" : "amber"}`}>{selected.estado}</span></div>
+                </div>
+                <div className="fb-doc-grid">
+                  <Doc label="Cliente" strong={selected.cliente || "Consumidor Final"} lines={[selected.doc || "C.F.", `Cliente ID: ${selected.clienteId || "—"}`]} />
+                  <Doc label="Operación original" strong={formatMoney(selected.total)} lines={[`${formatDate(selected.fecha)} · ${selected.estadoPago || "—"}`, `${selected.refModulo || "Origen"}: ${selected.refId || "—"}`]} />
+                  <Doc label="Nota de Crédito" strong={selected.notaCreditoId || selectedNote?.id || "No corresponde"} lines={[selectedNote ? `Importe acreditado: ${formatMoney(selectedNote.montoAcreditado ?? selectedNote.total)}` : "Cancelación sin cobro / sin NC"]} />
+                  <Doc label="Motivo" strong={selectedNote?.motivo || "Ver historial"} lines={[selected.anuladaEn || selected.actualizadoEn || "Fecha de cierre no disponible"]} />
+                </div>
+                <div className="fb-doc-section"><h3>Historial del comprobante</h3><Timeline entries={selected.historial} /></div>
+                {selectedNote && <div className="fb-note">La Nota de Crédito {selectedNote.id} conserva su propio historial. El importe acreditado puede ser menor al total si la factura tenía pagos parciales.</div>}
+                {!selectedNote && selected.estado === "Cancelada" && <div className="fb-note warning">La cancelación corresponde a una factura sin cobro efectivo. No se genera saldo a favor porque no hubo dinero ingresado.</div>}
+              </article>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
-/* =========================================
-   DETALLE
-========================================= */
-
-function AnnulmentDetail({
-  invoice,
-  creditNotes,
-  onInvoices,
-}) {
-  const status =
-    getStatusData(
-      invoice
-    );
-
-  const history =
-    Array.isArray(
-      invoice.historial
-    )
-      ? [...invoice.historial]
-          .reverse()
-      : [];
-
-  return (
-    <div className="annulment-detail">
-
-      <div className="annulment-detail-header">
-
-        <div>
-          <span>Factura</span>
-          <h2>{invoice.id}</h2>
-        </div>
-
-        <span
-          className={
-            `annulment-detail-status ${status.className}`
-          }
-        >
-          {status.label}
-        </span>
-
-      </div>
-
-      <section className="annulment-section">
-
-        <span className="annulment-label">
-          Cliente
-        </span>
-
-        <div className="annulment-client">
-
-          <UserRound size={18} />
-
-          <div>
-            <strong>
-              {invoice.cliente ||
-                "Consumidor Final"}
-            </strong>
-
-            <span>
-              {invoice.doc ||
-                "C.F."}
-            </span>
-          </div>
-
-        </div>
-
-      </section>
-
-      <div className="annulment-summary">
-
-        <div>
-          <CalendarDays size={15} />
-
-          <span>
-            Fecha
-          </span>
-
-          <strong>
-            {formatDate(
-              invoice.fecha
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <CircleDollarSign size={15} />
-
-          <span>
-            Total
-          </span>
-
-          <strong>
-            {formatMoney(
-              invoice.total
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <ReceiptText size={15} />
-
-          <span>
-            Estado
-          </span>
-
-          <strong>
-            {invoice.estado}
-          </strong>
-        </div>
-
-      </div>
-
-      {creditNotes.length > 0 && (
-        <section className="annulment-section">
-
-          <span className="annulment-label">
-            Nota de Crédito
-          </span>
-
-          {creditNotes.map(
-            (note) => (
-              <div
-                className="annulment-credit-note"
-                key={note.id}
-              >
-                <RotateCcw size={17} />
-
-                <div>
-                  <strong>
-                    {note.id}
-                  </strong>
-
-                  <span>
-                    {formatMoney(
-                      note.total
-                    )}
-                  </span>
-                </div>
-
-                <Link2 size={16} />
-              </div>
-            )
-          )}
-
-        </section>
-      )}
-
-      <button
-        type="button"
-        className="annulment-open-invoice"
-        onClick={onInvoices}
-      >
-        <ReceiptText size={16} />
-        Ver en Facturas
-      </button>
-
-      <section className="annulment-section">
-
-        <span className="annulment-label">
-          Historial
-        </span>
-
-        <div className="annulment-history">
-
-          {history.map(
-            (event, index) => (
-              <article
-                key={
-                  `${event.fecha}-${index}`
-                }
-              >
-                <div />
-
-                <section>
-                  <header>
-                    <strong>
-                      {event.accion ||
-                        "Actividad"}
-                    </strong>
-
-                    <span>
-                      {event.fecha ||
-                        "—"}
-                    </span>
-                  </header>
-
-                  {event.detalle && (
-                    <p>
-                      {event.detalle}
-                    </p>
-                  )}
-                </section>
-
-              </article>
-            )
-          )}
-
-        </div>
-
-      </section>
-
-    </div>
-  );
+function Metric({ label, value, hint, icon: Icon, tone = "" }) { return <article className={`fb-metric ${tone}`}><div className="fb-metric-top"><span className="fb-metric-label">{label}</span><div className="fb-metric-icon"><Icon size={18} /></div></div><strong>{value}</strong><small>{hint}</small></article>; }
+function State({ icon: Icon, title, text }) { return <div className="fb-empty"><Icon size={24} /><strong>{title}</strong><span>{text}</span></div>; }
+function Doc({ label, strong, lines = [] }) { return <div className="fb-doc-box"><label>{label}</label><strong>{strong}</strong>{lines.map((line) => <span key={line}>{line}</span>)}</div>; }
+function Timeline({ entries }) {
+  const list = Array.isArray(entries) ? [...entries].reverse() : [];
+  if (!list.length) return <div className="fb-doc-box"><span>Sin historial adicional.</span></div>;
+  return <div className="fb-timeline">{list.map((entry, index) => <div className="fb-timeline-item" key={`${entry.fecha}-${index}`}><div className="fb-timeline-icon"><History size={15} /></div><div className="fb-timeline-copy"><strong>{entry.accion || "Evento"}</strong><span>{entry.detalle || "Sin detalle"}</span></div><time>{entry.fecha || "—"}</time></div>)}</div>;
 }

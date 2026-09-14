@@ -11,6 +11,10 @@ import {
 
 import { db } from "./firebase.js";
 
+import {
+  registerCreditPayment,
+} from "./creditos.service.js";
+
 const REAL_INCOME_METHODS = new Set([
   "Efectivo",
   "Transferencia",
@@ -379,6 +383,53 @@ export async function processCashPayment({
     }
   }
 
+  /* =======================================
+     COBRANZA DE CRÉDITO EXISTENTE
+     No genera una nueva venta ni una nueva factura.
+  ======================================= */
+
+  if (
+    cleanText(preview.origen).toLowerCase() === "crédito" &&
+    cleanText(preview.creditoId)
+  ) {
+    if (cleanMethod === "Préstamo personal") {
+      throw new Error("PAYMENT_METHOD_INVALID");
+    }
+
+    const settingsSnapshot = await getDoc(
+      doc(db, "negocio", "configuracion")
+    );
+
+    const result = await registerCreditPayment({
+      creditId: preview.creditoId,
+      amount: preview.total,
+      method: cleanMethod,
+      forgiveLateFees: Boolean(preview.forgiveLateFees),
+      author: cleanAuthor,
+      settings: settingsSnapshot.exists() ? settingsSnapshot.data() : undefined,
+      cashPendingId: cleanPendingId,
+      paymentDetails: details,
+    });
+
+    return {
+      kind: "credit-payment",
+      pendingId: cleanPendingId,
+      creditId: preview.creditoId,
+      invoiceId: preview.facturaId || null,
+      method: cleanMethod,
+      paymentState: result.balance <= 0 ? "Pagado Total" : "Pago Parcial",
+      movementId: result.payment?.id || null,
+      total: result.payment?.monto || result.capitalPaid + result.lateFeesPaid,
+      capitalPaid: result.capitalPaid,
+      lateFeesPaid: result.lateFeesPaid,
+      balance: result.balance,
+      change:
+        cleanMethod === "Efectivo"
+          ? Math.max(0, toNumber(details.received) - toNumber(preview.total))
+          : 0,
+    };
+  }
+
   const saleRef = doc(collection(db, "ventas"));
   const creditRef = doc(collection(db, "creditos"));
 
@@ -431,7 +482,7 @@ export async function processCashPayment({
       : [];
 
     for (const item of cart) {
-      if (!item?.sku) continue;
+      if (!item?.sku || item?.manual === true) continue;
       const productRef = doc(db, "productos", item.sku);
       const productSnapshot = await transaction.get(productRef);
       productReads.push({ item, productRef, productSnapshot });
@@ -491,9 +542,30 @@ export async function processCashPayment({
           product.stock
         );
 
+      const reserved =
+        Math.max(
+          0,
+          toNumber(
+            product.stockReservado
+          )
+        );
+
+      // Una venta directa/POS no puede consumir unidades reservadas.
+      // Los cobros originados en Ticket sí pueden consumir reserva,
+      // porque la pieza ya forma parte del trabajo que se está cobrando.
+      const available =
+        pending.origen ===
+        "Ticket"
+          ? stock
+          : Math.max(
+              0,
+              stock -
+                reserved
+            );
+
       if (
         quantity > 0 &&
-        stock < quantity
+        available < quantity
       ) {
         const error =
           new Error(
@@ -506,7 +578,7 @@ export async function processCashPayment({
           item.sku;
 
         error.available =
-          stock;
+          available;
 
         error.required =
           quantity;
@@ -697,16 +769,180 @@ export async function processCashPayment({
         continue;
       }
 
+      const stockBefore =
+        toNumber(
+          product.stock
+        );
+
+      const reservedBefore =
+        Math.max(
+          0,
+          toNumber(
+            product.stockReservado
+          )
+        );
+
+      const reservations =
+        product.stockReservas &&
+        typeof product.stockReservas ===
+          "object"
+          ? {
+              ...product.stockReservas,
+            }
+          : {};
+
+      const ticketReservation =
+        pending.origen ===
+          "Ticket" &&
+        pending.ref
+          ? Math.max(
+              0,
+              toNumber(
+                reservations[
+                  pending.ref
+                ]
+              )
+            )
+          : 0;
+
+      const reservationConsumed =
+        Math.min(
+          ticketReservation,
+          quantity
+        );
+
+      if (
+        reservationConsumed >
+          0 &&
+        pending.ref
+      ) {
+        const remainingReservation =
+          ticketReservation -
+          reservationConsumed;
+
+        if (
+          remainingReservation >
+          0
+        ) {
+          reservations[
+            pending.ref
+          ] =
+            remainingReservation;
+        } else {
+          delete reservations[
+            pending.ref
+          ];
+        }
+      }
+
+      const stockAfter =
+        stockBefore -
+        quantity;
+
+      const reservedAfter =
+        Math.max(
+          0,
+          reservedBefore -
+            reservationConsumed
+        );
+
       transaction.update(
         productRef,
         {
           stock:
-            toNumber(
-              product.stock
-            ) -
-            quantity,
+            stockAfter,
+
+          stockReservado:
+            reservedAfter,
+
+          stockReservas:
+            reservations,
 
           actualizadoEn:
+            nowISO,
+
+          actualizadoPor:
+            cleanAuthor,
+        }
+      );
+
+      const stockMovementRef =
+        doc(
+          collection(
+            db,
+            "stock_movimientos"
+          )
+        );
+
+      transaction.set(
+        stockMovementRef,
+        {
+          id:
+            stockMovementRef.id,
+
+          tipo:
+            "Salida",
+
+          sku:
+            cleanText(
+              item.sku
+            ),
+
+          producto:
+            product.nombre ||
+            item.nombre ||
+            item.sku,
+
+          categoria:
+            cleanText(
+              product.categoria
+            ),
+
+          cantidad:
+            -quantity,
+
+          stockAntes:
+            stockBefore,
+
+          stockDespues:
+            stockAfter,
+
+          reservadoAntes:
+            reservedBefore,
+
+          reservadoDespues:
+            reservedAfter,
+
+          origen:
+            pending.origen ||
+            "Venta",
+
+          referencia:
+            cleanText(
+              pending.ref ||
+              pending.folio ||
+              pending.id
+            ),
+
+          facturaId:
+            invoiceId,
+
+          observacion:
+            pending.origen ===
+            "Ticket"
+              ? "Salida por cobro de Ticket."
+              : "Salida por venta cobrada en Caja.",
+
+          usuario:
+            cleanAuthor,
+
+          fecha:
+            date,
+
+          hora:
+            time,
+
+          creadoEn:
             nowISO,
         }
       );
@@ -996,6 +1232,11 @@ export async function processCashPayment({
 
     /* =======================================
        MOVIMIENTO DE CAJA
+       
+       Desde este punto todos los cobros generan un registro trazable.
+       Los medios que representan ingreso real siguen usando tipo "ingreso".
+       Saldo a favor y financiación quedan como "informativo" para que
+       aparezcan en Movimientos sin alterar los totales de efectivo/ingresos.
     ======================================= */
 
     const cashData =
@@ -1010,99 +1251,141 @@ export async function processCashPayment({
         ? cashData.movs
         : [];
 
-    if (
-      REAL_INCOME_METHODS.has(
-        cleanMethod
-      )
-    ) {
-      const movement = {
-        id:
-          doc(
-            collection(
-              db,
-              "negocio"
-            )
-          ).id,
+    const cashMovementId =
+      doc(
+        collection(
+          db,
+          "negocio"
+        )
+      ).id;
 
-        fecha:
-          date,
+    const movement = {
+      id:
+        cashMovementId,
 
-        hora:
-          time,
+      fecha:
+        date,
 
-        creadoEn:
+      hora:
+        time,
+
+      creadoEn:
+        nowISO,
+
+      clase:
+        "cobro",
+
+      concepto:
+        `Cobro ${
+          pending.origen ||
+          "Operación"
+        } #${
+          pending.ref ||
+          pending.id
+        } (${
+          pending.cliente ||
+          "Cliente"
+        })`,
+
+      tipo:
+        REAL_INCOME_METHODS.has(
+          cleanMethod
+        )
+          ? "ingreso"
+          : "informativo",
+
+      monto:
+        total,
+
+      subcategoria:
+        isFinanced
+          ? "Financiación"
+          : cleanMethod ===
+              "Saldo a Favor"
+            ? "Saldo a favor"
+            : "Capital",
+
+      medioPago:
+        cleanMethod,
+
+      referencia:
+        cleanText(
+          details.reference
+        ) ||
+        null,
+
+      usuario:
+        cleanAuthor,
+
+      origen:
+        pending.origen ||
+        "Operación",
+
+      origenRef:
+        pending.ref ||
+        pending.id,
+
+      cliente:
+        pending.cliente ||
+        "Cliente",
+
+      clienteId:
+        pending.clienteId ||
+        null,
+
+      facturaId:
+        invoiceId,
+
+      ventaId:
+        saleRef.id,
+
+      ticketId:
+        pending.origen ===
+        "Ticket"
+          ? pending.ref ||
+            null
+          : null,
+
+      presupuestoId:
+        pending.presupuestoId ||
+        null,
+    };
+
+    transaction.set(
+      cashRef,
+      {
+        fondo:
+          toNumber(
+            cashData.fondo
+          ),
+
+        movs: [
+          ...movements,
+          movement,
+        ],
+
+        sesion:
+          cashData.sesion ||
+          {
+            inicio:
+              nowISO,
+
+            fondoInicial:
+              toNumber(
+                cashData.fondo
+              ),
+
+            usuario:
+              cleanAuthor,
+          },
+
+        actualizadoEn:
           nowISO,
-
-        concepto:
-          `Cobro ${
-            pending.origen ||
-            "Operación"
-          } #${
-            pending.ref ||
-            pending.id
-          } (${
-            pending.cliente ||
-            "Cliente"
-          })`,
-
-        tipo:
-          "ingreso",
-
-        monto:
-          total,
-
-        subcategoria:
-          "Capital",
-
-        medioPago:
-          cleanMethod,
-
-        referencia:
-          cleanText(
-            details.reference
-          ) ||
-          null,
-
-        usuario:
-          cleanAuthor,
-      };
-
-      transaction.set(
-        cashRef,
-        {
-          fondo:
-            toNumber(
-              cashData.fondo
-            ),
-
-          movs: [
-            ...movements,
-            movement,
-          ],
-
-          sesion:
-            cashData.sesion ||
-            {
-              inicio:
-                nowISO,
-
-              fondoInicial:
-                toNumber(
-                  cashData.fondo
-                ),
-
-              usuario:
-                cleanAuthor,
-            },
-
-          actualizadoEn:
-            nowISO,
-        },
-        {
-          merge: true,
-        }
-      );
-    }
+      },
+      {
+        merge: true,
+      }
+    );
 
     /* =======================================
        VENTA
@@ -1504,6 +1787,9 @@ export async function processCashPayment({
 
       total,
 
+      movementId:
+        cashMovementId,
+
       change:
         cleanMethod ===
         "Efectivo"
@@ -1654,6 +1940,15 @@ export async function addCashMovement({
 
         usuario:
           cleanAuthor,
+
+        clase:
+          "manual",
+
+        origen:
+          "Caja",
+
+        origenRef:
+          null,
       };
 
       transaction.set(
