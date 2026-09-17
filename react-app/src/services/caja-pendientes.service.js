@@ -123,7 +123,8 @@ async function findExistingPending(
 
 export async function sendTicketToCash(
   ticketId,
-  author = "Sistema"
+  author = "Sistema",
+  options = {}
 ) {
   const cleanTicketId =
     cleanText(
@@ -135,6 +136,10 @@ export async function sendTicketToCash(
       author
     ) ||
     "Sistema";
+
+  const markReady =
+    options?.markReady ===
+    true;
 
   if (!cleanTicketId) {
     throw new Error(
@@ -240,9 +245,14 @@ export async function sendTicketToCash(
          VALIDAR ESTADO
       ================================= */
 
+      const currentStage =
+        ticket.stage ||
+        "pendiente";
+
       if (
-        ticket.stage !==
-        "listo"
+        !markReady &&
+        currentStage !==
+          "listo"
       ) {
         throw new Error(
           "TICKET_NOT_READY"
@@ -455,6 +465,11 @@ export async function sendTicketToCash(
           now
         );
 
+      const stageChanged =
+        markReady &&
+        currentStage !==
+          "listo";
+
       /* =================================
          PENDIENTE DE CAJA
       ================================= */
@@ -519,10 +534,52 @@ export async function sendTicketToCash(
           ? ticket.historial
           : [];
 
+      const stageHistoryEntry =
+        stageChanged
+          ? {
+              accion:
+                "Estado cambiado",
+              detalle:
+                `${currentStage} → Listo para entrega`,
+              fecha:
+                historyDate,
+              autor:
+                cleanAuthor,
+            }
+          : null;
+
+      const cashHistoryEntry = {
+        accion:
+          "Enviado a Caja",
+
+        detalle:
+          `Pendiente de cobro por $${total.toLocaleString(
+            "es-AR"
+          )}. Presupuesto: ${
+            ticket.presupuestoId ||
+            "—"
+          }`,
+
+        fecha:
+          historyDate,
+
+        autor:
+          cleanAuthor,
+      };
+
       transaction.update(
         ticketRef,
 
         {
+          ...(stageChanged
+            ? {
+                stage:
+                  "listo",
+                fechaListo:
+                  nowISO,
+              }
+            : {}),
+
           estadoCaja:
             "Pendiente",
 
@@ -537,25 +594,12 @@ export async function sendTicketToCash(
 
           historial: [
             ...ticketHistory,
-
-            {
-              accion:
-                "Enviado a Caja",
-
-              detalle:
-                `Pendiente de cobro por $${total.toLocaleString(
-                  "es-AR"
-                )}. Presupuesto: ${
-                  ticket.presupuestoId ||
-                  "—"
-                }`,
-
-              fecha:
-                historyDate,
-
-              autor:
-                cleanAuthor,
-            },
+            ...(stageHistoryEntry
+              ? [
+                  stageHistoryEntry,
+                ]
+              : []),
+            cashHistoryEntry,
           ],
         }
       );
@@ -623,6 +667,10 @@ export async function sendTicketToCash(
         cliente:
           ticket.cliente ||
           "Mostrador",
+
+        stageChanged,
+        historyEntry:
+          stageHistoryEntry,
       };
     }
   );

@@ -821,10 +821,23 @@ export default function TicketDetail() {
           return;
         }
 
-        notify.success(
-          "Estado actualizado",
-          `Ticket #${ticket.id}: ${result.stageLabel}.`
-        );
+        if (
+          selectedStage ===
+            "listo" &&
+          result.cashPendingId
+        ) {
+          notify.success(
+            "Listo y enviado a Caja",
+            `Ticket #${ticket.id} quedó pendiente de cobro por ${formatMoney(
+              result.cashTotal
+            )}.`
+          );
+        } else {
+          notify.success(
+            "Estado actualizado",
+            `Ticket #${ticket.id}: ${result.stageLabel}.`
+          );
+        }
       } catch (
         stageError
       ) {
@@ -843,6 +856,16 @@ export default function TicketDetail() {
             "El ticket debe estar cobrado o financiado y facturado antes de marcarlo como Entregado.",
           TICKET_FINANCIAL_REVERSAL_REQUIRED:
             "El ticket ya tiene una operación financiera. Primero anulá o rectificá la factura correspondiente.",
+          BUDGET_NOT_ACCEPTED:
+            "Para dejar el ticket Listo para entrega, el presupuesto debe estar aceptado.",
+          BUDGET_INVALID_TOTAL:
+            "El presupuesto no tiene un total válido para generar el cobro.",
+          CASH_PENDING_EXISTS:
+            "El ticket ya tiene un cobro pendiente en Caja.",
+          TICKET_ALREADY_PAID:
+            "El ticket ya figura como cobrado.",
+          TICKET_ALREADY_BILLED:
+            "El ticket ya tiene una factura asociada.",
         };
 
         notify.error(

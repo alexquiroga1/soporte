@@ -16,6 +16,10 @@ import {
 import { db } from "./firebase.js";
 
 import {
+  sendTicketToCash,
+} from "./caja-pendientes.service.js";
+
+import {
   releaseTicketStockInTransaction,
 } from "./productos.service.js";
 
@@ -1111,6 +1115,37 @@ export async function updateTicketStage(
     throw new Error(
       "STAGE_REQUIRED"
     );
+  }
+
+  /*
+   * Listo para entrega es una operación de negocio única:
+   * cambia el estado y genera el pendiente de Caja dentro de
+   * la misma transacción. De esta forma nunca puede quedar un
+   * ticket en "listo" sin su cobro pendiente.
+   */
+  if (newStage === "listo") {
+    const cashResult =
+      await sendTicketToCash(
+        ticket.id,
+        author,
+        { markReady: true }
+      );
+
+    return {
+      changed: true,
+      stage: "listo",
+      stageLabel:
+        getStageLabel(
+          "listo"
+        ),
+      historyEntry:
+        cashResult.historyEntry ||
+        null,
+      cashPendingId:
+        cashResult.pendingId,
+      cashTotal:
+        cashResult.total,
+    };
   }
 
   const ticketRef =

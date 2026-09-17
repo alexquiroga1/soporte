@@ -472,16 +472,29 @@ export default function Tickets() {
     try {
       setUpdatingTicketId(ticket.id);
 
-      await updateTicketStage(
-        ticket,
-        newStage,
-        author
-      );
+      const result =
+        await updateTicketStage(
+          ticket,
+          newStage,
+          author
+        );
 
-      notify.success(
-        "Estado actualizado",
-        `${ticket.id} → ${getStage(newStage).label}`
-      );
+      if (
+        newStage === "listo" &&
+        result.cashPendingId
+      ) {
+        notify.success(
+          "Listo y enviado a Caja",
+          `${ticket.id} quedó pendiente de cobro por ${formatMoney(
+            result.cashTotal
+          )}.`
+        );
+      } else {
+        notify.success(
+          "Estado actualizado",
+          `${ticket.id} → ${getStage(newStage).label}`
+        );
+      }
     } catch (firebaseError) {
       console.error(firebaseError);
 
@@ -492,6 +505,16 @@ export default function Tickets() {
           "Para entregar el equipo, el ticket debe estar cobrado o financiado y facturado.",
         TICKET_FINANCIAL_REVERSAL_REQUIRED:
           "El ticket ya tiene una operación financiera. Primero resolvé la factura o Nota de Crédito.",
+        BUDGET_NOT_ACCEPTED:
+          "Para pasar a Listo para entrega, el presupuesto debe estar aceptado.",
+        BUDGET_INVALID_TOTAL:
+          "El presupuesto no tiene un total válido para generar el cobro.",
+        CASH_PENDING_EXISTS:
+          "El ticket ya tiene un cobro pendiente en Caja.",
+        TICKET_ALREADY_PAID:
+          "El ticket ya figura como cobrado.",
+        TICKET_ALREADY_BILLED:
+          "El ticket ya tiene una factura asociada.",
       };
 
       notify.error(
