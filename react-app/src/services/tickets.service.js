@@ -469,22 +469,6 @@ function assertBudgetCanBeModified(
 }
 
 /* =========================================
-   FOTOS
-========================================= */
-
-async function uploadTicketPhotos(
-  _ticketId,
-  _files = []
-) {
-  /*
-   * Firebase Storage queda desactivado de forma intencional.
-   * Se conserva el campo fotos en los documentos para mantener
-   * compatibilidad con datos existentes, pero no se suben nuevas.
-   */
-  return [];
-}
-
-/* =========================================
    PRÓXIMO NÚMERO DE TICKET
 ========================================= */
 
@@ -567,11 +551,6 @@ export async function createTicket({
   clientName = "",
   serviceType = "Taller",
 
-  priority = "P2",
-
-  technician =
-    "Sin asignar",
-
   equipment = "Otro",
 
   brand = "",
@@ -586,27 +565,14 @@ export async function createTicket({
 
   condition = "",
 
-  issue = "",
-
   homeService = {},
 
   remoteService = {},
-
-  photos = [],
 
   warrantyDays = 30,
 
   author = "Sistema",
 } = {}) {
-  const normalizedIssue =
-    cleanText(issue);
-
-  if (!normalizedIssue) {
-    throw new Error(
-      "TICKET_ISSUE_REQUIRED"
-    );
-  }
-
   if (
     client?.archivado ===
     true
@@ -629,20 +595,6 @@ export async function createTicket({
     )
       ? serviceType
       : "Taller";
-
-  const allowedPriorities =
-    [
-      "P1",
-      "P2",
-      "P3",
-    ];
-
-  const normalizedPriority =
-    allowedPriorities.includes(
-      priority
-    )
-      ? priority
-      : "P2";
 
   if (
     normalizedServiceType ===
@@ -702,12 +654,6 @@ export async function createTicket({
       client?.name
     ) ||
     "Mostrador";
-
-  const photoUrls =
-    await uploadTicketPhotos(
-      id,
-      photos
-    );
 
   const ticket = {
     id,
@@ -804,12 +750,6 @@ export async function createTicket({
     condicion:
       cleanText(condition),
 
-    falla:
-      normalizedIssue,
-
-    fotos:
-      photoUrls,
-
     datosDomicilio: {
       direccion:
         cleanText(
@@ -865,16 +805,13 @@ export async function createTicket({
       "Pendiente",
 
     prioridad:
-      normalizedPriority,
+      "P2",
 
     stage:
       "pendiente",
 
     tecnico:
-      cleanText(
-        technician
-      ) ||
-      "Sin asignar",
+      "Alex",
 
     ingreso,
 
@@ -894,9 +831,6 @@ export async function createTicket({
           )
         )
       ),
-
-    diagnostico:
-      "Pendiente de revisión inicial.",
 
     piezas: [],
 

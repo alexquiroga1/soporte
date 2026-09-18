@@ -16,10 +16,8 @@ import {
 
 import {
   ArrowLeft,
-  Camera,
   Check,
   CircleAlert,
-  Clock3,
   Cpu,
   Home,
   MapPin,
@@ -27,8 +25,6 @@ import {
   Save,
   Search,
   ShieldCheck,
-  Trash2,
-  Upload,
   UserPlus,
   UserRound,
   Wifi,
@@ -49,7 +45,6 @@ import {
 
 import {
   subscribeToBusinessConfig,
-  subscribeToSystemUsers,
 } from "../../services/configuracion.service.js";
 
 import {
@@ -97,24 +92,6 @@ const SERVICE_TYPES = [
   },
 ];
 
-const PRIORITIES = [
-  {
-    id: "P3",
-    label: "Baja",
-    description: "Sin urgencia",
-  },
-  {
-    id: "P2",
-    label: "Media",
-    description: "Prioridad normal",
-  },
-  {
-    id: "P1",
-    label: "Urgente",
-    description: "Atención prioritaria",
-  },
-];
-
 const PHYSICAL_ITEMS = [
   ["pantalla", "Pantalla"],
   ["carcasa", "Carcasa"],
@@ -149,12 +126,6 @@ function createEmptyForm(
     serviceType:
       "Taller",
 
-    priority:
-      "P2",
-
-    technician:
-      "Sin asignar",
-
     equipment:
       "Notebook",
 
@@ -174,9 +145,6 @@ function createEmptyForm(
       "",
 
     condition:
-      "",
-
-    issue:
       "",
 
     warrantyDays:
@@ -295,9 +263,6 @@ function errorMessage(
   error
 ) {
   const map = {
-    TICKET_ISSUE_REQUIRED:
-      "Ingresá la falla o motivo de consulta.",
-
     TICKET_CLIENT_ARCHIVED:
       "Ese cliente está archivado. Restauralo antes de crear un ticket.",
 
@@ -307,11 +272,6 @@ function errorMessage(
     TICKET_REMOTE_ID_REQUIRED:
       "Ingresá el ID o código de conexión remota.",
 
-    TICKET_PHOTO_INVALID:
-      "Solo se permiten imágenes como evidencia.",
-
-    TICKET_PHOTO_TOO_LARGE:
-      "Una de las imágenes supera los 8 MB.",
   };
 
   return (
@@ -355,12 +315,6 @@ export default function NuevoTicket() {
   const [
     clients,
     setClients,
-  ] =
-    useState([]);
-
-  const [
-    systemUsers,
-    setSystemUsers,
   ] =
     useState([]);
 
@@ -434,18 +388,6 @@ export default function NuevoTicket() {
     useState(false);
 
   const [
-    photos,
-    setPhotos,
-  ] =
-    useState([]);
-
-  const [
-    photoPreviews,
-    setPhotoPreviews,
-  ] =
-    useState([]);
-
-  const [
     saving,
     setSaving,
   ] =
@@ -494,34 +436,6 @@ export default function NuevoTicket() {
             notify.error(
               "Clientes",
               "No se pudo cargar la base de clientes."
-            );
-          }
-        );
-
-      return () => {
-        unsubscribe();
-      };
-    },
-    []
-  );
-
-  useEffect(
-    () => {
-      const unsubscribe =
-        subscribeToSystemUsers(
-          (
-            data
-          ) => {
-            setSystemUsers(
-              data
-            );
-          },
-
-          (
-            error
-          ) => {
-            console.error(
-              error
             );
           }
         );
@@ -686,100 +600,6 @@ export default function NuevoTicket() {
       searchParams,
     ]
   );
-
-  /* =======================================
-     PREVIEW FOTOS
-  ======================================= */
-
-  useEffect(
-    () => {
-      const previews =
-        photos.map(
-          (
-            file
-          ) => ({
-            file,
-
-            url:
-              URL.createObjectURL(
-                file
-              ),
-          })
-        );
-
-      setPhotoPreviews(
-        previews
-      );
-
-      return () => {
-        previews.forEach(
-          (
-            preview
-          ) => {
-            URL.revokeObjectURL(
-              preview.url
-            );
-          }
-        );
-      };
-    },
-    [
-      photos,
-    ]
-  );
-
-  /* =======================================
-     TÉCNICOS
-  ======================================= */
-
-  const technicians =
-    useMemo(
-      () => {
-        const names =
-          systemUsers
-            .filter(
-              (
-                systemUser
-              ) =>
-                systemUser
-                  .activo !==
-                false
-            )
-            .map(
-              (
-                systemUser
-              ) =>
-                String(
-                  systemUser
-                    .nombre ||
-                    systemUser
-                      .email ||
-                    ""
-                ).trim()
-            )
-            .filter(
-              Boolean
-            );
-
-        return [
-          ...new Set(
-            names
-          ),
-        ].sort(
-          (
-            a,
-            b
-          ) =>
-            a.localeCompare(
-              b,
-              "es"
-            )
-        );
-      },
-      [
-        systemUsers,
-      ]
-    );
 
   /* =======================================
      SUGERENCIAS CLIENTE
@@ -1190,113 +1010,6 @@ export default function NuevoTicket() {
     };
 
   /* =======================================
-     FOTOS
-  ======================================= */
-
-  const handlePhotos =
-    (
-      event
-    ) => {
-      const files =
-        Array.from(
-          event.target
-            .files ||
-            []
-        );
-
-      const images =
-        files.filter(
-          (
-            file
-          ) =>
-            file.type.startsWith(
-              "image/"
-            )
-        );
-
-      if (
-        images.length !==
-        files.length
-      ) {
-        notify.warning(
-          "Archivos omitidos",
-          "Solo se permiten imágenes."
-        );
-      }
-
-      const validImages =
-        images.filter(
-          (
-            file
-          ) =>
-            file.size <=
-            8 *
-              1024 *
-              1024
-        );
-
-      if (
-        validImages.length !==
-        images.length
-      ) {
-        notify.warning(
-          "Imagen demasiado grande",
-          "Cada foto puede pesar hasta 8 MB."
-        );
-      }
-
-      const limited =
-        validImages.slice(
-          0,
-          8
-        );
-
-      if (
-        validImages.length >
-        8
-      ) {
-        notify.info(
-          "Límite de fotos",
-          "Se utilizarán las primeras 8 imágenes."
-        );
-      }
-
-      setPhotos(
-        limited
-      );
-
-      setDirty(
-        true
-      );
-
-      event.target.value =
-        "";
-    };
-
-  const removePhoto =
-    (
-      index
-    ) => {
-      setPhotos(
-        (
-          current
-        ) =>
-          current.filter(
-            (
-              _,
-              photoIndex
-            ) =>
-              photoIndex !==
-              index
-          )
-      );
-
-      setDirty(
-        true
-      );
-    };
-
-  /* =======================================
      VOLVER
   ======================================= */
 
@@ -1353,17 +1066,6 @@ export default function NuevoTicket() {
       }
 
       if (
-        !form.issue.trim()
-      ) {
-        notify.warning(
-          "Falta la falla",
-          "Indicá el problema o motivo de consulta."
-        );
-
-        return;
-      }
-
-      if (
         form.serviceType ===
           "Domicilio" &&
         !form
@@ -1412,12 +1114,6 @@ export default function NuevoTicket() {
             serviceType:
               form.serviceType,
 
-            priority:
-              form.priority,
-
-            technician:
-              form.technician,
-
             equipment:
               form.equipment,
 
@@ -1445,16 +1141,11 @@ export default function NuevoTicket() {
             condition:
               form.condition,
 
-            issue:
-              form.issue,
-
             homeService:
               form.homeService,
 
             remoteService:
               form.remoteService,
-
-            photos,
 
             warrantyDays:
               Number(
@@ -1511,28 +1202,8 @@ export default function NuevoTicket() {
     };
 
   /* =========================================
-     RESUMEN VISUAL
+     ESTADO VISUAL DEL ALTA
   ========================================= */
-
-  const selectedPriorityMeta =
-    PRIORITIES.find(
-      (
-        priority
-      ) =>
-        priority.id ===
-        form.priority
-    ) ||
-    PRIORITIES[1];
-
-  const selectedServiceMeta =
-    SERVICE_TYPES.find(
-      (
-        service
-      ) =>
-        service.id ===
-        form.serviceType
-    ) ||
-    SERVICE_TYPES[0];
 
   const serviceReady =
     form.serviceType ===
@@ -1566,53 +1237,6 @@ export default function NuevoTicket() {
           form.model.trim()
         )
     );
-
-  const issueReady =
-    Boolean(
-      form.issue.trim()
-    );
-
-  const completionChecks = [
-    serviceReady,
-    clientReady,
-    Boolean(
-      form.equipment
-    ),
-    equipmentReady,
-    issueReady,
-  ];
-
-  const completionPercent =
-    Math.round(
-      (
-        completionChecks.filter(
-          Boolean
-        ).length /
-        completionChecks.length
-      ) *
-        100
-    );
-
-  const equipmentSummary =
-    [
-      form.equipment,
-      form.brand.trim(),
-      form.model.trim(),
-    ]
-      .filter(
-        Boolean
-      )
-      .join(
-        " · "
-      );
-
-  const summaryClient =
-    selectedClient
-      ? getClientDisplayName(
-          selectedClient
-        )
-      : clientQuery.trim() ||
-        "Sin seleccionar";
 
   /* =========================================
      RENDER
@@ -1744,7 +1368,7 @@ export default function NuevoTicket() {
             </h1>
 
             <p>
-              Registrá modalidad, cliente, equipo y falla en una sola pantalla sin perder trazabilidad técnica.
+              Registrá modalidad, cliente y equipo en una sola pantalla sin perder trazabilidad técnica.
             </p>
           </div>
 
@@ -1871,10 +1495,6 @@ export default function NuevoTicket() {
                     Equipo
                   </div>
 
-                  <div className={`new-ticket-progress-step ${issueReady ? "done" : equipmentReady ? "active" : ""}`}>
-                    <CircleAlert size={17} />
-                    Falla
-                  </div>
                 </div>
 
                 <div className="new-ticket-service-grid">
@@ -2862,451 +2482,8 @@ export default function NuevoTicket() {
               </div>
             </section>
 
-            {/* ===============================
-                4. FALLA / PRIORIDAD
-            =============================== */}
-
-            <section className="new-ticket-card">
-              <div className="new-ticket-card-head">
-                <div className="new-ticket-card-title">
-                  <div className="new-ticket-card-icon issue">
-                    <CircleAlert
-                      size={
-                        19
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <strong>
-                      4. Falla, prioridad y asignación
-                    </strong>
-                    <span>
-                      Información que va a orientar el diagnóstico
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="new-ticket-card-body">
-                <div className="new-ticket-two-columns new-ticket-priority-assignment">
-                  <div className="new-ticket-field">
-                    <span>
-                      Prioridad
-                    </span>
-
-                    <div className="new-ticket-priority-grid">
-                      {PRIORITIES.map(
-                        (
-                          priority
-                        ) => (
-                          <button
-                            key={
-                              priority.id
-                            }
-                            type="button"
-                            className={`${form.priority === priority.id ? "active" : ""} priority-${priority.id.toLowerCase()}`}
-                            disabled={
-                              saving
-                            }
-                            onClick={() =>
-                              updateField(
-                                "priority",
-                                priority.id
-                              )
-                            }
-                          >
-                            <span className="new-ticket-priority-icon">
-                              {priority.id ===
-                              "P1" ? (
-                                <CircleAlert size={16} />
-                              ) : priority.id ===
-                                "P2" ? (
-                                <Clock3 size={16} />
-                              ) : (
-                                <Check size={16} />
-                              )}
-                            </span>
-
-                            <strong>
-                              {priority.id} · {priority.label}
-                            </strong>
-                            <span>
-                              {priority.description}
-                            </span>
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  <label className="new-ticket-field">
-                    <span>
-                      Técnico asignado
-                    </span>
-                    <select
-                      value={
-                        form.technician
-                      }
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "technician",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    >
-                      <option value="Sin asignar">
-                        Sin asignar
-                      </option>
-
-                      {technicians.map(
-                        (
-                          technician
-                        ) => (
-                          <option
-                            key={
-                              technician
-                            }
-                            value={
-                              technician
-                            }
-                          >
-                            {technician}
-                          </option>
-                        )
-                      )}
-                    </select>
-                    <small>
-                      También podés asignarlo más adelante desde Tickets.
-                    </small>
-                  </label>
-                </div>
-
-                <label className="new-ticket-field new-ticket-issue">
-                  <span className="new-ticket-issue-label">
-                    <strong>
-                      Falla o motivo de consulta *
-                    </strong>
-                    <b>
-                      <CircleAlert size={14} />
-                      Dato obligatorio
-                    </b>
-                  </span>
-
-                  <textarea
-                    rows={
-                      5
-                    }
-                    value={
-                      form.issue
-                    }
-                    placeholder="Ej.: El equipo no enciende. El cliente indica que dejó de cargar después de una baja de tensión..."
-                    disabled={
-                      saving
-                    }
-                    onChange={
-                      (
-                        event
-                      ) =>
-                        updateField(
-                          "issue",
-                          event
-                            .target
-                            .value
-                        )
-                    }
-                  />
-                  <small>
-                    Registrá lo que informa el cliente sin convertirlo todavía en diagnóstico técnico.
-                  </small>
-                </label>
-              </div>
-            </section>
-
-            {/* ===============================
-                5. EVIDENCIA
-            =============================== */}
-
-            <section className="new-ticket-card new-ticket-evidence">
-              <div className="new-ticket-card-head">
-                <div className="new-ticket-card-title">
-                  <div className="new-ticket-card-icon evidence">
-                    <Camera
-                      size={
-                        19
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <strong>
-                      5. Evidencia de ingreso
-                    </strong>
-                    <span>
-                      Fotografías opcionales del equipo y sus detalles
-                    </span>
-                  </div>
-                </div>
-
-                <span className="new-ticket-badge yellow">
-                  Sin Storage
-                </span>
-              </div>
-
-              <div className="new-ticket-card-body">
-                <label className="new-ticket-upload disabled">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled
-                    aria-disabled="true"
-                    onChange={
-                      handlePhotos
-                    }
-                  />
-
-                  <div className="new-ticket-upload-icon">
-                    <Upload
-                      size={
-                        24
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <strong>
-                      Fotografías temporalmente desactivadas
-                    </strong>
-                    <span>
-                      La interfaz queda preparada para evidencia, pero la carga continúa desactivada para no incorporar Firebase Storage.
-                    </span>
-                  </div>
-                </label>
-
-                {photoPreviews.length >
-                  0 && (
-                  <div className="new-ticket-photo-grid">
-                    {photoPreviews.map(
-                      (
-                        preview,
-                        index
-                      ) => (
-                        <article
-                          key={`${preview.file.name}-${preview.file.lastModified}-${index}`}
-                        >
-                          <img
-                            src={
-                              preview.url
-                            }
-                            alt={`Evidencia ${index + 1}`}
-                          />
-                          <button
-                            type="button"
-                            disabled={
-                              saving
-                            }
-                            onClick={() =>
-                              removePhoto(
-                                index
-                              )
-                            }
-                            title="Quitar foto"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </article>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
           </div>
 
-          {/* =================================
-              RESUMEN LATERAL
-          ================================= */}
-
-          <aside className="new-ticket-side-column">
-            <section className="new-ticket-summary-card">
-              <h3>
-                Resumen del nuevo ticket
-              </h3>
-
-              <div className="new-ticket-completeness">
-                <div className="new-ticket-completeness-top">
-                  <strong>
-                    Formulario completo
-                  </strong>
-                  <b>
-                    {completionPercent}%
-                  </b>
-                </div>
-
-                <div className="new-ticket-completeness-bar">
-                  <span
-                    style={{
-                      width:
-                        `${completionPercent}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Modalidad
-                </span>
-                <strong>
-                  {selectedServiceMeta.label}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Cliente
-                </span>
-                <strong>
-                  {summaryClient}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Equipo
-                </span>
-                <strong>
-                  {equipmentSummary}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Prioridad
-                </span>
-                <strong className={`summary-priority priority-${form.priority.toLowerCase()}`}>
-                  {form.priority} · {selectedPriorityMeta.label}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Técnico
-                </span>
-                <strong>
-                  {form.technician}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-kv">
-                <span>
-                  Falla
-                </span>
-                <strong>
-                  {issueReady
-                    ? "Registrada"
-                    : "Pendiente"}
-                </strong>
-              </div>
-
-              <div className="new-ticket-summary-warning">
-                <CircleAlert
-                  size={
-                    18
-                  }
-                />
-                <div>
-                  El ticket se crea inicialmente como <b>Recibido</b> y con pago pendiente. Diagnóstico y presupuesto se gestionan después desde el detalle.
-                </div>
-              </div>
-
-              <motion.button
-                type="submit"
-                className="new-ticket-create-main"
-                disabled={
-                  saving
-                }
-                whileHover={
-                  saving
-                    ? undefined
-                    : {
-                        y: -2,
-                      }
-                }
-                whileTap={
-                  saving
-                    ? undefined
-                    : {
-                        scale:
-                          0.98,
-                      }
-                }
-              >
-                {saving ? (
-                  <>
-                    <span className="new-ticket-spinner" />
-                    Creando ticket...
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    Crear ticket
-                  </>
-                )}
-              </motion.button>
-            </section>
-
-            <section className="new-ticket-mini-card">
-              <h4>
-                Qué queda registrado
-              </h4>
-
-              <div className="new-ticket-mini-row">
-                <span className="green" />
-                <div>
-                  <strong>
-                    Ingreso y trazabilidad
-                  </strong>
-                  <small>
-                    Fecha, autor, modalidad, cliente y equipo.
-                  </small>
-                </div>
-              </div>
-
-              <div className="new-ticket-mini-row">
-                <span className="blue" />
-                <div>
-                  <strong>
-                    Estado inicial
-                  </strong>
-                  <small>
-                    Queda listo para diagnóstico y seguimiento técnico.
-                  </small>
-                </div>
-              </div>
-
-              <div className="new-ticket-mini-row">
-                <span className="violet" />
-                <div>
-                  <strong>
-                    Flujo SERVIX
-                  </strong>
-                  <small>
-                    Presupuesto, Caja, factura y garantía continúan vinculados al ticket.
-                  </small>
-                </div>
-              </div>
-            </section>
-          </aside>
         </div>
       </form>
 
