@@ -11,6 +11,10 @@ import {
   db,
 } from "./firebase.js";
 
+import {
+  reserveTicketStockInTransaction,
+} from "./productos.service.js";
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -509,6 +513,15 @@ export async function publishBudget(
           ? publicSnapshot.data()
           : null;
 
+      if (
+        previousPublic?.respuesta &&
+        !previousPublic?.aplicadoEn
+      ) {
+        throw new Error(
+          "PUBLIC_RESPONSE_UNAPPLIED"
+        );
+      }
+
       const nowISO =
         new Date()
           .toISOString();
@@ -630,6 +643,27 @@ export async function publishBudget(
             budget.observaciones
           ),
 
+        revision:
+          Math.max(
+            1,
+            Math.trunc(
+              toNumber(
+                budget.revision,
+                1
+              )
+            )
+          ),
+
+        plazoEstimado:
+          cleanText(
+            budget.plazoEstimado
+          ),
+
+        garantia:
+          cleanText(
+            budget.garantia
+          ),
+
         fecha:
           budget.fecha ||
           null,
@@ -641,27 +675,27 @@ export async function publishBudget(
           expirationTimestamp,
 
         estado:
-          previousPublic?.respuesta ||
           "Pendiente",
 
         activo:
-          previousPublic?.activo !==
-          false,
+          true,
 
         respuesta:
-          previousPublic?.respuesta ||
           null,
 
         respondidoEn:
-          previousPublic?.respondidoEn ||
           null,
 
         aplicadoEn:
-          previousPublic?.aplicadoEn ||
           null,
 
         aplicadoPor:
-          previousPublic?.aplicadoPor ||
+          null,
+
+        cerradoEn:
+          null,
+
+        cerradoPor:
           null,
 
         publicadoEn:
@@ -1129,6 +1163,27 @@ export async function applyPublicBudgetResponse(
         ) ||
         "Sistema";
 
+      if (
+        response ===
+          "Aceptado" &&
+        ticketRef &&
+        ticket
+      ) {
+        await reserveTicketStockInTransaction(
+          transaction,
+          {
+            ticketId,
+            pieces:
+              ticket.piezas ||
+              [],
+            author:
+              cleanAuthor,
+            reference:
+              budgetId,
+          }
+        );
+      }
+
       const budgetHistory =
         Array.isArray(
           budget.historial
@@ -1240,6 +1295,15 @@ export async function applyPublicBudgetResponse(
             nowISO,
 
           aplicadoPor:
+            cleanAuthor,
+
+          activo:
+            false,
+
+          cerradoEn:
+            nowISO,
+
+          cerradoPor:
             cleanAuthor,
 
           actualizadoEn:

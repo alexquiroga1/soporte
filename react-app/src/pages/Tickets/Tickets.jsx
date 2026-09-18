@@ -23,6 +23,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldAlert,
   SlidersHorizontal,
   UserRound,
   Wrench,
@@ -33,6 +34,15 @@ import {
   subscribeToTickets,
   updateTicketStage,
 } from "../../services/tickets.service.js";
+
+import {
+  cleanupTicketsFromDeletedClients,
+} from "../../services/client-audit.service.js";
+
+import {
+  PERMISSIONS,
+  profileHasPermission,
+} from "../../security/permissions.js";
 
 import {
   notify,
@@ -60,7 +70,7 @@ const TICKET_STAGES = {
     className: "stage-diagnostic",
   },
   presupuesto: {
-    label: "Esperando aprobación",
+    label: "Presupuesto",
     shortLabel: "Presupuesto",
     className: "stage-budget",
   },
@@ -147,8 +157,11 @@ function isPaidTicket(ticket) {
   return (
     cashState === "cobrado" ||
     cashState === "pagado" ||
+    cashState === "financiado" ||
     paymentState === "pagado" ||
-    paymentState === "pagado total"
+    paymentState === "pagado total" ||
+    paymentState === "financiado" ||
+    paymentState === "pago parcial"
   );
 }
 
@@ -179,6 +192,12 @@ export default function Tickets() {
     profile?.name ||
     user?.email ||
     "Sistema";
+
+  const canAudit =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.ALL
+    );
 
   const [tickets, setTickets] =
     useState([]);
@@ -225,6 +244,15 @@ export default function Tickets() {
     updatingTicketId,
     setUpdatingTicketId,
   ] = useState(null);
+
+  const [cleanupOpen, setCleanupOpen] =
+    useState(false);
+
+  const [cleanupConfirm, setCleanupConfirm] =
+    useState("");
+
+  const [cleaningOrphans, setCleaningOrphans] =
+    useState(false);
 
   /* =======================================
      FIREBASE
@@ -457,9 +485,19 @@ export default function Tickets() {
     } catch (firebaseError) {
       console.error(firebaseError);
 
+      const messages = {
+        TICKET_CASH_PENDING_LOCKED:
+          "El ticket tiene un cobro pendiente en Caja. Cancelalo o completá el cobro antes de moverlo.",
+        TICKET_PAYMENT_REQUIRED:
+          "Para entregar el equipo, el ticket debe estar cobrado o financiado y facturado.",
+        TICKET_FINANCIAL_REVERSAL_REQUIRED:
+          "El ticket ya tiene una operación financiera. Primero resolvé la factura o Nota de Crédito.",
+      };
+
       notify.error(
         "No se pudo mover el ticket",
-        "Revisá la conexión o los permisos de Firestore."
+        messages[firebaseError?.message] ||
+          "Revisá la conexión o los permisos de Firestore."
       );
     } finally {
       setUpdatingTicketId(null);
@@ -524,6 +562,49 @@ export default function Tickets() {
      RENDER
   ========================================= */
 
+  const handleCleanupOrphans = async () => {
+    if (!canAudit || cleaningOrphans) {
+      return;
+    }
+
+    if (cleanupConfirm.trim().toUpperCase() !== "LIMPIAR") {
+      notify.warning(
+        "Confirmación requerida",
+        "Escribí LIMPIAR para ejecutar la limpieza."
+      );
+      return;
+    }
+
+    setCleaningOrphans(true);
+
+    try {
+      const result = await cleanupTicketsFromDeletedClients({
+        author,
+        actorUid: user?.uid || null,
+      });
+
+      const count = Number(result?.deletedTickets || 0);
+
+      notify.success(
+        count > 0 ? "Tickets huérfanos eliminados" : "Sin tickets huérfanos",
+        count > 0
+          ? `Se eliminaron ${count} ${count === 1 ? "ticket" : "tickets"} de clientes ya eliminados. Cada ticket quedó respaldado en Auditoría.`
+          : "No encontramos tickets pendientes de limpieza."
+      );
+
+      setCleanupOpen(false);
+      setCleanupConfirm("");
+    } catch (cleanupError) {
+      console.error(cleanupError);
+      notify.error(
+        "No se pudo completar la limpieza",
+        "Revisá los permisos de Firestore e intentá nuevamente."
+      );
+    } finally {
+      setCleaningOrphans(false);
+    }
+  };
+
   return (
     <main className="tickets-page">
       {/* HEADER */}
@@ -545,21 +626,38 @@ export default function Tickets() {
           </div>
 
           <div className="tickets-header-copy">
-            <span>Soporte técnico</span>
-            <h1>Tickets</h1>
+            <span>ALEX SOPORTE TÉCNICO</span>
+            <h1>Tickets · Centro de servicio</h1>
           </div>
         </div>
 
-        <motion.button
-          type="button"
-          className="tickets-new-button"
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleNewTicket}
-        >
-          <Plus size={17} />
-          <span>Nuevo ticket</span>
-        </motion.button>
+        <div className="tickets-header-actions">
+          {canAudit && (
+            <button
+              type="button"
+              className="tickets-audit-cleanup-button"
+              onClick={() => {
+                setCleanupConfirm("");
+                setCleanupOpen(true);
+              }}
+              title="Eliminar tickets pertenecientes a clientes que ya fueron eliminados"
+            >
+              <ShieldAlert size={16} />
+              <span>Limpiar huérfanos</span>
+            </button>
+          )}
+
+          <motion.button
+            type="button"
+            className="tickets-new-button"
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleNewTicket}
+          >
+            <Plus size={17} />
+            <span>Nuevo ticket</span>
+          </motion.button>
+        </div>
       </header>
 
       <div className="tickets-content">
@@ -567,15 +665,13 @@ export default function Tickets() {
         <section className="tickets-intro">
           <div>
             <span className="tickets-intro-kicker">
-              Centro de operaciones
+              Operación técnica
             </span>
 
-            <h2>Tickets de soporte</h2>
+            <h2>Tickets</h2>
 
             <p>
-              Seguimiento de ingresos,
-              diagnósticos, reparaciones y
-              entregas.
+              Seguimiento completo desde el ingreso hasta la entrega, con presupuesto y facturación vinculados.
             </p>
           </div>
 
@@ -985,7 +1081,7 @@ export default function Tickets() {
                           <div className="ticket-row-data">
                             <span>Presupuesto</span>
 
-                            {ticket.presupuestoFijado ? (
+                            {Number(ticket.presupuestoEstimado || 0) > 0 ? (
                               <strong className="ticket-money">
                                 {formatMoney(
                                   ticket.presupuestoEstimado
@@ -993,7 +1089,7 @@ export default function Tickets() {
                               </strong>
                             ) : (
                               <strong className="ticket-pending">
-                                Pendiente
+                                Sin importe
                               </strong>
                             )}
                           </div>
@@ -1188,16 +1284,16 @@ export default function Tickets() {
 
                                       <strong
                                         className={
-                                          ticket.presupuestoFijado
+                                          Number(ticket.presupuestoEstimado || 0) > 0
                                             ? "ready"
                                             : "pending"
                                         }
                                       >
-                                        {ticket.presupuestoFijado
+                                        {Number(ticket.presupuestoEstimado || 0) > 0
                                           ? formatMoney(
                                               ticket.presupuestoEstimado
                                             )
-                                          : "Presupuesto pendiente"}
+                                          : "Sin importe"}
                                       </strong>
                                     </div>
 
@@ -1272,6 +1368,82 @@ export default function Tickets() {
             )}
         </section>
       </div>
+
+
+      {cleanupOpen && canAudit && (
+        <div
+          className="tickets-cleanup-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !cleaningOrphans) {
+              setCleanupOpen(false);
+              setCleanupConfirm("");
+            }
+          }}
+        >
+          <motion.section
+            className="tickets-cleanup-modal"
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+          >
+            <div className="tickets-cleanup-icon">
+              <ShieldAlert size={24} />
+            </div>
+
+            <div className="tickets-cleanup-copy">
+              <span>Auditoría interna</span>
+              <h3>Limpiar tickets huérfanos</h3>
+              <p>
+                Esta acción busca tickets vinculados a clientes que ya fueron eliminados por Auditoría y los borra físicamente de Tickets. Antes de borrarlos guarda una copia completa en el historial de Auditoría. Facturas, notas, ventas y movimientos financieros no se eliminan.
+              </p>
+            </div>
+
+            <label className="tickets-cleanup-confirm">
+              <span>Escribí LIMPIAR para confirmar</span>
+              <input
+                type="text"
+                value={cleanupConfirm}
+                onChange={(event) => setCleanupConfirm(event.target.value)}
+                placeholder="LIMPIAR"
+                disabled={cleaningOrphans}
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="tickets-cleanup-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={cleaningOrphans}
+                onClick={() => {
+                  setCleanupOpen(false);
+                  setCleanupConfirm("");
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="danger"
+                disabled={
+                  cleaningOrphans ||
+                  cleanupConfirm.trim().toUpperCase() !== "LIMPIAR"
+                }
+                onClick={handleCleanupOrphans}
+              >
+                {cleaningOrphans ? (
+                  <RefreshCw size={15} className="tickets-cleanup-spinning" />
+                ) : (
+                  <ShieldAlert size={15} />
+                )}
+                {cleaningOrphans ? "Limpiando..." : "Eliminar huérfanos"}
+              </button>
+            </div>
+          </motion.section>
+        </div>
+      )}
     </main>
   );
 }

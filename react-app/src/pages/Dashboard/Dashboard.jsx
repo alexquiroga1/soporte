@@ -29,8 +29,6 @@ import {
   ShoppingCart,
   User,
   Users,
-  Wifi,
-  Wrench,
 } from "lucide-react";
 
 import {
@@ -373,10 +371,19 @@ export default function Dashboard() {
       PERMISSIONS.CASH,
     ]);
 
-  const canBudgets =
+  const canSales =
     hasAnyPermission([
-      PERMISSIONS.TICKETS,
       PERMISSIONS.SALES,
+    ]);
+
+  const canBudgets =
+    hasAnyPermission(
+      MODULE_ACCESS.presupuestos || []
+    );
+
+  const canSecurity =
+    hasAnyPermission([
+      PERMISSIONS.SECURITY,
     ]);
 
   /* =======================================
@@ -512,13 +519,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleModuleOpen =
-    (module) => {
-      setNotificationsOpen(false);
-      setUserMenuOpen(false);
-      navigate(module.path);
-    };
-
   const handleLogout =
     async () => {
       try {
@@ -543,6 +543,75 @@ export default function Dashboard() {
       }
     };
 
+  const getModuleActions =
+    (module) => {
+      if (module.id === "tickets") {
+        return [
+          {
+            label: "Nuevo Ticket",
+            path: "/tickets/nuevo",
+          },
+          {
+            label: "Consultar Tickets",
+            path: "/tickets",
+          },
+        ];
+      }
+
+      if (module.id === "facturacion") {
+        const actions = [];
+
+        if (canSales) {
+          actions.push(
+            {
+              label: "Facturación",
+              path: "/facturacion",
+            },
+            {
+              label: "Facturas",
+              path: "/facturacion/facturas",
+            }
+          );
+        }
+
+        if (canBudgets) {
+          actions.push({
+            label: "Presupuestos",
+            path: "/facturacion/presupuestos",
+          });
+        }
+
+        return actions.length
+          ? actions
+          : [
+              {
+                label: "Abrir módulo",
+                path: module.path,
+              },
+            ];
+      }
+
+      const labels = {
+        pos: "Abrir POS",
+        caja: "Abrir Caja",
+        clientes: "Ver clientes",
+        creditos: "Ver créditos",
+        productos: "Ver catálogo",
+        crm: "Abrir CRM",
+        reportes: "Ver reportes",
+        configuracion: "Configuración",
+      };
+
+      return [
+        {
+          label:
+            labels[module.id] ||
+            "Abrir módulo",
+          path: module.path,
+        },
+      ];
+    };
+
   return (
     <main className="dashboard-page">
       <motion.header
@@ -560,60 +629,7 @@ export default function Dashboard() {
           ease: [0.22, 1, 0.36, 1],
         }}
       >
-        <button
-          type="button"
-          className="dashboard-brand"
-          onClick={() => navigate("/dashboard")}
-          style={{
-            border: 0,
-            background: "transparent",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
-        >
-          <motion.div
-            className="dashboard-brand-icon"
-            whileHover={{
-              rotate: -5,
-              scale: 1.05,
-            }}
-          >
-            <Wrench size={23} />
-          </motion.div>
-
-          <div>
-            <span className="dashboard-eyebrow">
-              Operación diaria
-            </span>
-
-            <h1>
-              SERVIX
-            </h1>
-          </div>
-        </button>
-
         <div className="dashboard-header-actions">
-          <div className="system-status">
-            <motion.span
-              className="system-status-dot"
-              animate={{
-                scale: [1, 1.3, 1],
-                opacity: [1, 0.7, 1],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-
-            <Wifi size={15} />
-
-            <span>
-              Sistema en línea
-            </span>
-          </div>
-
           {/* =================================
               NOTIFICACIONES
           ================================= */}
@@ -861,16 +877,18 @@ export default function Dashboard() {
                   Mi perfil
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    navigate("/configuracion");
-                  }}
-                >
-                  <Settings size={17} />
-                  Configuración
-                </button>
+                {canSecurity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate("/configuracion");
+                    }}
+                  >
+                    <Settings size={17} />
+                    Configuración
+                  </button>
+                )}
 
                 <div className="dropdown-divider" />
 
@@ -890,34 +908,6 @@ export default function Dashboard() {
 
       <section className="dashboard-content">
         <motion.div
-          className="dashboard-welcome"
-          initial={{
-            opacity: 0,
-            y: 12,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            delay: 0.08,
-            duration: 0.4,
-          }}
-        >
-          <span className="dashboard-welcome-kicker">
-            Panel principal
-          </span>
-
-          <h2>
-            Hola, {cleanUserName || userName}
-          </h2>
-
-          <p>
-            Seleccioná un módulo para comenzar a trabajar.
-          </p>
-        </motion.div>
-
-        <motion.div
           className="dashboard-modules-grid"
           variants={gridVariants}
           initial="hidden"
@@ -928,10 +918,14 @@ export default function Dashboard() {
               const Icon =
                 module.icon;
 
+              const actions =
+                getModuleActions(
+                  module
+                );
+
               return (
-                <motion.button
+                <motion.article
                   key={module.id}
-                  type="button"
                   className={
                     `dashboard-module-card module-${module.color}`
                   }
@@ -939,22 +933,20 @@ export default function Dashboard() {
                   whileHover={{
                     y: -5,
                   }}
-                  whileTap={{
-                    scale: 0.985,
-                  }}
-                  onClick={() =>
-                    handleModuleOpen(
-                      module
-                    )
-                  }
                 >
                   <div className="module-card-top">
-                    <div className="module-icon">
+                    <motion.div
+                      className="module-icon"
+                      whileHover={{
+                        scale: 1.06,
+                        rotate: -2,
+                      }}
+                    >
                       <Icon
-                        size={26}
-                        strokeWidth={2}
+                        size={25}
+                        strokeWidth={2.1}
                       />
-                    </div>
+                    </motion.div>
 
                     <span className="module-badge">
                       {module.badge}
@@ -971,42 +963,29 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  <div className="module-card-footer">
-                    <span>
-                      Abrir módulo
-                    </span>
-
-                    <span className="module-arrow">
-                      →
-                    </span>
+                  <div className="module-card-actions">
+                    {actions.map(
+                      (action) => (
+                        <button
+                          key={`${module.id}-${action.path}-${action.label}`}
+                          type="button"
+                          className="module-action-button"
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            setUserMenuOpen(false);
+                            navigate(action.path);
+                          }}
+                        >
+                          {action.label}
+                        </button>
+                      )
+                    )}
                   </div>
-                </motion.button>
+                </motion.article>
               );
             }
           )}
         </motion.div>
-
-        <motion.footer
-          className="dashboard-footer"
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          transition={{
-            delay: 0.75,
-          }}
-        >
-          <div>
-            <span className="dashboard-footer-dot" />
-            Servicios conectados
-          </div>
-
-          <span>
-            React + Firebase
-          </span>
-        </motion.footer>
       </section>
     </main>
   );

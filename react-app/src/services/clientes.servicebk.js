@@ -173,17 +173,11 @@ export function subscribeToClientActivityIndex(
     includeTickets = true,
     includeSales = true,
     includeCredits = true,
-    includeBudgets = true,
-    includeInvoices = true,
-    includeAccount = true,
   } = {}
 ) {
   let tickets = [];
   let sales = [];
   let credits = [];
-  let budgets = [];
-  let invoices = [];
-  let account = [];
 
   const unsubscribers = [];
 
@@ -192,9 +186,6 @@ export function subscribeToClientActivityIndex(
       tickets,
       sales,
       credits,
-      budgets,
-      invoices,
-      account,
     });
   };
 
@@ -261,31 +252,6 @@ export function subscribeToClientActivityIndex(
     }
   );
 
-
-  subscribe(
-    includeBudgets,
-    "presupuestos",
-    (rows) => {
-      budgets = rows;
-    }
-  );
-
-  subscribe(
-    includeInvoices,
-    "facturas",
-    (rows) => {
-      invoices = rows;
-    }
-  );
-
-  subscribe(
-    includeAccount,
-    "cuenta_corriente",
-    (rows) => {
-      account = rows;
-    }
-  );
-
   /*
    * Emitimos una primera versión aunque el perfil no tenga acceso
    * a una o más colecciones. Así Clientes puede renderizar sin
@@ -345,43 +311,6 @@ export function getClientActivity(
         )
     );
 
-
-  const budgets =
-    (
-      index?.budgets ||
-      []
-    ).filter(
-      (row) =>
-        clientMatchesRecord(
-          client,
-          row
-        )
-    );
-
-  const invoices =
-    (
-      index?.invoices ||
-      []
-    ).filter(
-      (row) =>
-        clientMatchesRecord(
-          client,
-          row
-        )
-    );
-
-  const account =
-    (
-      index?.account ||
-      []
-    ).filter(
-      (row) =>
-        clientMatchesRecord(
-          client,
-          row
-        )
-    );
-
   const activeCredits =
     credits.filter(
       (row) =>
@@ -429,9 +358,6 @@ export function getClientActivity(
     tickets,
     sales,
     credits,
-    budgets,
-    invoices,
-    account,
     activeCredits,
     paidCredits,
     debt,

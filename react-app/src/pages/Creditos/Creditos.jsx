@@ -52,7 +52,6 @@ import {
   evaluateClientCredit,
   getCreditFinancials,
   getCreditStatus,
-  registerCreditPayment,
   refinanceClientCredits,
   saveCreditSettings,
   simulateCreditPlans,
@@ -61,6 +60,10 @@ import {
   subscribeToCredits,
   updateCreditLimit,
 } from "../../services/creditos.service.js";
+
+import {
+  sendCreditPaymentToCash,
+} from "../../services/caja-pendientes.service.js";
 
 import {
   notify,
@@ -150,6 +153,40 @@ function getClientDocument(client) {
   return client?.cuit || client?.dni || client?.doc || "—";
 }
 
+function parseDateSafe(value) {
+  if (!value) return null;
+  const text = String(value);
+  const normalized = /^\d{4}-\d{2}-\d{2}/.test(text)
+    ? `${text.slice(0, 10)}T12:00:00`
+    : text;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function daysFromToday(value) {
+  const date = parseDateSafe(value);
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return Math.ceil((date - today) / 86400000);
+}
+
+function creditSituation(status, financials) {
+  if (!status) return "Sin evaluar";
+  if (status.key === "saldado") return "Saldado";
+  if (status.key === "refinanciado") return "Refinanciado";
+  if (status.overdue) {
+    const days = Number(financials?.maxDaysLate || 0);
+    if (days > 30) return "Mora alta";
+    if (days > 7) return "Mora moderada";
+    return "Mora temprana";
+  }
+  const dueIn = daysFromToday(financials?.nextInstallment?.vence);
+  if (dueIn !== null && dueIn >= 0 && dueIn <= 7) return "Próximo vencimiento";
+  return "Al día";
+}
+
 function statusClass(status) {
   return `credit-status credit-status-${status?.tone || "neutral"}`;
 }
@@ -157,6 +194,7 @@ function statusClass(status) {
 function errorMessage(error) {
   const map = {
     CREDIT_CLIENT_REQUIRED: "Seleccioná un cliente.",
+    CLIENT_ARCHIVED: "El cliente está archivado. Restauralo antes de crear o refinanciar un crédito.",
     CREDIT_AMOUNT_INVALID: "Ingresá un monto válido.",
     CREDIT_ADVANCE_INVALID: "El anticipo debe ser menor al monto solicitado.",
     CREDIT_LIMIT_EXCEEDED: `Cupo insuficiente. Disponible: ${formatMoney(error?.available)}.`,
@@ -173,6 +211,10 @@ function errorMessage(error) {
     PROMISE_DATE_REQUIRED: "Seleccioná una fecha para la promesa.",
     PROMISE_AMOUNT_INVALID: "Ingresá el importe prometido.",
     CREDIT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
+    CASH_PENDING_EXISTS: "Este crédito ya tiene un cobro pendiente en Caja.",
+    CASH_PENDING_AMOUNT_INVALID: "Ingresá un importe válido para enviar a Caja.",
+    CASH_PENDING_AMOUNT_EXCEEDS_DEBT: `El importe supera la deuda exigible actual. Máximo: ${formatMoney(error?.available)}.`,
+    CREDIT_CLOSED: "El crédito no admite nuevos cobros.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";
@@ -236,6 +278,8 @@ export default function Creditos() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("active");
+  const [mainTab, setMainTab] = useState("portfolio");
+  const [movementSearch, setMovementSearch] = useState("");
 
   const [selectedCreditId, setSelectedCreditId] = useState(null);
   const [detailTab, setDetailTab] = useState("installments");
@@ -375,6 +419,17 @@ export default function Creditos() {
     [credits, selectedCreditId]
   );
 
+  useEffect(() => {
+    if (selectedCreditId || !credits.length) return;
+
+    const preferred = credits.find((credit) => {
+      const status = getCreditStatus(credit, settings);
+      return !["saldado", "refinanciado", "cancelado", "anulado"].includes(status.key);
+    }) || credits[0];
+
+    setSelectedCreditId(preferred?.id || null);
+  }, [credits, selectedCreditId, settings]);
+
   const selectedClient = useMemo(() => {
     if (!selectedCredit) return null;
 
@@ -425,6 +480,13 @@ export default function Creditos() {
     let currentCount = 0;
     let overdueCount = 0;
     let paidCount = 0;
+    let dueNext7 = 0;
+    let collectedThisMonth = 0;
+    let activePromises = 0;
+
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
 
     credits.forEach((credit) => {
       const status = getCreditStatus(credit, settings);
@@ -432,21 +494,32 @@ export default function Creditos() {
 
       if (status.key === "saldado") {
         paidCount += 1;
-        return;
+      } else if (status.key !== "refinanciado") {
+        activeBalance += financials.capitalBalance;
+
+        if (status.overdue) {
+          overdueCount += 1;
+          overdueBalance += financials.capitalBalance;
+        } else {
+          currentCount += 1;
+        }
+
+        const dueIn = daysFromToday(financials.nextInstallment?.vence);
+        if (dueIn !== null && dueIn >= 0 && dueIn <= 7) {
+          dueNext7 += Number(financials.nextInstallment?.totalDue || 0);
+        }
       }
 
-      if (status.key === "refinanciado") {
-        return;
-      }
+      (credit.abonos || []).forEach((payment) => {
+        const date = parseDateSafe(payment.creadoEn || payment.fecha);
+        if (date && date.getMonth() === month && date.getFullYear() === year) {
+          collectedThisMonth += Number(payment.monto || 0);
+        }
+      });
 
-      activeBalance += financials.capitalBalance;
-
-      if (status.overdue) {
-        overdueCount += 1;
-        overdueBalance += financials.capitalBalance;
-      } else {
-        currentCount += 1;
-      }
+      activePromises += (credit.promesasPago || []).filter(
+        (promise) => String(promise.estado || "Pendiente").toLowerCase() === "pendiente"
+      ).length;
     });
 
     return {
@@ -455,8 +528,109 @@ export default function Creditos() {
       currentCount,
       overdueCount,
       paidCount,
+      dueNext7,
+      collectedThisMonth,
+      activePromises,
     };
   }, [credits, settings]);
+
+  const aging = useMemo(() => {
+    const buckets = {
+      current: { amount: 0, count: 0 },
+      early: { amount: 0, count: 0 },
+      medium: { amount: 0, count: 0 },
+      late: { amount: 0, count: 0 },
+    };
+
+    credits.forEach((credit) => {
+      const status = getCreditStatus(credit, settings);
+      if (["saldado", "refinanciado", "cancelado", "anulado"].includes(status.key)) return;
+
+      const financials = getCreditFinancials(credit, settings);
+      const days = Number(financials.maxDaysLate || 0);
+      const target = days <= 0 ? "current" : days <= 7 ? "early" : days <= 30 ? "medium" : "late";
+      buckets[target].amount += financials.capitalBalance;
+      buckets[target].count += 1;
+    });
+
+    return buckets;
+  }, [credits, settings]);
+
+  const collectionQueue = useMemo(() => {
+    const rows = [];
+
+    credits.forEach((credit) => {
+      const status = getCreditStatus(credit, settings);
+      if (["saldado", "refinanciado", "cancelado", "anulado"].includes(status.key)) return;
+
+      const financials = getCreditFinancials(credit, settings);
+      const dueIn = daysFromToday(financials.nextInstallment?.vence);
+
+      if (financials.maxDaysLate > 0) {
+        rows.push({
+          id: `late-${credit.id}`,
+          creditId: credit.id,
+          type: "overdue",
+          client: credit.cliente || "Cliente",
+          label: `Cuota vencida · ${financials.maxDaysLate} día(s) de mora`,
+          amount: Number(financials.nextInstallment?.totalDue || financials.totalDue || 0),
+          sort: 1000 + Number(financials.maxDaysLate || 0),
+        });
+      } else if (dueIn !== null && dueIn >= 0 && dueIn <= 7) {
+        rows.push({
+          id: `due-${credit.id}`,
+          creditId: credit.id,
+          type: "upcoming",
+          client: credit.cliente || "Cliente",
+          label: dueIn === 0 ? "Vence hoy" : `Vence en ${dueIn} día(s)`,
+          amount: Number(financials.nextInstallment?.totalDue || 0),
+          sort: 700 - dueIn,
+        });
+      }
+
+      (credit.promesasPago || [])
+        .filter((promise) => String(promise.estado || "Pendiente").toLowerCase() === "pendiente")
+        .forEach((promise) => {
+          rows.push({
+            id: promise.id || `promise-${credit.id}-${promise.fechaPromesa}`,
+            creditId: credit.id,
+            type: "promise",
+            client: credit.cliente || "Cliente",
+            label: `Compromiso ${formatDate(promise.fechaPromesa)}`,
+            amount: Number(promise.monto || 0),
+            sort: 850,
+          });
+        });
+    });
+
+    return rows.sort((a, b) => b.sort - a.sort).slice(0, 12);
+  }, [credits, settings]);
+
+  const creditMovements = useMemo(() => {
+    const query = movementSearch.trim().toLowerCase();
+    const rows = credits.flatMap((credit) =>
+      (credit.abonos || []).map((payment, index) => ({
+        id: payment.id || `${credit.id}-${index}`,
+        creditId: credit.id,
+        client: credit.cliente || "Cliente",
+        amount: Number(payment.monto || 0),
+        capital: Number(payment.capital || 0),
+        lateFees: Number(payment.punitorios || 0),
+        method: payment.metodo || "—",
+        date: payment.creadoEn || payment.fecha || "",
+        createdAt: parseDateSafe(payment.creadoEn || payment.fecha)?.getTime() || 0,
+      }))
+    ).sort((a, b) => b.createdAt - a.createdAt);
+
+    if (!query) return rows;
+    return rows.filter((row) =>
+      [row.id, row.creditId, row.client, row.method]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [credits, movementSearch]);
 
   const filteredCredits = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -606,28 +780,24 @@ export default function Creditos() {
     try {
       setSavingPayment(true);
 
-      const result = await registerCreditPayment({
-        creditId: selectedCredit.id,
-        amount: paymentForm.amount,
-        method: paymentForm.method,
-        forgiveLateFees: paymentForm.forgiveLateFees,
-        author,
-        settings,
-      });
+      const result = await sendCreditPaymentToCash(
+        selectedCredit.id,
+        paymentForm.amount,
+        {
+          forgiveLateFees: paymentForm.forgiveLateFees,
+          author,
+        }
+      );
 
       setPaymentOpen(false);
 
       notify.success(
-        "Pago registrado",
-        `Capital ${formatMoney(result.capitalPaid)} · Punitorios ${formatMoney(result.lateFeesPaid)}${
-          result.unapplied > 0
-            ? ` · Sin imputar ${formatMoney(result.unapplied)}`
-            : ""
-        }`
+        "Cobro enviado a Caja",
+        `${result.creditId} · ${formatMoney(result.total)} quedó pendiente para que Caja registre el medio de pago.`
       );
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo cobrar", errorMessage(error));
+      notify.error("No se pudo enviar a Caja", errorMessage(error));
     } finally {
       setSavingPayment(false);
     }
@@ -776,35 +946,72 @@ export default function Creditos() {
             <td>${formatMoney(installment.importe)}</td>
             <td>${formatMoney(installment.capitalPagado)}</td>
             <td>${formatMoney(installment.capitalPending)}</td>
+            <td>${installment.daysLate > 0 ? `${installment.daysLate} días` : installment.capitalPending <= 0 ? "Pagada" : "Pendiente"}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const paymentRows = (selectedCredit.abonos || [])
+      .slice()
+      .reverse()
+      .map(
+        (payment) => `
+          <tr>
+            <td>${payment.fecha || formatDate(payment.creadoEn)}</td>
+            <td>${payment.metodo || "—"}</td>
+            <td>${formatMoney(payment.capital)}</td>
+            <td>${formatMoney(payment.punitorios)}</td>
+            <td>${formatMoney(payment.monto)}</td>
           </tr>
         `
       )
       .join("");
 
     openPrintable(
-      `Plan ${selectedCredit.id}`,
+      `Estado de cuenta ${selectedCredit.id}`,
       `
-        <h1>Plan de pagos</h1>
-        <p class="muted">Carpeta ${selectedCredit.id}</p>
+        <h1>Estado de cuenta</h1>
+        <p class="muted">Crédito ${selectedCredit.id}</p>
         <div class="box">
           <p><b>Cliente:</b> ${selectedCredit.cliente || "Cliente"}</p>
           <p><b>Concepto:</b> ${selectedCredit.concepto || "Crédito"}</p>
           <p><b>Fecha de origen:</b> ${formatDate(selectedCredit.fechaOrigen)}</p>
           <p><b>Total financiado:</b> ${formatMoney(selectedCredit.original)}</p>
-          <p><b>Saldo actual:</b> ${formatMoney(selectedFinancials.capitalBalance)}</p>
+          <p><b>Capital pendiente:</b> ${formatMoney(selectedFinancials.capitalBalance)}</p>
+          <p><b>Punitorios actuales:</b> ${formatMoney(selectedFinancials.pendingLateFees)}</p>
         </div>
+        <h3>Plan de cuotas</h3>
         <table>
-          <thead>
-            <tr>
-              <th>Cuota</th>
-              <th>Vencimiento</th>
-              <th>Importe</th>
-              <th>Capital pagado</th>
-              <th>Capital pendiente</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Cuota</th><th>Vencimiento</th><th>Importe</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
+        <h3 style="margin-top:24px">Pagos registrados</h3>
+        <table>
+          <thead><tr><th>Fecha</th><th>Medio</th><th>Capital</th><th>Punitorios</th><th>Total</th></tr></thead>
+          <tbody>${paymentRows || '<tr><td colspan="5">Sin pagos registrados</td></tr>'}</tbody>
+        </table>
+      `
+    );
+  };
+
+  const printPaymentMovement = (movement) => {
+    openPrintable(
+      `Movimiento ${movement.id}`,
+      `
+        <h1>Movimiento de crédito</h1>
+        <p class="muted">Comprobante interno SERVIX</p>
+        <div class="box">
+          <p><b>Movimiento:</b> ${movement.id}</p>
+          <p><b>Crédito:</b> ${movement.creditId}</p>
+          <p><b>Cliente:</b> ${movement.client}</p>
+          <p><b>Fecha:</b> ${movement.date || "—"}</p>
+          <p><b>Medio:</b> ${movement.method}</p>
+          <p><b>Capital:</b> ${formatMoney(movement.capital)}</p>
+          <p><b>Punitorios:</b> ${formatMoney(movement.lateFees)}</p>
+          <p><b>Total aplicado:</b> ${formatMoney(movement.amount)}</p>
+        </div>
+        <p class="muted">Este comprobante documenta un movimiento interno del crédito y no reemplaza documentación fiscal.</p>
       `
     );
   };
@@ -843,50 +1050,50 @@ export default function Creditos() {
 
   if (loading) {
     return (
-      <main className="credits-page">
-        <div className="credits-loading">
-          Cargando cartera de créditos...
-        </div>
+      <main className="credits-page credits-pro-page">
+        <div className="credits-loading">Cargando cartera de créditos...</div>
       </main>
     );
   }
 
+  const selectedSituation = creditSituation(selectedStatus, selectedFinancials);
+  const selectedPaid = Math.max(
+    0,
+    Number(selectedCredit?.original || 0) - Number(selectedFinancials?.capitalBalance || 0)
+  );
+  const selectedProgress = Number(selectedCredit?.original || 0) > 0
+    ? Math.min(100, Math.max(0, (selectedPaid / Number(selectedCredit.original)) * 100))
+    : 0;
+
   return (
-    <main className="credits-page">
-      <div className="credits-shell">
-        <header className="credits-header">
-          <div>
+    <main className="credits-page credits-pro-page">
+      <div className="credits-pro-shell">
+        <header className="credits-pro-topbar">
+          <div className="credits-pro-brand">
             <button
               type="button"
-              className="credits-back"
-              onClick={() =>
-                navigate(
-                  returnTo ||
-                  "/dashboard"
-                )
-              }
+              className="credits-pro-icon-button"
+              onClick={() => navigate(returnTo || "/dashboard")}
+              title="Volver"
             >
-              <ArrowLeft size={17} />
-              {returnTo
-                ? "Cliente"
-                : "Dashboard"}
+              <ArrowLeft size={18} />
             </button>
 
-            <span className="credits-eyebrow">
-              Financiamiento / Cobranzas
-            </span>
+            <div className="credits-pro-brand-icon">
+              <CreditCard size={22} />
+            </div>
 
-            <h1>Créditos</h1>
-            <p>
-              Cartera, planes de pago, cobranzas, mora y gestión del cliente.
-            </p>
+            <div>
+              <strong>Créditos y Cobranzas</strong>
+              <span>SERVIX · Cartera, vencimientos y seguimiento</span>
+            </div>
           </div>
 
-          <div className="credits-header-actions">
+          <div className="credits-pro-top-actions">
             {isAdmin && (
               <button
                 type="button"
-                className="credits-secondary"
+                className="credits-pro-action soft"
                 onClick={() => setSettingsOpen(true)}
               >
                 <Settings size={16} />
@@ -894,464 +1101,385 @@ export default function Creditos() {
               </button>
             )}
 
-            <button
-              type="button"
-              className="credits-primary"
-              onClick={openNewCredit}
-            >
-              <Plus size={17} />
+            <button type="button" className="credits-pro-action primary" onClick={openNewCredit}>
+              <Plus size={16} />
               Nuevo crédito
             </button>
           </div>
         </header>
 
-        <section className="credits-kpis">
+        <section className="credits-pro-heading">
+          <div>
+            <span className="credits-pro-eyebrow">Créditos</span>
+            <h1>Cartera y cobranzas</h1>
+            <p>Controlá saldos, cuotas, mora y compromisos de pago con trazabilidad completa.</p>
+          </div>
+
+          <button type="button" className="credits-pro-action" onClick={printPlan} disabled={!selectedCredit}>
+            <FileText size={16} />
+            Estado de cuenta
+          </button>
+        </section>
+
+        <section className="credits-pro-metrics">
           <article>
-            <div className="credits-kpi-icon portfolio">
-              <WalletCards size={19} />
-            </div>
-            <span>Cartera activa</span>
+            <div className="credits-pro-metric-icon"><WalletCards size={18} /></div>
+            <span>Capital pendiente</span>
             <strong>{formatMoney(metrics.activeBalance)}</strong>
-            <small>Capital pendiente</small>
+            <small>{metrics.currentCount + metrics.overdueCount} crédito(s) activo(s)</small>
           </article>
 
           <article className="danger">
-            <div className="credits-kpi-icon overdue">
-              <AlertTriangle size={19} />
-            </div>
-            <span>Cartera en mora</span>
+            <div className="credits-pro-metric-icon"><AlertTriangle size={18} /></div>
+            <span>Saldo vencido</span>
             <strong>{formatMoney(metrics.overdueBalance)}</strong>
-            <small>{metrics.overdueCount} carpeta(s)</small>
+            <small>{metrics.overdueCount} cliente(s) con mora</small>
           </article>
 
           <article>
-            <div className="credits-kpi-icon current">
-              <Check size={19} />
-            </div>
-            <span>Al corriente</span>
-            <strong>{metrics.currentCount}</strong>
-            <small>Carpetas sin atraso</small>
+            <div className="credits-pro-metric-icon"><CalendarClock size={18} /></div>
+            <span>Vence en 7 días</span>
+            <strong>{formatMoney(metrics.dueNext7)}</strong>
+            <small>Próximas cuotas</small>
           </article>
 
           <article>
-            <div className="credits-kpi-icon paid">
-              <BadgeDollarSign size={19} />
-            </div>
-            <span>Saldados</span>
-            <strong>{metrics.paidCount}</strong>
-            <small>Historial cancelado</small>
+            <div className="credits-pro-metric-icon"><HandCoins size={18} /></div>
+            <span>Cobrado este mes</span>
+            <strong>{formatMoney(metrics.collectedThisMonth)}</strong>
+            <small>Pagos aplicados</small>
+          </article>
+
+          <article>
+            <div className="credits-pro-metric-icon"><CalendarClock size={18} /></div>
+            <span>Compromisos activos</span>
+            <strong>{metrics.activePromises}</strong>
+            <small>Seguimiento pendiente</small>
           </article>
         </section>
 
-        <section className="credits-panel">
-          <div className="credits-toolbar">
-            <div>
-              <span>Cartera</span>
-              <h2>Carpetas de crédito</h2>
-            </div>
-
-            <label className="credits-search">
-              <Search size={16} />
-              <input
-                value={search}
-                placeholder="Cliente, carpeta, concepto..."
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-          </div>
-
-          <nav className="credits-filters">
-            {FILTERS.map(([id, label]) => (
-              <button
-                type="button"
-                key={id}
-                className={filter === id ? "active" : ""}
-                onClick={() => setFilter(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="credits-table-wrap">
-            <table className="credits-table">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Carpeta</th>
-                  <th>Total original</th>
-                  <th>Saldo</th>
-                  <th>Próximo vencimiento</th>
-                  <th>Mora</th>
-                  <th>Estado</th>
-                  <th />
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredCredits.map((credit) => {
-                  const financials = getCreditFinancials(credit, settings);
-                  const status = getCreditStatus(credit, settings);
-
-                  return (
-                    <motion.tr
-                      key={credit.id}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      onClick={() => {
-                        setSelectedCreditId(credit.id);
-                        setDetailTab("installments");
-                      }}
-                    >
-                      <td>
-                        <strong className="credits-client-name">
-                          {credit.cliente || "Cliente"}
-                        </strong>
-                        <span className="credits-cell-sub">
-                          {credit.concepto || "Crédito"}
-                        </span>
-                      </td>
-
-                      <td className="credits-mono">{credit.id}</td>
-                      <td className="credits-money">{formatMoney(credit.original)}</td>
-                      <td className="credits-money">{formatMoney(financials.capitalBalance)}</td>
-                      <td>{formatDate(financials.nextInstallment?.vence)}</td>
-
-                      <td>
-                        {financials.maxDaysLate > 0 ? (
-                          <span className="credits-days-late">
-                            {financials.maxDaysLate} días
-                          </span>
-                        ) : (
-                          <span className="credits-no-late">En regla</span>
-                        )}
-                      </td>
-
-                      <td>
-                        <span className={statusClass(status)}>
-                          {status.label}
-                        </span>
-                      </td>
-
-                      <td><ChevronRight size={17} /></td>
-                    </motion.tr>
-                  );
-                })}
-
-                {!filteredCredits.length && (
-                  <tr>
-                    <td colSpan="8">
-                      <div className="credits-empty">
-                        <CreditCard size={28} />
-                        <strong>Sin carpetas para mostrar</strong>
-                        <span>Cambiá el filtro o creá un nuevo crédito.</span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      {selectedCredit && (
-        <div
-          className="credits-drawer-overlay"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setSelectedCreditId(null);
-            }
-          }}
-        >
-          <motion.aside
-            className="credits-drawer"
-            initial={{ opacity: 0, x: 35 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            <header className="credits-drawer-head">
-              <div>
-                <span>Estado de cuenta</span>
-                <h2>{selectedCredit.cliente || "Cliente"}</h2>
-                <p>Carpeta {selectedCredit.id}</p>
+        <div className="credits-pro-grid">
+          <section className="credits-pro-main-card">
+            <header className="credits-pro-card-head">
+              <div className="credits-pro-card-title">
+                <div className="credits-pro-card-icon"><CreditCard size={18} /></div>
+                <div>
+                  <strong>Centro de Créditos</strong>
+                  <span>Cartera, cobranza y movimientos</span>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedCreditId(null)}
-              >
-                <X size={18} />
-              </button>
-            </header>
-
-            <section className="credits-account-summary">
-              <article>
-                <span>Total original</span>
-                <strong>{formatMoney(selectedCredit.original)}</strong>
-              </article>
-
-              <article>
-                <span>Capital pendiente</span>
-                <strong>{formatMoney(selectedFinancials?.capitalBalance)}</strong>
-              </article>
-
-              <article>
-                <span>Punitorios hoy</span>
-                <strong>{formatMoney(selectedFinancials?.pendingLateFees)}</strong>
-              </article>
-
-              <article>
-                <span>Estado</span>
-                <strong>
-                  <span className={statusClass(selectedStatus)}>
-                    {selectedStatus?.label}
-                  </span>
-                </strong>
-              </article>
-            </section>
-
-            {selectedClient && (
-              <section className="credits-risk-card">
-                <div className="credits-risk-head">
-                  <div>
-                    <span>Evaluación interna</span>
-                    <strong>Riesgo {selectedEvaluation?.risk}</strong>
-                  </div>
-
-                  <div className={`credits-score tone-${selectedEvaluation?.tone || "neutral"}`}>
-                    <Gauge size={17} />
-                    {selectedEvaluation?.score}/100
-                  </div>
-                </div>
-
-                <div className="credits-risk-grid">
-                  <div>
-                    <span>Cupo</span>
-                    <strong>{formatMoney(selectedEvaluation?.creditLimit)}</strong>
-                  </div>
-                  <div>
-                    <span>Deuda</span>
-                    <strong>{formatMoney(selectedEvaluation?.debt)}</strong>
-                  </div>
-                  <div>
-                    <span>Disponible</span>
-                    <strong>{formatMoney(selectedEvaluation?.available)}</strong>
-                  </div>
-                  <div>
-                    <span>Mora máxima</span>
-                    <strong>{selectedEvaluation?.maxDaysLate || 0} días</strong>
-                  </div>
-                </div>
-
-                <div className="credits-limit-editor">
-                  <input
-                    type="number"
-                    min="0"
-                    value={limitValue}
-                    onChange={(event) => setLimitValue(event.target.value)}
-                  />
-
-                  <button
-                    type="button"
-                    disabled={savingLimit}
-                    onClick={handleSaveLimit}
-                  >
-                    {savingLimit ? "Guardando..." : "Actualizar cupo"}
-                  </button>
-                </div>
-              </section>
-            )}
-
-            <section className="credits-drawer-actions">
-              {!["saldado", "refinanciado"].includes(selectedStatus?.key) && (
-                <>
-                  <button type="button" className="primary" onClick={openPayment}>
-                    <HandCoins size={16} />
-                    Cobrar
-                  </button>
-
-                  <button type="button" onClick={() => setPromiseOpen(true)}>
-                    <CalendarClock size={16} />
-                    Promesa
-                  </button>
-
-                  <button type="button" onClick={() => setManagementOpen(true)}>
-                    <PhoneCall size={16} />
-                    Gestión
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRefinanceForm({
-                        ...EMPTY_REFINANCE,
-                        firstDueDate: new Date(Date.now() + 30 * 86400000)
-                          .toISOString()
-                          .split("T")[0],
-                      });
-                      setRefinanceOpen(true);
-                    }}
-                  >
-                    <RefreshCcw size={16} />
-                    Refinanciar
-                  </button>
-                </>
-              )}
-
-              <button type="button" onClick={printPlan}>
-                <Printer size={16} />
-                Plan
-              </button>
-
-              <button type="button" onClick={printPromissory}>
-                <FileText size={16} />
-                Pagaré
-              </button>
-            </section>
-
-            <nav className="credits-detail-tabs">
-              {[
-                ["installments", "Cuotas"],
-                ["payments", "Pagos"],
-                ["management", "Gestión"],
-              ].map(([id, label]) => (
+              <nav className="credits-pro-tabs">
                 <button
                   type="button"
-                  key={id}
-                  className={detailTab === id ? "active" : ""}
-                  onClick={() => setDetailTab(id)}
+                  className={mainTab === "portfolio" ? "active" : ""}
+                  onClick={() => setMainTab("portfolio")}
                 >
-                  {label}
+                  <WalletCards size={15} /> Cartera
                 </button>
-              ))}
-            </nav>
+                <button
+                  type="button"
+                  className={mainTab === "collections" ? "active" : ""}
+                  onClick={() => setMainTab("collections")}
+                >
+                  <PhoneCall size={15} /> Cobranza
+                </button>
+                <button
+                  type="button"
+                  className={mainTab === "movements" ? "active" : ""}
+                  onClick={() => setMainTab("movements")}
+                >
+                  <History size={15} /> Movimientos
+                </button>
+              </nav>
+            </header>
 
-            <div className="credits-detail-body">
-              {detailTab === "installments" && (
-                <div className="credits-installments">
-                  {selectedFinancials?.installments.map((installment) => (
-                    <article
-                      key={installment.numero}
-                      className={
-                        installment.status === "Vencida"
-                          ? "overdue"
-                          : installment.status === "Saldada"
-                            ? "paid"
-                            : ""
-                      }
-                    >
-                      <div>
-                        <span>Cuota {installment.numero}</span>
-                        <strong>{formatDate(installment.vence)}</strong>
-                      </div>
-                      <div>
-                        <span>Importe</span>
-                        <strong>{formatMoney(installment.importe)}</strong>
-                      </div>
-                      <div>
-                        <span>Capital pendiente</span>
-                        <strong>{formatMoney(installment.capitalPending)}</strong>
-                      </div>
-                      <div>
-                        <span>Punitorios</span>
-                        <strong>{formatMoney(installment.pendingLateFees)}</strong>
-                      </div>
-                      <div>
-                        <span>Estado</span>
-                        <strong>
-                          {installment.status}
-                          {installment.daysLate > 0
-                            ? ` · ${installment.daysLate} días`
-                            : ""}
-                        </strong>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
+            {mainTab === "portfolio" && (
+              <div className="credits-pro-card-body">
+                <div className="credits-pro-toolbar">
+                  <label className="credits-pro-search">
+                    <Search size={16} />
+                    <input
+                      value={search}
+                      placeholder="Buscar cliente, crédito o concepto..."
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
 
-              {detailTab === "payments" && (
-                <div className="credits-history-list">
-                  {(selectedCredit.abonos || [])
-                    .slice()
-                    .reverse()
-                    .map((payment, index) => (
-                      <article key={payment.id || `${payment.fecha}-${index}`}>
-                        <History size={16} />
-                        <section>
-                          <strong>{formatMoney(payment.monto)}</strong>
-                          <span>
-                            {payment.fecha || "—"} · {payment.metodo || "—"}
-                          </span>
-                        </section>
-                        <div>
-                          <span>Capital {formatMoney(payment.capital)}</span>
-                          <span>Punitorios {formatMoney(payment.punitorios)}</span>
-                        </div>
-                      </article>
+                  <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+                    {FILTERS.map(([id, label]) => (
+                      <option key={id} value={id}>{label}</option>
                     ))}
+                  </select>
+                </div>
 
-                  {!(selectedCredit.abonos || []).length && (
-                    <div className="credits-empty compact">
-                      <History size={24} />
-                      <strong>Sin pagos registrados</strong>
+                <div className="credits-pro-list-wrap">
+                  <div className="credits-pro-list-head">
+                    <span>Crédito</span><span>Cliente / origen</span><span>Estado</span><span>Saldo</span><span>Próxima cuota</span><span>Mora</span><span />
+                  </div>
+
+                  {filteredCredits.map((credit) => {
+                    const financials = getCreditFinancials(credit, settings);
+                    const status = getCreditStatus(credit, settings);
+                    const dueIn = daysFromToday(financials.nextInstallment?.vence);
+
+                    return (
+                      <motion.button
+                        type="button"
+                        layout
+                        key={credit.id}
+                        className={`credits-pro-list-row ${selectedCreditId === credit.id ? "active" : ""}`}
+                        onClick={() => {
+                          setSelectedCreditId(credit.id);
+                          setDetailTab("installments");
+                        }}
+                      >
+                        <span className="ref"><strong>{credit.id}</strong><small>{formatDate(credit.fechaOrigen)}</small></span>
+                        <span className="client"><strong>{credit.cliente || "Cliente"}</strong><small>{credit.facturaId || credit.concepto || "Crédito"}</small></span>
+                        <span><b className={statusClass(status)}>{status.label}</b></span>
+                        <span className="money">{formatMoney(financials.capitalBalance)}</span>
+                        <span className="money">{formatMoney(financials.nextInstallment?.totalDue || 0)}</span>
+                        <span>
+                          {financials.maxDaysLate > 0 ? (
+                            <b className="credits-pro-alert-pill danger">{financials.maxDaysLate} días</b>
+                          ) : dueIn !== null && dueIn >= 0 && dueIn <= 7 ? (
+                            <b className="credits-pro-alert-pill amber">{dueIn === 0 ? "Hoy" : `${dueIn} días`}</b>
+                          ) : (
+                            <b className="credits-pro-alert-pill ok">Al día</b>
+                          )}
+                        </span>
+                        <ChevronRight size={16} />
+                      </motion.button>
+                    );
+                  })}
+
+                  {!filteredCredits.length && (
+                    <div className="credits-empty">
+                      <CreditCard size={28} />
+                      <strong>Sin créditos para mostrar</strong>
+                      <span>Cambiá el filtro o creá un nuevo crédito.</span>
                     </div>
                   )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {detailTab === "management" && (
-                <div className="credits-management-list">
-                  {(selectedCredit.promesasPago || [])
-                    .slice()
-                    .reverse()
-                    .map((promise) => (
-                      <article key={promise.id} className="promise">
-                        <CalendarClock size={17} />
-                        <section>
-                          <strong>Promesa de pago</strong>
-                          <span>
-                            {formatDate(promise.fechaPromesa)} · {formatMoney(promise.monto)}
-                          </span>
-                          {promise.nota && <p>{promise.nota}</p>}
-                        </section>
-                        <span className="credits-promise-status">
-                          {promise.estado || "Pendiente"}
-                        </span>
-                      </article>
-                    ))}
-
-                  {(selectedCredit.gestiones || [])
-                    .slice()
-                    .reverse()
-                    .map((action) => (
-                      <article key={action.id}>
-                        <MessageSquareText size={17} />
-                        <section>
-                          <strong>{action.tipo || "Gestión"}</strong>
-                          <span>
-                            {action.fecha
-                              ? new Date(action.fecha).toLocaleString("es-AR")
-                              : "—"}
-                          </span>
-                          <p>{action.nota}</p>
-                        </section>
-                      </article>
-                    ))}
-
-                  {!(selectedCredit.gestiones || []).length &&
-                    !(selectedCredit.promesasPago || []).length && (
-                      <div className="credits-empty compact">
-                        <MessageSquareText size={24} />
-                        <strong>Sin gestiones registradas</strong>
-                      </div>
-                    )}
+            {mainTab === "collections" && (
+              <div className="credits-pro-card-body">
+                <div className="credits-pro-aging">
+                  <article><span>Al día</span><strong>{formatMoney(aging.current.amount)}</strong><small>{aging.current.count} crédito(s)</small></article>
+                  <article className="amber"><span>1–7 días</span><strong>{formatMoney(aging.early.amount)}</strong><small>{aging.early.count} crédito(s)</small></article>
+                  <article className="coral"><span>8–30 días</span><strong>{formatMoney(aging.medium.amount)}</strong><small>{aging.medium.count} crédito(s)</small></article>
+                  <article className="danger"><span>31+ días</span><strong>{formatMoney(aging.late.amount)}</strong><small>{aging.late.count} crédito(s)</small></article>
                 </div>
-              )}
-            </div>
-          </motion.aside>
+
+                <div className="credits-pro-queue">
+                  {collectionQueue.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`credits-pro-queue-row ${item.type}`}
+                      onClick={() => {
+                        setSelectedCreditId(item.creditId);
+                        setDetailTab("management");
+                      }}
+                    >
+                      <span className="icon">
+                        {item.type === "overdue" ? <AlertTriangle size={17} /> : item.type === "promise" ? <CalendarClock size={17} /> : <RefreshCcw size={17} />}
+                      </span>
+                      <span className="content"><strong>{item.client} · {item.creditId}</strong><small>{item.label}</small></span>
+                      <strong className="amount">{formatMoney(item.amount)}</strong>
+                      <ChevronRight size={16} />
+                    </button>
+                  ))}
+
+                  {!collectionQueue.length && (
+                    <div className="credits-empty compact">
+                      <Check size={24} />
+                      <strong>Sin acciones urgentes de cobranza</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="credits-pro-note">
+                  <strong>Seguimiento profesional:</strong> la cola prioriza mora real, próximos vencimientos y compromisos. Los recargos se calculan según los parámetros configurados y nunca se ocultan al operador.
+                </div>
+              </div>
+            )}
+
+            {mainTab === "movements" && (
+              <div className="credits-pro-card-body">
+                <div className="credits-pro-toolbar single">
+                  <label className="credits-pro-search">
+                    <Search size={16} />
+                    <input
+                      value={movementSearch}
+                      placeholder="Buscar pago, crédito, cliente o medio..."
+                      onChange={(event) => setMovementSearch(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="credits-pro-movement-wrap">
+                  <div className="credits-pro-movement-head">
+                    <span>Movimiento</span><span>Fecha</span><span>Cliente / crédito</span><span>Medio</span><span>Capital</span><span>Punitorios</span><span>Total</span><span />
+                  </div>
+
+                  {creditMovements.map((movement) => (
+                    <div className="credits-pro-movement-row" key={movement.id}>
+                      <span><strong>{movement.id}</strong></span>
+                      <span>{movement.date || "—"}</span>
+                      <span><strong>{movement.client}</strong><small>{movement.creditId}</small></span>
+                      <span>{movement.method}</span>
+                      <span>{formatMoney(movement.capital)}</span>
+                      <span>{formatMoney(movement.lateFees)}</span>
+                      <span className="positive">{formatMoney(movement.amount)}</span>
+                      <button type="button" title="Imprimir" onClick={() => printPaymentMovement(movement)}><Printer size={15} /></button>
+                    </div>
+                  ))}
+
+                  {!creditMovements.length && (
+                    <div className="credits-empty compact">
+                      <History size={24} />
+                      <strong>Sin movimientos para mostrar</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="credits-pro-detail-card">
+            {!selectedCredit ? (
+              <div className="credits-empty compact">
+                <UserRound size={30} />
+                <strong>Seleccioná un crédito</strong>
+                <span>Vas a ver cuotas, deuda y seguimiento.</span>
+              </div>
+            ) : (
+              <>
+                <header className="credits-pro-card-head detail">
+                  <div className="credits-pro-card-title">
+                    <div className="credits-pro-card-icon coral"><UserRound size={18} /></div>
+                    <div><strong>{selectedCredit.id}</strong><span>Detalle del crédito</span></div>
+                  </div>
+                </header>
+
+                <div className="credits-pro-detail-body">
+                  <div className="credits-pro-customer">
+                    <div className="avatar">{(selectedCredit.cliente || "CL").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</div>
+                    <div className="identity"><strong>{selectedCredit.cliente || "Cliente"}</strong><span>{selectedClient ? `Documento ${getClientDocument(selectedClient)}` : selectedCredit.concepto || "Crédito"}</span></div>
+                    <div className="situation"><span>Situación</span><strong>{selectedSituation}</strong></div>
+                  </div>
+
+                  <div className="credits-pro-summary">
+                    <div><span>Origen</span><strong>{selectedCredit.facturaId || selectedCredit.origen || selectedCredit.concepto || "Crédito"}</strong></div>
+                    <div><span>Monto financiado</span><strong>{formatMoney(selectedCredit.original)}</strong></div>
+                    <div><span>Total pagado</span><strong>{formatMoney(selectedPaid)}</strong></div>
+                    <div><span>Plan</span><strong>{selectedCredit.cantidadCuotas || selectedFinancials?.installments?.length || 0} cuota(s)</strong></div>
+                    <div><span>Próximo / vencido</span><strong>{formatDate(selectedFinancials?.nextInstallment?.vence)}</strong></div>
+                    <div className="total"><span>Saldo pendiente</span><strong>{formatMoney(selectedFinancials?.capitalBalance)}</strong><b className={statusClass(selectedStatus)}>{selectedStatus?.label}</b></div>
+                  </div>
+
+                  <div className="credits-pro-progress">
+                    <div><span>Progreso del plan</span><strong>{Math.round(selectedProgress)}%</strong></div>
+                    <div className="bar"><span style={{ width: `${selectedProgress}%` }} /></div>
+                  </div>
+
+                  {selectedClient && (
+                    <div className="credits-pro-limit">
+                      <div><span>Límite de crédito</span><strong>{formatMoney(selectedEvaluation?.creditLimit)}</strong></div>
+                      <div><span>Disponible</span><strong>{formatMoney(selectedEvaluation?.available)}</strong></div>
+                      <div className="editor"><input type="number" min="0" value={limitValue} onChange={(event) => setLimitValue(event.target.value)} /><button type="button" disabled={savingLimit} onClick={handleSaveLimit}>{savingLimit ? "..." : "Actualizar"}</button></div>
+                    </div>
+                  )}
+
+                  <nav className="credits-pro-detail-tabs">
+                    <button type="button" className={detailTab === "installments" ? "active" : ""} onClick={() => setDetailTab("installments")}>Cuotas</button>
+                    <button type="button" className={detailTab === "payments" ? "active" : ""} onClick={() => setDetailTab("payments")}>Pagos</button>
+                    <button type="button" className={detailTab === "management" ? "active" : ""} onClick={() => setDetailTab("management")}>Gestiones</button>
+                  </nav>
+
+                  {detailTab === "installments" && (
+                    <div className="credits-pro-installments">
+                      {(selectedFinancials?.installments || []).map((installment) => {
+                        const paid = installment.capitalPending <= 0;
+                        const late = installment.daysLate > 0 && !paid;
+                        return (
+                          <article key={installment.numero} className={`${paid ? "paid" : ""} ${late ? "late" : ""}`}>
+                            <span className="num">{installment.numero}</span>
+                            <span className="info"><strong>Cuota {installment.numero}</strong><small>Vence {formatDate(installment.vence)}{late ? ` · ${installment.daysLate} días de mora` : ""}</small></span>
+                            <strong className="amount">{formatMoney(installment.totalDue || installment.capitalPending || installment.importe)}</strong>
+                            <b className={`credits-pro-alert-pill ${paid ? "ok" : late ? "danger" : "blue"}`}>{paid ? "Pagada" : late ? "Vencida" : "Pendiente"}</b>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {detailTab === "payments" && (
+                    <div className="credits-pro-history">
+                      {(selectedCredit.abonos || []).slice().reverse().map((payment, index) => (
+                        <article key={payment.id || `${payment.fecha}-${index}`}>
+                          <History size={16} />
+                          <span><strong>{formatMoney(payment.monto)}</strong><small>{payment.fecha || "—"} · {payment.metodo || "—"}</small></span>
+                          <span className="right"><small>Capital {formatMoney(payment.capital)}</small><small>Punitorios {formatMoney(payment.punitorios)}</small></span>
+                        </article>
+                      ))}
+                      {!(selectedCredit.abonos || []).length && <div className="credits-empty compact"><History size={22} /><strong>Sin pagos registrados</strong></div>}
+                    </div>
+                  )}
+
+                  {detailTab === "management" && (
+                    <div className="credits-pro-history">
+                      {(selectedCredit.promesasPago || []).slice().reverse().map((promise) => (
+                        <article key={promise.id}>
+                          <CalendarClock size={16} />
+                          <span><strong>Compromiso de pago</strong><small>{formatDate(promise.fechaPromesa)} · {formatMoney(promise.monto)}{promise.nota ? ` · ${promise.nota}` : ""}</small></span>
+                          <b className="credits-pro-alert-pill amber">{promise.estado || "Pendiente"}</b>
+                        </article>
+                      ))}
+                      {(selectedCredit.gestiones || []).slice().reverse().map((action) => (
+                        <article key={action.id}>
+                          <MessageSquareText size={16} />
+                          <span><strong>{action.tipo || "Gestión"}</strong><small>{action.nota || "—"}</small></span>
+                          <small>{action.fecha ? new Date(action.fecha).toLocaleDateString("es-AR") : "—"}</small>
+                        </article>
+                      ))}
+                      {!(selectedCredit.gestiones || []).length && !(selectedCredit.promesasPago || []).length && <div className="credits-empty compact"><MessageSquareText size={22} /><strong>Sin gestiones registradas</strong></div>}
+                    </div>
+                  )}
+
+                  {! ["saldado", "refinanciado", "cancelado", "anulado"].includes(selectedStatus?.key) && (
+                    <div className="credits-pro-actions-grid">
+                      <button type="button" className="amber" onClick={() => setPromiseOpen(true)}><CalendarClock size={15} />Compromiso</button>
+                      <button type="button" onClick={() => setManagementOpen(true)}><PhoneCall size={15} />Gestión</button>
+                      <button
+                        type="button"
+                        className="soft"
+                        onClick={() => {
+                          setRefinanceForm({
+                            ...EMPTY_REFINANCE,
+                            firstDueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+                          });
+                          setRefinanceOpen(true);
+                        }}
+                      ><RefreshCcw size={15} />Refinanciar</button>
+                      <button type="button" onClick={printPlan}><FileText size={15} />Estado de cuenta</button>
+                      <button type="button" onClick={printPromissory}><Printer size={15} />Pagaré / plan</button>
+                      <button type="button" className="primary" onClick={openPayment}><HandCoins size={16} />Enviar cobro a Caja</button>
+                    </div>
+                  )}
+
+                  <div className="credits-pro-note">
+                    <strong>Separación financiera:</strong> este módulo administra deuda, cuotas, mora, compromisos y refinanciaciones. El dinero se registra en Caja; al cobrar, Caja actualiza el crédito y la factura vinculada.
+                  </div>
+                </div>
+              </>
+            )}
+          </aside>
         </div>
-      )}
+      </div>
 
       {creditOpen && (
         <div className="credits-modal-overlay">
@@ -1676,11 +1804,11 @@ export default function Creditos() {
           <motion.div className="credits-modal" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <header>
               <div>
-                <span>Cobranzas</span>
-                <h3>Registrar pago</h3>
-                <p>Carpeta {selectedCredit.id}</p>
+                <span>Cobranza</span>
+                <h3>Enviar cobro a Caja</h3>
+                <p>Crédito {selectedCredit.id}</p>
               </div>
-              <button type="button" onClick={() => setPaymentOpen(false)}>
+              <button type="button" disabled={savingPayment} onClick={() => setPaymentOpen(false)}>
                 <X size={18} />
               </button>
             </header>
@@ -1698,7 +1826,7 @@ export default function Creditos() {
               </div>
 
               <label>
-                <span>Importe recibido *</span>
+                <span>Importe a cobrar *</span>
                 <input
                   type="number"
                   min="0"
@@ -1712,46 +1840,45 @@ export default function Creditos() {
                 />
               </label>
 
-              <label>
-                <span>Medio de pago</span>
-                <select
-                  value={paymentForm.method}
-                  onChange={(event) =>
-                    setPaymentForm((current) => ({
-                      ...current,
-                      method: event.target.value,
-                    }))
-                  }
-                >
-                  {CREDIT_PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               <label className="credits-check-label">
                 <input
                   type="checkbox"
                   checked={paymentForm.forgiveLateFees}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    const nextInstallment = selectedFinancials?.nextInstallment;
                     setPaymentForm((current) => ({
                       ...current,
-                      forgiveLateFees: event.target.checked,
-                    }))
-                  }
+                      forgiveLateFees: checked,
+                      amount: nextInstallment
+                        ? String(
+                            Math.round(
+                              Number(
+                                checked
+                                  ? nextInstallment.capitalPending
+                                  : nextInstallment.totalDue
+                              ) * 100
+                            ) / 100
+                          )
+                        : current.amount,
+                    }));
+                  }}
                 />
                 No cobrar punitorios actuales
               </label>
+
+              <div className="credits-pro-modal-note">
+                <strong>El medio de pago se elige en Caja.</strong>
+                <span>Acá solo preparás el importe. Caja registrará efectivo, transferencia, tarjeta o saldo a favor y luego actualizará este crédito.</span>
+              </div>
             </div>
 
             <footer>
-              <button type="button" className="ghost" onClick={() => setPaymentOpen(false)}>
+              <button type="button" className="ghost" disabled={savingPayment} onClick={() => setPaymentOpen(false)}>
                 Cancelar
               </button>
               <button type="button" className="primary" disabled={savingPayment} onClick={handlePayment}>
-                {savingPayment ? "Procesando..." : "Registrar cobro"}
+                {savingPayment ? "Enviando..." : "Enviar a Caja"}
               </button>
             </footer>
           </motion.div>

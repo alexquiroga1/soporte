@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -10,32 +11,41 @@ import {
 } from "react-router-dom";
 
 import {
+  AnimatePresence,
   motion,
 } from "motion/react";
 
 import {
+  createPortal,
+} from "react-dom";
+
+import {
+  AlertTriangle,
   Archive,
   ArchiveRestore,
   ArrowLeft,
   BadgeDollarSign,
-  CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
+  CheckCircle2,
   CreditCard,
+  ExternalLink,
   FileClock,
-  Mail,
-  MapPin,
+  FileText,
+  MonitorSmartphone,
   NotebookPen,
   Pencil,
-  Phone,
   Plus,
   ReceiptText,
+  RotateCcw,
   Search,
+  ShoppingBag,
   Ticket,
   Trash2,
   UserRound,
-  Users,
   WalletCards,
+  ShieldCheck,
+  ShieldAlert,
+  History,
+  CircleDollarSign,
   X,
 } from "lucide-react";
 
@@ -46,12 +56,9 @@ import {
 import {
   addClientNote,
   createClient,
-  createClientCredit,
-  deleteClient,
   getClientActivity,
   getClientDisplayName,
   getClientDocument,
-  refinanceClientDebt,
   setClientArchived,
   subscribeToClientActivityIndex,
   subscribeToClients,
@@ -60,8 +67,24 @@ import {
 } from "../../services/clientes.service.js";
 
 import {
-  notify,
-} from "../../services/notifications.js";
+  createCredit,
+  getCreditStatus,
+  refinanceClientCredits,
+} from "../../services/creditos.service.js";
+
+import {
+  createAuditCreditNote,
+  reverseAuditCreditNote,
+  reverseLegacyClientBalance,
+  deleteClientByAudit,
+  deleteTicketByAudit,
+  subscribeToClientAudit,
+} from "../../services/client-audit.service.js";
+
+import {
+  PERMISSIONS,
+  profileHasPermission,
+} from "../../security/permissions.js";
 
 import "./Clientes.css";
 
@@ -137,6 +160,55 @@ function initials(name) {
     .join("");
 }
 
+function getDebtAlert(activity) {
+  const activeCredits =
+    activity?.activeCredits ||
+    [];
+
+  if (!activeCredits.length) {
+    return {
+      tone: "ok",
+      label: "Al día",
+      overdue: false,
+    };
+  }
+
+  const statuses =
+    activeCredits.map((credit) =>
+      getCreditStatus(credit)
+    );
+
+  const overdue =
+    statuses.find((status) =>
+      status.overdue
+    );
+
+  if (overdue) {
+    return {
+      tone: "critical",
+      label: overdue.label,
+      overdue: true,
+    };
+  }
+
+  return {
+    tone: "warning",
+    label: "Deuda activa",
+    overdue: false,
+  };
+}
+
+function recordDate(record) {
+  return (
+    record?.fecha ||
+    record?.fechaOrigen ||
+    record?.fechaEmision ||
+    record?.creadoEn ||
+    record?.createdAt ||
+    ""
+  );
+}
+
 function errorMessage(error) {
   if (
     error?.message ===
@@ -190,9 +262,27 @@ function errorMessage(error) {
     CLIENT_BALANCE_EXISTS: `No se puede eliminar un cliente con saldo a favor (${formatMoney(error?.balance)}).`,
     CLIENT_ARCHIVED: "El cliente está archivado. Restauralo antes de crear nuevas operaciones.",
     CREDIT_CAPITAL_INVALID: "El capital debe ser mayor a cero.",
+    CREDIT_AMOUNT_INVALID: "El capital debe ser mayor a cero.",
+    CREDIT_CLIENT_REQUIRED: "Seleccioná un cliente.",
     CREDIT_ADVANCE_INVALID: "El anticipo debe ser menor que el capital.",
     CREDIT_LIMIT_EXCEEDED: `Cupo insuficiente. Disponible: ${formatMoney(error?.available)}.`,
+    CREDIT_CLIENT_BLOCKED: `El cliente registra ${error?.daysLate || 0} días de mora. Gestioná la excepción desde Créditos.`,
+    CREDIT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
     CLIENT_NO_ACTIVE_DEBT: "El cliente no tiene deuda activa para refinanciar.",
+    AUDIT_AMOUNT_INVALID: "Ingresá un monto mayor a cero.",
+    AUDIT_CREDIT_NOTE_REQUIRED: "Seleccioná la acreditación que querés revertir.",
+    AUDIT_CREDIT_NOTE_NOT_FOUND: "No se encontró la Nota de Crédito original.",
+    AUDIT_CREDIT_NOTE_INVALID: "La acreditación seleccionada no pertenece a este cliente o no fue creada por Auditoría.",
+    AUDIT_CREDIT_NOT_REVERSIBLE: "Esta acreditación ya no tiene saldo disponible para revertir.",
+    AUDIT_BALANCE_NOT_AVAILABLE: "El cliente no tiene saldo a favor disponible para revertir.",
+    AUDIT_REVERSAL_EXCEEDS_AVAILABLE: `Solo podés revertir hasta ${formatMoney(error?.available)}.`,
+    AUDIT_REASON_REQUIRED: "Ingresá un motivo administrativo.",
+    AUDIT_CONFIRM_REQUIRED: "Escribí ELIMINAR para confirmar la operación.",
+    AUDIT_TOO_MANY_TICKETS: `Hay demasiados tickets asociados (${error?.count || 0}). Eliminá algunos tickets desde Auditoría antes de borrar el cliente.`,
+    CLIENT_NOT_FOUND: "El cliente ya no existe.",
+    TICKET_ID_REQUIRED: "No pudimos identificar el ticket.",
+    TICKET_NOT_FOUND: "El ticket ya no existe.",
+    TICKET_CLIENT_MISMATCH: "El ticket no pertenece al cliente seleccionado.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";
@@ -203,17 +293,87 @@ export default function Clientes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user } = useAuth();
 
+  const canTickets =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.TICKETS
+    );
+
+  const canSales =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.SALES
+    );
+
+  const canCredits =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.CREDITS
+    );
+
+  const canSeeFinancials =
+    canSales ||
+    canCredits;
+
+  const canBudgets =
+    canTickets ||
+    canSales;
+
+  const canInvoices =
+    canSales ||
+    canCredits;
+
+  const canAccount =
+    canSales ||
+    canCredits;
+
+  const canManageClientLifecycle =
+    canTickets &&
+    canSales &&
+    canCredits;
+
+  const canAudit =
+    profileHasPermission(
+      profile,
+      PERMISSIONS.ALL
+    );
+
+
   const author =
     profile?.nombre ||
     profile?.name ||
     user?.email ||
     "Sistema";
 
+  const availableTabs = useMemo(
+    () => [
+      "summary",
+      ...(canTickets ? ["tickets", "devices"] : []),
+      ...(canSales || canInvoices ? ["sales"] : []),
+      ...(canCredits ? ["credits"] : []),
+      ...(canBudgets ? ["budgets"] : []),
+      ...(canAccount ? ["account"] : []),
+      ...(canAudit ? ["audit"] : []),
+    ],
+    [
+      canTickets,
+      canSales,
+      canInvoices,
+      canCredits,
+      canBudgets,
+      canAccount,
+      canAudit,
+    ]
+  );
+
   const [clients, setClients] = useState([]);
   const [index, setIndex] = useState({
     tickets: [],
     sales: [],
     credits: [],
+    budgets: [],
+    invoices: [],
+    account: [],
   });
 
   const [search, setSearch] = useState("");
@@ -225,7 +385,7 @@ export default function Clientes() {
   const [activeTab, setActiveTab] = useState(
     () => {
       const tab = searchParams.get("tab");
-      return ["summary", "tickets", "sales", "credits"].includes(tab)
+      return availableTabs.includes(tab)
         ? tab
         : "summary";
     }
@@ -235,7 +395,6 @@ export default function Clientes() {
   const [editingClient, setEditingClient] = useState(false);
   const [clientForm, setClientForm] = useState(EMPTY_CLIENT);
   const [savingClient, setSavingClient] = useState(false);
-  const [deletingClient, setDeletingClient] = useState(false);
   const [archivingClient, setArchivingClient] = useState(false);
 
   const [creditModal, setCreditModal] = useState(false);
@@ -249,12 +408,67 @@ export default function Clientes() {
   const [limitValue, setLimitValue] = useState("");
   const [savingLimit, setSavingLimit] = useState(false);
 
+  const [toasts, setToasts] = useState([]);
+
+  const [auditRows, setAuditRows] = useState([]);
+  const [auditAction, setAuditAction] = useState(null);
+  const [auditReason, setAuditReason] = useState("");
+  const [auditConfirmText, setAuditConfirmText] = useState("");
+  const [auditAmount, setAuditAmount] = useState("");
+  const [savingAudit, setSavingAudit] = useState(false);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((current) =>
+      current.filter((item) => item.id !== toastId)
+    );
+  }, []);
+
+  const pushToast = useCallback(
+    (type, title, description = "") => {
+      const id =
+        globalThis.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random()}`;
+
+      setToasts((current) => [
+        ...current.slice(-3),
+        {
+          id,
+          type,
+          title,
+          description,
+        },
+      ]);
+
+      window.setTimeout(
+        () => dismissToast(id),
+        type === "error" ? 6500 : 4300
+      );
+
+      return id;
+    },
+    [dismissToast]
+  );
+
+  const uiNotify = useMemo(
+    () => ({
+      success: (title, description = "") =>
+        pushToast("success", title, description),
+      error: (title, description = "") =>
+        pushToast("error", title, description),
+      warning: (title, description = "") =>
+        pushToast("warning", title, description),
+      info: (title, description = "") =>
+        pushToast("info", title, description),
+    }),
+    [pushToast]
+  );
+
   useEffect(() => {
     const unsubscribeClients = subscribeToClients(
       setClients,
       (error) => {
         console.error(error);
-        notify.error("Clientes", "No se pudieron cargar los clientes.");
+        uiNotify.error("Clientes", "No se pudieron cargar los clientes.");
       }
     );
 
@@ -262,6 +476,20 @@ export default function Clientes() {
       setIndex,
       (error) => {
         console.error(error);
+      },
+      {
+        includeTickets:
+          canTickets,
+        includeSales:
+          canSales,
+        includeCredits:
+          canCredits,
+        includeBudgets:
+          canBudgets,
+        includeInvoices:
+          canInvoices,
+        includeAccount:
+          canAccount,
       }
     );
 
@@ -269,7 +497,34 @@ export default function Clientes() {
       unsubscribeClients();
       unsubscribeIndex();
     };
-  }, []);
+  }, [
+    canTickets,
+    canSales,
+    canCredits,
+    canBudgets,
+    canInvoices,
+    canAccount,
+    uiNotify,
+  ]);
+
+  useEffect(() => {
+    if (!canAudit || !selectedClientId) {
+      setAuditRows([]);
+      return undefined;
+    }
+
+    return subscribeToClientAudit(
+      selectedClientId,
+      setAuditRows,
+      (error) => {
+        console.error(error);
+        uiNotify.error(
+          "Auditoría interna",
+          "No se pudo cargar el historial de auditoría."
+        );
+      }
+    );
+  }, [canAudit, selectedClientId, uiNotify]);
 
   /* =======================================
      CONTEXTO DE CLIENTE EN LA URL
@@ -285,13 +540,18 @@ export default function Clientes() {
       searchParams.get("tab");
 
     const tab =
-      ["summary", "tickets", "sales", "credits"].includes(requestedTab)
+      availableTabs.includes(
+        requestedTab
+      )
         ? requestedTab
         : "summary";
 
     setSelectedClientId(clientId);
     setActiveTab(tab);
-  }, [searchParams]);
+  }, [
+    searchParams,
+    availableTabs,
+  ]);
 
   const setClientContext = (
     clientId,
@@ -310,7 +570,9 @@ export default function Clientes() {
 
       next.set(
         "tab",
-        ["summary", "tickets", "sales", "credits"].includes(tab)
+        availableTabs.includes(
+          tab
+        )
           ? tab
           : "summary"
       );
@@ -339,6 +601,103 @@ export default function Clientes() {
         : null,
     [selectedClient, index]
   );
+
+  const reversibleAuditCredits = useMemo(() => {
+    const reversedByNote = new Map();
+
+    auditRows
+      .filter((row) => row.accion === "SALDO_ACREDITACION_REVERTIDA")
+      .forEach((row) => {
+        const noteId = String(row.notaCreditoId || "").trim();
+        if (!noteId) return;
+
+        reversedByNote.set(
+          noteId,
+          (reversedByNote.get(noteId) || 0) + Number(row.monto || 0)
+        );
+      });
+
+    return auditRows
+      .filter((row) => row.accion === "SALDO_ACREDITADO_NC" && row.notaCreditoId)
+      .map((row) => {
+        const original = Number(row.monto || 0);
+        const reversed = Number(reversedByNote.get(row.notaCreditoId) || 0);
+        return {
+          ...row,
+          originalAmount: original,
+          reversedAmount: reversed,
+          remainingAmount: Math.max(0, original - reversed),
+        };
+      })
+      .filter((row) => row.remainingAmount > 0.0001);
+  }, [auditRows]);
+
+
+  const selectedDevices = useMemo(() => {
+    const devices = new Map();
+
+    (selectedActivity?.tickets || []).forEach((ticket) => {
+      const name =
+        ticket.equipo ||
+        ticket.dispositivo ||
+        [ticket.marca, ticket.modelo]
+          .filter(Boolean)
+          .join(" ") ||
+        "Equipo";
+
+      const serial =
+        ticket.serie ||
+        ticket.numeroSerie ||
+        ticket.serial ||
+        "";
+
+      const key =
+        `${name}::${serial}`.toLowerCase();
+
+      const current =
+        devices.get(key);
+
+      if (current) {
+        current.services += 1;
+
+        if (
+          recordDate(ticket) >
+          recordDate(current.lastTicket)
+        ) {
+          current.lastTicket =
+            ticket;
+        }
+
+        return;
+      }
+
+      devices.set(key, {
+        key,
+        name,
+        serial,
+        details:
+          ticket.detalleEquipo ||
+          ticket.descripcionEquipo ||
+          ticket.tipoEquipo ||
+          "",
+        services: 1,
+        lastTicket: ticket,
+      });
+    });
+
+    return Array.from(
+      devices.values()
+    );
+  }, [selectedActivity]);
+
+  const selectedDebtAlert =
+    useMemo(
+      () =>
+        getDebtAlert(
+          selectedActivity
+        ),
+      [selectedActivity]
+    );
 
   useEffect(() => {
     if (selectedClient) {
@@ -463,10 +822,14 @@ export default function Clientes() {
           }
         );
 
-        notify.success("Cliente actualizado", "Los datos se guardaron correctamente.");
+        uiNotify.success("Cliente actualizado", "Los datos se guardaron correctamente.");
       } else {
         const created = await createClient({
           ...clientForm,
+          limiteCredito:
+            canCredits
+              ? clientForm.limiteCredito
+              : 0,
           author,
         });
 
@@ -474,65 +837,206 @@ export default function Clientes() {
           created.id,
           "summary"
         );
-        notify.success("Cliente creado", `${getClientDisplayName(created)} fue registrado.`);
+        uiNotify.success("Cliente creado", `${getClientDisplayName(created)} fue registrado.`);
       }
 
       setClientModal(false);
       setClientForm(EMPTY_CLIENT);
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo guardar", errorMessage(error));
+      uiNotify.error("No se pudo guardar", errorMessage(error));
     } finally {
       setSavingClient(false);
     }
   };
 
-  const handleDeleteClient = async () => {
-    if (!selectedClient) return;
+  const openAuditAction = (type, payload = null) => {
+    let nextPayload = payload;
 
-    const name =
-      getClientDisplayName(
-        selectedClient
+    if (type === "credit-reverse" && !nextPayload) {
+      nextPayload = reversibleAuditCredits[0] || {
+        legacy: true,
+        notaCreditoId: "__legacy__",
+        remainingAmount: Number(selectedClient?.saldoAFavor || 0),
+      };
+    }
+
+    setAuditAction({ type, payload: nextPayload });
+    setAuditReason("");
+    setAuditConfirmText("");
+
+    if (type === "credit-reverse" && nextPayload) {
+      const maxAmount = nextPayload.legacy
+        ? Number(selectedClient?.saldoAFavor || 0)
+        : Math.min(
+            Number(nextPayload.remainingAmount || nextPayload.monto || 0),
+            Number(selectedClient?.saldoAFavor || 0)
+          );
+      setAuditAmount(maxAmount > 0 ? String(maxAmount) : "");
+    } else {
+      setAuditAmount("");
+    }
+  };
+
+  const closeAuditAction = () => {
+    if (savingAudit) return;
+    setAuditAction(null);
+    setAuditReason("");
+    setAuditConfirmText("");
+    setAuditAmount("");
+  };
+
+  const handleAuditAction = async () => {
+    if (!selectedClient || !canAudit || !auditAction) {
+      return;
+    }
+
+    const reason = auditReason.trim();
+
+    if (!reason) {
+      uiNotify.warning(
+        "Motivo obligatorio",
+        "Indicá por qué se realiza esta acción administrativa."
       );
-
-    const confirmed =
-      window.confirm(
-        `¿Eliminar definitivamente a ${name}?\n\nSolo se permitirá si no tiene tickets, créditos, ventas, facturas, presupuestos, movimientos de Caja o cuenta corriente asociados.`
-      );
-
-    if (!confirmed) {
       return;
     }
 
     try {
-      setDeletingClient(true);
+      setSavingAudit(true);
 
-      await deleteClient(
-        selectedClient
-      );
+      if (auditAction.type === "credit") {
+        const amount = Number(auditAmount);
 
-      setClientContext(
-        null
-      );
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("AUDIT_AMOUNT_INVALID");
+        }
 
-      notify.success(
-        "Cliente eliminado",
-        `${name} fue eliminado de la base de clientes.`
-      );
+        const result = await createAuditCreditNote({
+          clientId: selectedClient.id,
+          amount,
+          reason,
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        uiNotify.success(
+          "Saldo acreditado",
+          `${result.noteId} · +${formatMoney(result.amount)} · Nuevo saldo ${formatMoney(result.balance)}`
+        );
+      }
+
+      if (auditAction.type === "credit-reverse") {
+        const amount = Number(auditAmount);
+        const source = auditAction.payload;
+
+        if (!source) {
+          throw new Error("AUDIT_CREDIT_NOTE_REQUIRED");
+        }
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("AUDIT_AMOUNT_INVALID");
+        }
+
+        const result = source.legacy
+          ? await reverseLegacyClientBalance({
+              clientId: selectedClient.id,
+              amount,
+              reason,
+              author,
+              actorUid: user?.uid || null,
+            })
+          : await reverseAuditCreditNote({
+              clientId: selectedClient.id,
+              creditAudit: source,
+              amount,
+              reason,
+              author,
+              actorUid: user?.uid || null,
+            });
+
+        uiNotify.success(
+          source.legacy ? "Saldo anterior revertido" : "Acreditación revertida",
+          `${result.debitNoteId} · -${formatMoney(result.amount)} · Nuevo saldo ${formatMoney(result.balance)}`
+        );
+      }
+
+      if (auditAction.type === "ticket-delete") {
+        if (auditConfirmText.trim().toUpperCase() !== "ELIMINAR") {
+          throw new Error("AUDIT_CONFIRM_REQUIRED");
+        }
+
+        const ticket = auditAction.payload;
+
+        await deleteTicketByAudit({
+          ticketId: ticket?.id,
+          clientId: selectedClient.id,
+          clientName: getClientDisplayName(selectedClient),
+          reason,
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        uiNotify.success(
+          "Ticket eliminado",
+          `${ticket?.numero || ticket?.codigo || ticket?.id || "Ticket"} quedó registrado en Auditoría.`
+        );
+      }
+
+      if (auditAction.type === "client-delete") {
+        if (auditConfirmText.trim().toUpperCase() !== "ELIMINAR") {
+          throw new Error("AUDIT_CONFIRM_REQUIRED");
+        }
+
+        const name = getClientDisplayName(selectedClient);
+
+        const result = await deleteClientByAudit({
+          client: selectedClient,
+          reason,
+          summary: {
+            tickets: selectedActivity?.tickets.length || 0,
+            ventas: selectedActivity?.sales.length || 0,
+            facturas: selectedActivity?.invoices.length || 0,
+            creditos: selectedActivity?.credits.length || 0,
+            presupuestos: selectedActivity?.budgets.length || 0,
+            cuentaCorriente: selectedActivity?.account.length || 0,
+            deuda: selectedActivity?.debt || 0,
+          },
+          author,
+          actorUid: user?.uid || null,
+        });
+
+        setAuditAction(null);
+        setClientContext(null);
+
+        const deletedTickets = Number(result?.deletedTickets || 0);
+
+        uiNotify.success(
+          "Cliente eliminado por auditoría",
+          `${name} fue eliminado junto con ${deletedTickets} ${deletedTickets === 1 ? "ticket asociado" : "tickets asociados"}. El historial financiero y la Auditoría se conservan.`
+        );
+
+        return;
+      }
+
+      closeAuditAction();
     } catch (error) {
       console.error(error);
-
-      notify.error(
-        "No se pudo eliminar",
+      uiNotify.error(
+        "Auditoría interna",
         errorMessage(error)
       );
     } finally {
-      setDeletingClient(false);
+      setSavingAudit(false);
     }
   };
 
   const handleArchiveClient = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canManageClientLifecycle
+    ) {
+      return;
+    }
 
     const archived =
       selectedClient.archivado ===
@@ -570,7 +1074,7 @@ export default function Clientes() {
           "active"
         );
 
-        notify.success(
+        uiNotify.success(
           "Cliente restaurado",
           `${name} volvió a quedar activo.`
         );
@@ -579,7 +1083,7 @@ export default function Clientes() {
           "archived"
         );
 
-        notify.success(
+        uiNotify.success(
           "Cliente archivado",
           `${name} quedó archivado sin perder su historial.`
         );
@@ -589,7 +1093,7 @@ export default function Clientes() {
         error
       );
 
-      notify.error(
+      uiNotify.error(
         archived
           ? "No se pudo restaurar"
           : "No se pudo archivar",
@@ -605,7 +1109,12 @@ export default function Clientes() {
   };
 
   const handleSaveLimit = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     try {
       setSavingLimit(true);
@@ -616,10 +1125,10 @@ export default function Clientes() {
         author
       );
 
-      notify.success("Límite actualizado", `Nuevo límite: ${formatMoney(value)}.`);
+      uiNotify.success("Límite actualizado", `Nuevo límite: ${formatMoney(value)}.`);
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo actualizar", errorMessage(error));
+      uiNotify.error("No se pudo actualizar", errorMessage(error));
     } finally {
       setSavingLimit(false);
     }
@@ -638,23 +1147,28 @@ export default function Clientes() {
       );
 
       setNote("");
-      notify.success("Nota agregada", "Quedó registrada en el perfil del cliente.");
+      uiNotify.success("Nota agregada", "Quedó registrada en el perfil del cliente.");
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo guardar", errorMessage(error));
+      uiNotify.error("No se pudo guardar", errorMessage(error));
     } finally {
       setSavingNote(false);
     }
   };
 
   const openCredit = (mode) => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     if (
       selectedClient.archivado ===
       true
     ) {
-      notify.warning(
+      uiNotify.warning(
         "Cliente archivado",
         "Restauralo antes de crear o refinanciar un crédito."
       );
@@ -674,34 +1188,53 @@ export default function Clientes() {
   };
 
   const handleSaveCredit = async () => {
-    if (!selectedClient) return;
+    if (
+      !selectedClient ||
+      !canCredits
+    ) {
+      return;
+    }
 
     try {
       setSavingCredit(true);
 
       if (creditMode === "refinance") {
-        await refinanceClientDebt({
-          client: selectedClient,
-          interest: creditForm.interest,
-          installments: creditForm.installments,
-          firstDueDate: creditForm.firstDueDate,
+        await refinanceClientCredits({
+          client:
+            selectedClient,
+          credits:
+            selectedActivity?.activeCredits ||
+            [],
+          interest:
+            creditForm.interest,
+          installments:
+            creditForm.installments,
+          firstDueDate:
+            creditForm.firstDueDate,
           author,
         });
 
-        notify.success("Deuda refinanciada", "Se creó una nueva carpeta con la deuda unificada.");
+        uiNotify.success("Deuda refinanciada", "Se creó una nueva carpeta con la deuda unificada.");
       } else {
-        await createClientCredit({
-          client: selectedClient,
-          concept: creditForm.concept,
-          capital: creditForm.capital,
-          advance: creditForm.advance,
-          interest: creditForm.interest,
-          installments: creditForm.installments,
-          firstDueDate: creditForm.firstDueDate,
+        await createCredit({
+          client:
+            selectedClient,
+          concept:
+            creditForm.concept,
+          capital:
+            creditForm.capital,
+          advance:
+            creditForm.advance,
+          interest:
+            creditForm.interest,
+          installments:
+            creditForm.installments,
+          firstDueDate:
+            creditForm.firstDueDate,
           author,
         });
 
-        notify.success("Crédito creado", "La nueva carpeta fue registrada.");
+        uiNotify.success("Crédito creado", "La nueva carpeta fue registrada.");
       }
 
       setCreditModal(false);
@@ -712,7 +1245,7 @@ export default function Clientes() {
       );
     } catch (error) {
       console.error(error);
-      notify.error("No se pudo procesar", errorMessage(error));
+      uiNotify.error("No se pudo procesar", errorMessage(error));
     } finally {
       setSavingCredit(false);
     }
@@ -759,413 +1292,658 @@ export default function Clientes() {
     );
   };
 
+
+  const openSaleFromClient = (sale) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/facturas",
+      {
+        state: {
+          saleId: sale.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+        },
+      }
+    );
+  };
+
+  const openInvoiceFromClient = (invoice) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/facturas",
+      {
+        state: {
+          invoiceId: invoice.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+        },
+      }
+    );
+  };
+
+  const openBudgetFromClient = (budget) => {
+    if (!selectedClient) return;
+
+    navigate(
+      "/facturacion/presupuestos",
+      {
+        state: {
+          budgetId: budget.id,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=budgets`,
+        },
+      }
+    );
+  };
+
+  const openNewTicketForClient = (device = null) => {
+    if (
+      !selectedClient ||
+      !canTickets
+    ) {
+      return;
+    }
+
+    navigate(
+      "/tickets/nuevo",
+      {
+        state: {
+          clienteId:
+            selectedClient.id,
+          device:
+            device
+              ? {
+                  name:
+                    device.name,
+                  serial:
+                    device.serial,
+                }
+              : null,
+          returnTo:
+            `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=${device ? "devices" : "summary"}`,
+        },
+      }
+    );
+  };
+
   return (
     <main className="clients-page">
       <div className="clients-shell">
-        <header className="clients-header">
-          <div className="clients-heading">
-            <button
-              type="button"
-              className="clients-back"
-              onClick={() => navigate("/dashboard")}
+        {typeof document !== "undefined" &&
+          createPortal(
+            <header className={`clients-topbar${selectedClient ? " profile" : ""}`}>
+              {!selectedClient ? (
+                <>
+                  <div className="clients-brand">
+                    <button
+                      type="button"
+                      className="clients-icon-button"
+                      onClick={() => navigate("/dashboard")}
+                      title="Volver al Dashboard"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+            
+                    <div className="clients-brand-mark">
+                      <UserRound size={20} />
+                    </div>
+            
+                    <div>
+                      <strong>ALEX SOPORTE TECNICO</strong>
+                      <span>Clientes</span>
+                    </div>
+                  </div>
+            
+                  <button
+                    type="button"
+                    className="clients-action primary"
+                    onClick={openNewClient}
+                  >
+                    <Plus size={17} />
+                    Nuevo cliente
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="clients-brand">
+                    <button
+                      type="button"
+                      className="clients-icon-button"
+                      onClick={() => setClientContext(null)}
+                      title="Volver a Clientes"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+            
+                    <div className="clients-brand-mark profile">
+                      {initials(getClientDisplayName(selectedClient))}
+                    </div>
+            
+                    <div>
+                      <strong>{getClientDisplayName(selectedClient)}</strong>
+                      <span>Perfil de cliente</span>
+                    </div>
+                  </div>
+            
+                  <div className="clients-profile-top-actions">
+                    <button
+                      type="button"
+                      className="clients-action"
+                      onClick={openEditClient}
+                    >
+                      <Pencil size={16} />
+                      Editar
+                    </button>
+            
+                    {canManageClientLifecycle && (
+                      <button
+                        type="button"
+                        className={`clients-action ${
+                          selectedClient.archivado === true
+                            ? "restore"
+                            : "archive"
+                        }`}
+                        disabled={archivingClient}
+                        onClick={handleArchiveClient}
+                      >
+                        {selectedClient.archivado === true ? (
+                          <ArchiveRestore size={16} />
+                        ) : (
+                          <Archive size={16} />
+                        )}
+                        {selectedClient.archivado === true ? "Restaurar" : "Archivar"}
+                      </button>
+                    )}
+            
+                  </div>
+                </>
+              )}
+            </header>
+            ,
+            document.body
+          )}
+
+
+        <AnimatePresence mode="wait">
+          {!selectedClient ? (
+            <motion.section
+              key="directory"
+              className="clients-directory-view"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22 }}
             >
-              <ArrowLeft size={17} />
-              Dashboard
-            </button>
 
-            <span className="clients-eyebrow">Clientes / Cuenta comercial</span>
-            <h1>Clientes</h1>
-            <p>Perfiles, tickets, compras, créditos y saldo a favor.</p>
-          </div>
 
-          <button
-            type="button"
-            className="clients-primary"
-            onClick={openNewClient}
-          >
-            <Plus size={17} />
-            Nuevo cliente
-          </button>
-        </header>
-
-        <section className="clients-metrics">
-          <article>
-            <span><Users size={17} /> Activos</span>
-            <strong>{metrics.active}</strong>
-            <small>{metrics.total} clientes registrados</small>
-          </article>
-
-          <article>
-            <span><Archive size={17} /> Archivados</span>
-            <strong>{metrics.archived}</strong>
-            <small>Con historial conservado</small>
-          </article>
-
-          <article>
-            <span><ReceiptText size={17} /> Compras</span>
-            <strong>{formatMoney(metrics.purchases)}</strong>
-            <small>Histórico registrado</small>
-          </article>
-
-          <article>
-            <span><CreditCard size={17} /> Deuda activa</span>
-            <strong>{formatMoney(metrics.debt)}</strong>
-            <small>Carpetas con saldo</small>
-          </article>
-
-          <article>
-            <span><WalletCards size={17} /> Saldo a favor</span>
-            <strong>{formatMoney(metrics.creditBalance)}</strong>
-            <small>Disponible para cobros</small>
-          </article>
-        </section>
-
-        <section className="clients-workspace">
-          <div className="clients-list-panel">
-            <div className="clients-toolbar">
-              <div>
-                <span>Directorio</span>
-                <h2>Base de clientes</h2>
+              <div className="clients-directory-title">
+                <div>
+                  <span className="clients-eyebrow">Directorio comercial</span>
+                  <h1>Clientes</h1>
+                  <p>
+                    {metrics.active} activos · {metrics.archived} archivados · {metrics.total} registrados
+                  </p>
+                </div>
               </div>
 
-              <div className="clients-toolbar-actions">
-                <div className="clients-directory-filters">
-                  {[
-                    ["active", "Activos"],
-                    ["archived", "Archivados"],
-                    ["all", "Todos"],
-                  ].map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={
-                        clientFilter === id
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() =>
-                        setClientFilter(
-                          id
-                        )
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
+              <div className="clients-alert-criteria" aria-label="Criterio de alertas">
+                <strong>Criterio</strong>
+                <span className="ok"><i />Al día</span>
+                <span className="warning"><i />Deuda activa</span>
+                <span className="critical"><i />Mora / vencimiento</span>
+                <span className="info"><i />Informativo</span>
+              </div>
+
+              <section className="clients-directory-panel">
+                <div className="clients-directory-toolbar">
+                  <label className="clients-search">
+                    <Search size={18} />
+                    <input
+                      value={search}
+                      placeholder="Buscar por nombre, DNI, CUIT, teléfono o correo..."
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
+
+                  <div className="clients-directory-filters">
+                    {[
+                      ["active", "Activos"],
+                      ["archived", "Archivados"],
+                      ["all", "Todos"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={clientFilter === id ? "active" : ""}
+                        onClick={() => setClientFilter(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <label className="clients-search">
-                  <Search size={16} />
-                  <input
-                    value={search}
-                    placeholder="Nombre, DNI, CUIT, teléfono..."
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
-              </div>
-            </div>
+                <div className="clients-list-head">
+                  <span>Cliente</span>
+                  <span>Contacto</span>
+                  <span>Actividad</span>
+                  <span>Finanzas</span>
+                  <span />
+                </div>
 
-            <div className="clients-table-wrap">
-              <table className="clients-table">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Contacto</th>
-                    <th>Tickets</th>
-                    <th>Compras</th>
-                    <th>Deuda</th>
-                    <th />
-                  </tr>
-                </thead>
+                <div className="clients-list">
+                  <AnimatePresence initial={false}>
+                    {rows.map((client, rowIndex) => {
+                      const activity = getClientActivity(client, index);
+                      const name = getClientDisplayName(client);
+                      const alert = getDebtAlert(activity);
 
-                <tbody>
-                  {rows.map((client) => {
-                    const activity = getClientActivity(client, index);
-                    const name = getClientDisplayName(client);
-
-                    return (
-                      <tr
-                        key={client.id}
-                        className={[
-                          selectedClientId === client.id
-                            ? "active"
-                            : "",
-                          client.archivado === true
-                            ? "archived"
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        onClick={() => openClient(client)}
-                      >
-                        <td>
+                      return (
+                        <motion.div
+                          layout
+                          key={client.id}
+                          className={[
+                            "clients-list-row",
+                            client.archivado === true ? "archived" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openClient(client)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openClient(client);
+                            }
+                          }}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{
+                            duration: 0.2,
+                            delay: Math.min(rowIndex * 0.025, 0.18),
+                          }}
+                        >
                           <div className="clients-person">
-                            <div>{initials(name)}</div>
+                            <div className="clients-avatar">
+                              {initials(name)}
+                            </div>
                             <section>
                               <strong>{name}</strong>
                               <span>
                                 {getClientDocument(client)}
-                                {client.archivado === true
-                                  ? " · Archivado"
-                                  : ""}
+                                {client.archivado === true && (
+                                  <em className="clients-inline-status archived">
+                                    Archivado
+                                  </em>
+                                )}
+                                {client.archivado !== true && (
+                                  <em className="clients-inline-status active">
+                                    Activo
+                                  </em>
+                                )}
                               </span>
                             </section>
                           </div>
-                        </td>
 
-                        <td>
-                          <strong className="clients-cell-main">{client.tel || "—"}</strong>
-                          <span className="clients-cell-sub">{client.localidad || client.email || "Sin ubicación"}</span>
-                        </td>
+                          <div className="clients-contact-cell">
+                            <strong>{client.tel || "Sin teléfono"}</strong>
+                            <span>{client.email || client.localidad || "Sin contacto adicional"}</span>
+                          </div>
 
-                        <td>{activity.tickets.length}</td>
-                        <td>{formatMoney(activity.purchases)}</td>
-                        <td className={activity.debt > 0 ? "clients-debt" : ""}>
-                          {formatMoney(activity.debt)}
-                        </td>
+                          <div className="clients-activity-cell">
+                            <strong>
+                              {canTickets ? `${activity.tickets.length} tickets` : "Historial"}
+                              {canSales ? ` · ${activity.sales.length} ventas` : ""}
+                            </strong>
+                            <span>
+                              {canBudgets
+                                ? `${activity.budgets.length} presupuestos`
+                                : "Consultar perfil"}
+                            </span>
+                          </div>
 
-                        <td>
-                          <ChevronRight size={17} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <div className="clients-finance-cell">
+                            {canSeeFinancials ? (
+                              <>
+                                <div>
+                                  <span>Deuda</span>
+                                  <strong className={activity.debt > 0 ? "negative" : ""}>
+                                    {formatMoney(activity.debt)}
+                                  </strong>
+                                  {canCredits && (
+                                    <em className={`clients-debt-alert ${alert.tone}`}>
+                                      <i />
+                                      {alert.label}
+                                    </em>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <span>A favor</span>
+                                  <strong className={Number(client.saldoAFavor || 0) > 0 ? "positive" : ""}>
+                                    {formatMoney(client.saldoAFavor)}
+                                  </strong>
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                <span>Estado</span>
+                                <strong>{client.archivado === true ? "Archivado" : "Activo"}</strong>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="clients-row-actions">
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openClient(client);
+                              }}
+                            >
+                              <UserRound size={15} />
+                              Ver cliente
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
 
                   {!rows.length && (
-                    <tr>
-                      <td colSpan="6">
-                        <div className="clients-empty">
-                          <UserRound size={26} />
-                          <strong>Sin resultados</strong>
-                          <span>No encontramos clientes con ese filtro.</span>
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="clients-empty clients-empty-directory">
+                      <UserRound size={28} />
+                      <strong>Sin resultados</strong>
+                      <span>No encontramos clientes con ese filtro.</span>
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </div>
+              </section>
+            </motion.section>
+          ) : (
+            <motion.section
+              key={`profile-${selectedClient.id}`}
+              className="clients-profile-view"
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.24 }}
+            >
 
-          <aside className="clients-profile">
-            {!selectedClient ? (
-              <div className="clients-profile-empty">
-                <UserRound size={34} />
-                <strong>Seleccioná un cliente</strong>
-                <span>Su información y actividad aparecerán acá.</span>
-              </div>
-            ) : (
-              <>
-                <div className="clients-profile-head">
-                  <div className="clients-avatar">
+
+              <section className="clients-profile-hero">
+                <div className="clients-profile-identity">
+                  <div className="clients-profile-avatar">
                     {initials(getClientDisplayName(selectedClient))}
                   </div>
 
                   <div>
-                    <span>Perfil</span>
-                    <h2>{getClientDisplayName(selectedClient)}</h2>
+                    <h1>{getClientDisplayName(selectedClient)}</h1>
                     <p>
                       {getClientDocument(selectedClient)}
-                      {selectedClient.archivado === true && (
-                        <strong className="clients-archived-badge">
-                          Archivado
-                        </strong>
-                      )}
+                      {selectedClient.tel ? ` · ${selectedClient.tel}` : ""}
+                      {selectedClient.email ? ` · ${selectedClient.email}` : ""}
                     </p>
-                  </div>
 
-                  <div className="clients-profile-head-actions">
-                    <button
-                      type="button"
-                      onClick={openEditClient}
-                      title="Editar cliente"
-                    >
-                      <Pencil size={16} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className={
-                        selectedClient.archivado === true
-                          ? "restore"
-                          : "archive"
-                      }
-                      disabled={archivingClient}
-                      onClick={handleArchiveClient}
-                      title={
-                        selectedClient.archivado === true
-                          ? "Restaurar cliente"
-                          : "Archivar cliente"
-                      }
-                    >
-                      {selectedClient.archivado === true ? (
-                        <ArchiveRestore size={16} />
-                      ) : (
-                        <Archive size={16} />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={
-                        deletingClient ||
-                        archivingClient
-                      }
-                      onClick={handleDeleteClient}
-                      title="Eliminar cliente"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="clients-contact-grid">
-                  <div>
-                    <Phone size={15} />
-                    <span>Teléfono</span>
-                    <strong>{selectedClient.tel || "—"}</strong>
-                  </div>
-
-                  <div>
-                    <Mail size={15} />
-                    <span>Correo</span>
-                    <strong>{selectedClient.email || "—"}</strong>
-                  </div>
-
-                  <div className="wide">
-                    <MapPin size={15} />
-                    <span>Dirección</span>
-                    <strong>
-                      {[selectedClient.direccion, selectedClient.localidad, selectedClient.provincia]
-                        .filter((value) => value && value !== "—")
-                        .join(", ") || "—"}
-                    </strong>
-                  </div>
-                </div>
-
-                {selectedClient.archivado === true && (
-                  <div className="clients-archived-notice">
-                    <Archive size={17} />
-                    <div>
-                      <strong>Cliente archivado</strong>
-                      <span>
-                        El historial sigue disponible, pero las nuevas operaciones están bloqueadas hasta restaurarlo.
+                    <div className="clients-profile-chips">
+                      <span className={selectedClient.archivado === true ? "archived" : "active"}>
+                        {selectedClient.archivado === true ? "Archivado" : "Activo"}
                       </span>
+
+                      {canCredits && selectedDebtAlert.overdue && (
+                        <span className="critical">
+                          <AlertTriangle size={13} />
+                          {selectedDebtAlert.label}
+                        </span>
+                      )}
+
+                      {canCredits && !selectedDebtAlert.overdue && selectedActivity?.debt > 0 && (
+                        <span className="warning">
+                          <AlertTriangle size={13} />
+                          Deuda activa
+                        </span>
+                      )}
+
+                      {canCredits && selectedActivity?.debt <= 0 && (
+                        <span className="success">
+                          <CheckCircle2 size={13} />
+                          Al día
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-
-                <div className="clients-finance-strip">
-                  <div>
-                    <span>Deuda</span>
-                    <strong>{formatMoney(selectedActivity?.debt)}</strong>
-                  </div>
-                  <div>
-                    <span>Cupo disponible</span>
-                    <strong>{formatMoney(selectedActivity?.availableCredit)}</strong>
-                  </div>
-                  <div>
-                    <span>Saldo a favor</span>
-                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
-                  </div>
                 </div>
 
-                <div className="clients-profile-actions">
-                  <button
-                    type="button"
-                    disabled={
-                      selectedClient.archivado ===
-                      true
-                    }
-                    onClick={() => openCredit("new")}
-                  >
-                    <BadgeDollarSign size={15} />
-                    Nuevo crédito
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={
-                      selectedClient.archivado ===
-                        true ||
-                      !selectedActivity?.activeCredits.length
-                    }
-                    onClick={() => openCredit("refinance")}
-                  >
-                    <FileClock size={15} />
-                    Refinanciar
-                  </button>
-                </div>
-
-                <nav className="clients-tabs">
-                  {[
-                    ["summary", "Resumen"],
-                    ["tickets", `Tickets ${selectedActivity?.tickets.length || 0}`],
-                    ["sales", `Compras ${selectedActivity?.sales.length || 0}`],
-                    ["credits", `Créditos ${selectedActivity?.credits.length || 0}`],
-                  ].map(([id, label]) => (
+                <div className="clients-profile-main-actions">
+                  {canTickets && (
                     <button
-                      key={id}
                       type="button"
-                      className={activeTab === id ? "active" : ""}
+                      className="clients-action soft-blue"
+                      disabled={selectedClient.archivado === true}
+                      onClick={() => openNewTicketForClient()}
+                    >
+                      <Ticket size={16} />
+                      Nuevo ticket
+                    </button>
+                  )}
+
+                  {canSales && (
+                    <button
+                      type="button"
+                      className="clients-action soft-green"
+                      disabled={selectedClient.archivado === true}
                       onClick={() =>
-                        setClientContext(
-                          selectedClient.id,
-                          id
+                        navigate(
+                          "/caja",
+                          {
+                            state: {
+                              clienteId:
+                                selectedClient.id,
+                              returnTo:
+                                `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
+                            },
+                          }
                         )
                       }
                     >
-                      {label}
+                      <ShoppingBag size={16} />
+                      Nueva venta
                     </button>
-                  ))}
-                </nav>
+                  )}
 
-                <div className="clients-profile-body">
+                  {canCredits && (
+                    <button
+                      type="button"
+                      className="clients-action soft-purple"
+                      disabled={selectedClient.archivado === true}
+                      onClick={() => openCredit("new")}
+                    >
+                      <BadgeDollarSign size={16} />
+                      Nuevo crédito
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              {selectedClient.archivado === true && (
+                <div className="clients-archived-notice">
+                  <Archive size={17} />
+                  <div>
+                    <strong>Cliente archivado</strong>
+                    <span>
+                      El historial continúa disponible, pero las nuevas operaciones
+                      permanecen bloqueadas hasta restaurarlo.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <section className="clients-summary-strip">
+                {canTickets && (
+                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: -1.2 }}>
+                    <div className="icon blue"><Ticket size={19} /></div>
+                    <span>Tickets</span>
+                    <strong>{selectedActivity?.tickets.length || 0}</strong>
+                    <small>Servicios vinculados</small>
+                  </motion.article>
+                )}
+
+                {canSales && (
+                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: 1.2 }}>
+                    <div className="icon green"><ReceiptText size={19} /></div>
+                    <span>Compras acumuladas</span>
+                    <strong>{formatMoney(selectedActivity?.purchases)}</strong>
+                    <small>{selectedActivity?.sales.length || 0} ventas registradas</small>
+                  </motion.article>
+                )}
+
+                {canCredits && (
+                  <motion.article
+                    className={selectedActivity?.debt > 0 ? "has-alert" : ""}
+                    whileHover={{ y: -4, rotateX: -1.2, rotateY: 1.2 }}
+                  >
+                    <div className="icon pink"><CreditCard size={19} /></div>
+                    <span>Deuda actual</span>
+                    <strong>{formatMoney(selectedActivity?.debt)}</strong>
+                    <small>{selectedActivity?.activeCredits.length || 0} carpetas con saldo</small>
+                    {selectedActivity?.debt > 0 && (
+                      <em className={`clients-summary-alert ${selectedDebtAlert.overdue ? "critical" : "warning"}`}>
+                        <i />
+                        {selectedDebtAlert.label}
+                      </em>
+                    )}
+                  </motion.article>
+                )}
+
+                {canSeeFinancials && (
+                  <motion.article whileHover={{ y: -4, rotateX: -1.2, rotateY: -1.2 }}>
+                    <div className="icon purple"><WalletCards size={19} /></div>
+                    <span>Saldo a favor</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                    <small>Disponible para aplicar</small>
+                  </motion.article>
+                )}
+              </section>
+
+              <nav className="clients-module-tabs">
+                {[
+                  ["summary", "Resumen", UserRound],
+                  ...(canTickets
+                    ? [
+                        ["tickets", `Tickets ${selectedActivity?.tickets.length || 0}`, Ticket],
+                        ["devices", `Equipos ${selectedDevices.length}`, MonitorSmartphone],
+                      ]
+                    : []),
+                  ...(canSales || canInvoices
+                    ? [["sales", "Ventas / Facturas", ReceiptText]]
+                    : []),
+                  ...(canCredits
+                    ? [["credits", `Créditos ${selectedActivity?.credits.length || 0}`, CreditCard]]
+                    : []),
+                  ...(canBudgets
+                    ? [["budgets", `Presupuestos ${selectedActivity?.budgets.length || 0}`, FileText]]
+                    : []),
+                  ...(canAccount
+                    ? [["account", "Cuenta corriente", WalletCards]]
+                    : []),
+                  ...(canAudit
+                    ? [["audit", "Auditoría interna", ShieldCheck]]
+                    : []),
+                ].map(([id, label, Icon]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={activeTab === id ? "active" : ""}
+                    onClick={() => setClientContext(selectedClient.id, id)}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </button>
+                ))}
+              </nav>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  className="clients-module-content"
+                  initial={{ opacity: 0, y: 9 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                >
                   {activeTab === "summary" && (
-                    <div className="clients-summary">
-                      <section>
-                        <div className="clients-section-title">
+                    <div className="clients-overview-grid">
+                      <section className="clients-module-card">
+                        <header>
                           <div>
-                            <span>Crédito</span>
-                            <h3>Límite comercial</h3>
+                            <span>Información</span>
+                            <h3>Datos del cliente</h3>
                           </div>
-                          <CircleDollarSign size={18} />
+                          <UserRound size={19} />
+                        </header>
+
+                        <div className="clients-info-grid">
+                          <div>
+                            <span>Documento</span>
+                            <strong>{getClientDocument(selectedClient)}</strong>
+                          </div>
+                          <div>
+                            <span>Teléfono</span>
+                            <strong>{selectedClient.tel || "—"}</strong>
+                          </div>
+                          <div>
+                            <span>Correo</span>
+                            <strong>{selectedClient.email || "—"}</strong>
+                          </div>
+                          <div>
+                            <span>Dirección</span>
+                            <strong>
+                              {[selectedClient.direccion, selectedClient.localidad, selectedClient.provincia]
+                                .filter((value) => value && value !== "—")
+                                .join(", ") || "—"}
+                            </strong>
+                          </div>
                         </div>
 
-                        <div className="clients-limit-row">
-                          <input
-                            type="number"
-                            min="0"
-                            value={limitValue}
-                            disabled={
-                              selectedClient.archivado ===
-                              true
-                            }
-                            onChange={(event) => setLimitValue(event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            disabled={
-                              savingLimit ||
-                              selectedClient.archivado ===
-                                true
-                            }
-                            onClick={handleSaveLimit}
-                          >
-                            {savingLimit ? "Guardando..." : "Guardar"}
-                          </button>
-                        </div>
+                        {canCredits && (
+                          <div className="clients-credit-limit">
+                            <div>
+                              <span>Límite de crédito</span>
+                              <strong>{formatMoney(limitValue)}</strong>
+                            </div>
+                            <div className="clients-limit-row">
+                              <input
+                                type="number"
+                                min="0"
+                                value={limitValue}
+                                disabled={selectedClient.archivado === true}
+                                onChange={(event) => setLimitValue(event.target.value)}
+                              />
+                              <button
+                                type="button"
+                                disabled={savingLimit || selectedClient.archivado === true}
+                                onClick={handleSaveLimit}
+                              >
+                                {savingLimit ? "Guardando..." : "Actualizar"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </section>
 
-                      <section>
-                        <div className="clients-section-title">
+                      <section className="clients-module-card notes">
+                        <header>
                           <div>
                             <span>Bitácora</span>
                             <h3>Notas del cliente</h3>
                           </div>
-                          <NotebookPen size={18} />
-                        </div>
+                          <NotebookPen size={19} />
+                        </header>
 
                         <textarea
                           rows="3"
@@ -1213,110 +1991,616 @@ export default function Clientes() {
                   )}
 
                   {activeTab === "tickets" && (
-                    <div className="clients-activity-list">
-                      {selectedActivity?.tickets.map((ticket) => (
-                        <button
-                          type="button"
-                          key={ticket.id}
-                          onClick={() =>
-                            openTicketFromClient(
-                              ticket
-                            )
-                          }
-                        >
-                          <div className="clients-activity-icon">
-                            <Ticket size={16} />
-                          </div>
-                          <section>
-                            <strong>#{ticket.id} · {ticket.equipo || "Equipo"}</strong>
-                            <span>{ticket.falla || "Sin falla informada"}</span>
-                          </section>
-                          <span className="clients-state">
-                            {STAGES[ticket.stage] || ticket.stage || "Pendiente"}
-                          </span>
-                        </button>
-                      ))}
-
-                      {!selectedActivity?.tickets.length && (
-                        <div className="clients-empty compact">
-                          <Ticket size={23} />
-                          <strong>Sin tickets</strong>
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Tickets</span>
+                          <h3>Tickets del cliente</h3>
                         </div>
-                      )}
-                    </div>
+                        <Ticket size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.tickets.map((ticket) => (
+                          <article key={ticket.id} className="clients-record-row">
+                            <div>
+                              <strong>#{ticket.id}</strong>
+                              <span>{formatDate(recordDate(ticket))}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{ticket.equipo || "Equipo"}</strong>
+                              <span>{ticket.falla || "Sin falla informada"}</span>
+                            </div>
+                            <span className="clients-state blue">
+                              {STAGES[ticket.stage] || ticket.stage || "Pendiente"}
+                            </span>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={() => openTicketFromClient(ticket)}
+                            >
+                              <ExternalLink size={14} />
+                              Ver ticket
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.tickets.length && (
+                          <div className="clients-empty compact">
+                            <Ticket size={23} />
+                            <strong>Sin tickets</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
                   )}
 
                   {activeTab === "sales" && (
-                    <div className="clients-activity-list">
-                      {selectedActivity?.sales.map((sale) => (
-                        <article key={sale.id}>
-                          <div className="clients-activity-icon">
-                            <ReceiptText size={16} />
-                          </div>
-                          <section>
-                            <strong>{sale.folio || sale.id}</strong>
-                            <span>{sale.articulos || sale.concepto || "Venta"}</span>
-                          </section>
-                          <strong>{formatMoney(sale.total)}</strong>
-                        </article>
-                      ))}
+                    <div className="clients-data-stack">
+                      {canSales && (
+                        <section className="clients-module-card data">
+                          <header>
+                            <div>
+                              <span>Fuente: Caja / Ventas</span>
+                              <h3>Ventas</h3>
+                            </div>
+                            <ShoppingBag size={19} />
+                          </header>
 
-                      {!selectedActivity?.sales.length && (
-                        <div className="clients-empty compact">
-                          <ReceiptText size={23} />
-                          <strong>Sin compras registradas</strong>
-                        </div>
+                          <div className="clients-record-list">
+                            {selectedActivity?.sales.map((sale) => (
+                              <article key={sale.id} className="clients-record-row">
+                                <div>
+                                  <strong>{sale.folio || sale.id}</strong>
+                                  <span>{formatDate(recordDate(sale))}</span>
+                                </div>
+                                <div className="grow">
+                                  <strong>{sale.articulos || sale.concepto || "Venta"}</strong>
+                                  <span>{sale.medioPago || sale.formaPago || "Operación registrada"}</span>
+                                </div>
+                                <strong className="clients-money">{formatMoney(sale.total)}</strong>
+                                <button
+                                  type="button"
+                                  className="clients-record-button"
+                                  onClick={() => openSaleFromClient(sale)}
+                                >
+                                  <ExternalLink size={14} />
+                                  Ver venta
+                                </button>
+                              </article>
+                            ))}
+
+                            {!selectedActivity?.sales.length && (
+                              <div className="clients-empty compact">
+                                <ReceiptText size={23} />
+                                <strong>Sin ventas registradas</strong>
+                              </div>
+                            )}
+                          </div>
+                        </section>
+                      )}
+
+                      {canInvoices && (
+                        <section className="clients-module-card data">
+                          <header>
+                            <div>
+                              <span>Fuente: Facturación</span>
+                              <h3>Facturas</h3>
+                            </div>
+                            <ReceiptText size={19} />
+                          </header>
+
+                          <div className="clients-record-list">
+                            {selectedActivity?.invoices.map((invoice) => (
+                              <article key={invoice.id} className="clients-record-row">
+                                <div>
+                                  <strong>{invoice.numero || invoice.folio || invoice.id}</strong>
+                                  <span>{formatDate(recordDate(invoice))}</span>
+                                </div>
+                                <div className="grow">
+                                  <strong>{invoice.concepto || "Factura"}</strong>
+                                  <span>{invoice.estado || invoice.estadoPago || "Emitida"}</span>
+                                </div>
+                                <strong className="clients-money">{formatMoney(invoice.total)}</strong>
+                                <button
+                                  type="button"
+                                  className="clients-record-button"
+                                  onClick={() => openInvoiceFromClient(invoice)}
+                                >
+                                  <ExternalLink size={14} />
+                                  Ver factura
+                                </button>
+                              </article>
+                            ))}
+
+                            {!selectedActivity?.invoices.length && (
+                              <div className="clients-empty compact">
+                                <ReceiptText size={23} />
+                                <strong>Sin facturas registradas</strong>
+                              </div>
+                            )}
+                          </div>
+                        </section>
                       )}
                     </div>
                   )}
 
                   {activeTab === "credits" && (
-                    <div className="clients-credits-list">
-                      {selectedActivity?.credits.map((credit) => (
-                        <button
-                          type="button"
-                          key={credit.id}
-                          onClick={() =>
-                            openCreditFromClient(
-                              credit
-                            )
-                          }
-                        >
-                          <div>
-                            <span className={Number(credit.saldo || 0) > 0 ? "active" : "paid"}>
-                              {Number(credit.saldo || 0) > 0 ? "Activo" : "Finalizado"}
-                            </span>
-                            <strong>{credit.concepto || "Crédito"}</strong>
-                            <small>{credit.id} · {formatDate(credit.fechaOrigen)}</small>
-                          </div>
-
-                          <div>
-                            <span>Original</span>
-                            <strong>{formatMoney(credit.original)}</strong>
-                          </div>
-
-                          <div>
-                            <span>Saldo</span>
-                            <strong>{formatMoney(credit.saldo)}</strong>
-                          </div>
-
-                          <ChevronRight size={17} />
-                        </button>
-                      ))}
-
-                      {!selectedActivity?.credits.length && (
-                        <div className="clients-empty compact">
-                          <CreditCard size={23} />
-                          <strong>Sin carpetas de crédito</strong>
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Créditos</span>
+                          <h3>Carpetas de crédito</h3>
                         </div>
-                      )}
+
+                        <div className="clients-card-actions">
+                          <button
+                            type="button"
+                            className="clients-action soft-purple"
+                            disabled={selectedClient.archivado === true}
+                            onClick={() => openCredit("new")}
+                          >
+                            <Plus size={15} />
+                            Nuevo
+                          </button>
+                          <button
+                            type="button"
+                            className="clients-action"
+                            disabled={
+                              selectedClient.archivado === true ||
+                              !selectedActivity?.activeCredits.length
+                            }
+                            onClick={() => openCredit("refinance")}
+                          >
+                            <FileClock size={15} />
+                            Refinanciar
+                          </button>
+                        </div>
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.credits.map((credit) => {
+                          const status = getCreditStatus(credit);
+
+                          return (
+                            <article key={credit.id} className="clients-record-row credit">
+                              <div>
+                                <span className={`clients-state ${status.overdue ? "critical" : status.key === "saldado" ? "green" : "purple"}`}>
+                                  {status.label}
+                                </span>
+                                <strong>{credit.id}</strong>
+                                <span>{formatDate(credit.fechaOrigen)}</span>
+                              </div>
+                              <div className="grow">
+                                <strong>{credit.concepto || "Crédito"}</strong>
+                                <span>
+                                  Original {formatMoney(credit.original)} · Saldo {formatMoney(credit.saldo)}
+                                </span>
+                              </div>
+                              <strong className={Number(credit.saldo || 0) > 0 ? "clients-money negative" : "clients-money positive"}>
+                                {formatMoney(credit.saldo)}
+                              </strong>
+                              <button
+                                type="button"
+                                className="clients-record-button"
+                                onClick={() => openCreditFromClient(credit)}
+                              >
+                                <ExternalLink size={14} />
+                                Ver crédito
+                              </button>
+                            </article>
+                          );
+                        })}
+
+                        {!selectedActivity?.credits.length && (
+                          <div className="clients-empty compact">
+                            <CreditCard size={23} />
+                            <strong>Sin carpetas de crédito</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "budgets" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Presupuestos</span>
+                          <h3>Presupuestos</h3>
+                        </div>
+                        <FileText size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.budgets.map((budget) => (
+                          <article key={budget.id} className="clients-record-row">
+                            <div>
+                              <strong>{budget.numero || budget.folio || budget.id}</strong>
+                              <span>{formatDate(recordDate(budget))}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{budget.titulo || budget.concepto || "Presupuesto"}</strong>
+                              <span>{budget.ticketId ? `Ticket ${budget.ticketId}` : "Presupuesto manual"}</span>
+                            </div>
+                            <span className="clients-state purple">
+                              {budget.estado || budget.status || "Pendiente"}
+                            </span>
+                            <strong className="clients-money">{formatMoney(budget.total)}</strong>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              onClick={() => openBudgetFromClient(budget)}
+                            >
+                              <ExternalLink size={14} />
+                              Ver presupuesto
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.budgets.length && (
+                          <div className="clients-empty compact">
+                            <FileText size={23} />
+                            <strong>Sin presupuestos</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "devices" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Tickets</span>
+                          <h3>Equipos registrados</h3>
+                        </div>
+                        <MonitorSmartphone size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedDevices.map((device) => (
+                          <article key={device.key} className="clients-record-row">
+                            <div className="grow">
+                              <strong>{device.name}</strong>
+                              <span>
+                                {device.details || "Equipo asociado a servicios anteriores"}
+                              </span>
+                            </div>
+                            <div>
+                              <strong>{device.serial || "Sin serie"}</strong>
+                              <span>{device.services} servicios</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="clients-record-button"
+                              disabled={selectedClient.archivado === true}
+                              onClick={() => openNewTicketForClient(device)}
+                            >
+                              <Plus size={14} />
+                              Nuevo ticket
+                            </button>
+                          </article>
+                        ))}
+
+                        {!selectedDevices.length && (
+                          <div className="clients-empty compact">
+                            <MonitorSmartphone size={23} />
+                            <strong>Sin equipos registrados</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "account" && (
+                    <section className="clients-module-card data">
+                      <header>
+                        <div>
+                          <span>Fuente: Cuenta corriente</span>
+                          <h3>Movimientos</h3>
+                        </div>
+                        <WalletCards size={19} />
+                      </header>
+
+                      <div className="clients-record-list">
+                        {selectedActivity?.account.map((movement) => (
+                          <article key={movement.id} className="clients-record-row">
+                            <div>
+                              <strong>{formatDate(recordDate(movement))}</strong>
+                              <span>{movement.refId || movement.origen || "Movimiento"}</span>
+                            </div>
+                            <div className="grow">
+                              <strong>{movement.concepto || "Cuenta corriente"}</strong>
+                              <span>
+                                Saldo posterior {formatMoney(movement.saldoPosterior)}
+                              </span>
+                            </div>
+                            <strong className={`clients-money ${String(movement.tipo || "").toLowerCase().includes("crédito") ? "positive" : "negative"}`}>
+                              {String(movement.tipo || "").toLowerCase().includes("crédito") ? "+" : "-"} {formatMoney(movement.importe)}
+                            </strong>
+                          </article>
+                        ))}
+
+                        {!selectedActivity?.account.length && (
+                          <div className="clients-empty compact">
+                            <WalletCards size={23} />
+                            <strong>Sin movimientos de cuenta corriente</strong>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "audit" && canAudit && (
+                    <div className="clients-audit-layout">
+                      <section className="clients-audit-hero">
+                        <div className="clients-audit-hero-icon">
+                          <ShieldCheck size={28} />
+                        </div>
+                        <div>
+                          <span>Acceso administrativo</span>
+                          <h3>Auditoría interna</h3>
+                          <p>
+                            Las acciones de esta sección son sensibles. Cada operación
+                            exige un motivo y queda registrada con usuario, fecha y datos
+                            de respaldo.
+                          </p>
+                        </div>
+                      </section>
+
+                      <div className="clients-audit-grid">
+                        <section className="clients-audit-card credit">
+                          <header>
+                            <div>
+                              <span>Ajuste financiero</span>
+                              <h3>Acreditar saldo</h3>
+                            </div>
+                            <CircleDollarSign size={22} />
+                          </header>
+
+                          <p>
+                            Agrega saldo a favor y genera automáticamente una Nota de
+                            Crédito interna, un movimiento de cuenta corriente y un
+                            registro de auditoría.
+                          </p>
+
+                          <div className="clients-audit-value">
+                            <span>Saldo actual</span>
+                            <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                          </div>
+
+                          <div className="clients-audit-credit-actions">
+                            <button
+                              type="button"
+                              className="clients-audit-button credit"
+                              onClick={() => openAuditAction("credit")}
+                            >
+                              <Plus size={16} />
+                              Acreditar con Nota de Crédito
+                            </button>
+
+                            <button
+                              type="button"
+                              className="clients-audit-button reverse"
+                              disabled={Number(selectedClient.saldoAFavor || 0) <= 0}
+                              onClick={() => openAuditAction("credit-reverse")}
+                              title={
+                                Number(selectedClient.saldoAFavor || 0) > 0
+                                  ? "Revertir una acreditación registrada o saldo anterior"
+                                  : "El cliente no tiene saldo a favor disponible"
+                              }
+                            >
+                              <RotateCcw size={16} />
+                              Revertir acreditación
+                            </button>
+                          </div>
+                        </section>
+
+                        <section className="clients-audit-card danger">
+                          <header>
+                            <div>
+                              <span>Zona crítica</span>
+                              <h3>Eliminar cliente</h3>
+                            </div>
+                            <ShieldAlert size={22} />
+                          </header>
+
+                          <p>
+                            Permite eliminar el cliente aunque tenga saldo a favor. También se
+                            eliminan sus tickets asociados, dejando una copia completa en
+                            Auditoría. Los comprobantes y movimientos financieros no se eliminan.
+                          </p>
+
+                          <div className="clients-audit-danger-summary">
+                            <span>{selectedActivity?.tickets.length || 0} tickets</span>
+                            <span>{selectedActivity?.credits.length || 0} créditos</span>
+                            <span>Deuda {formatMoney(selectedActivity?.debt)}</span>
+                            <span>Saldo {formatMoney(selectedClient.saldoAFavor)}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="clients-audit-button danger"
+                            onClick={() => openAuditAction("client-delete")}
+                          >
+                            <Trash2 size={16} />
+                            Eliminar cliente por auditoría
+                          </button>
+                        </section>
+                      </div>
+
+                      <section className="clients-audit-panel">
+                        <header>
+                          <div>
+                            <span>Eliminación controlada</span>
+                            <h3>Tickets vinculados</h3>
+                          </div>
+                          <Ticket size={20} />
+                        </header>
+
+                        <div className="clients-audit-ticket-list">
+                          {(selectedActivity?.tickets || []).map((ticket) => (
+                            <article key={ticket.id}>
+                              <div>
+                                <strong>
+                                  {ticket.numero || ticket.codigo || ticket.nro || ticket.id}
+                                </strong>
+                                <span>
+                                  {ticket.equipo || ticket.dispositivo || ticket.modelo || "Equipo"}
+                                  {ticket.estado ? ` · ${STAGES[ticket.estado] || ticket.estado}` : ""}
+                                </span>
+                              </div>
+
+                              <div className="clients-audit-ticket-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                >
+                                  <ExternalLink size={15} />
+                                  Ver ticket
+                                </button>
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  onClick={() => openAuditAction("ticket-delete", ticket)}
+                                >
+                                  <Trash2 size={15} />
+                                  Eliminar por auditoría
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+
+                          {!selectedActivity?.tickets.length && (
+                            <div className="clients-empty compact">
+                              <Ticket size={23} />
+                              <strong>Sin tickets vinculados</strong>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                      <section className="clients-audit-panel history">
+                        <header>
+                          <div>
+                            <span>Trazabilidad</span>
+                            <h3>Historial de auditoría</h3>
+                          </div>
+                          <History size={20} />
+                        </header>
+
+                        <div className="clients-audit-history">
+                          {auditRows.map((row) => (
+                            <article key={row.id}>
+                              <div className={`clients-audit-history-icon ${
+                                String(row.accion || "").includes("ELIMINADO")
+                                  ? "danger"
+                                  : ["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion)
+                                    ? "reverse"
+                                    : "credit"
+                              }`}>
+                                {String(row.accion || "").includes("ELIMINADO") ? (
+                                  <Trash2 size={16} />
+                                ) : ["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? (
+                                  <RotateCcw size={16} />
+                                ) : (
+                                  <CircleDollarSign size={16} />
+                                )}
+                              </div>
+                              <div className="grow">
+                                <strong>
+                                  {row.accion === "CLIENTE_ELIMINADO"
+                                    ? "Cliente eliminado"
+                                    : row.accion === "TICKET_ELIMINADO"
+                                      ? `Ticket eliminado · ${row.ticketNumero || row.entidadId || ""}`
+                                      : row.accion === "SALDO_ACREDITADO_NC"
+                                        ? `Saldo acreditado · ${row.notaCreditoId || "NC"}`
+                                        : row.accion === "SALDO_ACREDITACION_REVERTIDA"
+                                          ? `Acreditación revertida · ${row.notaDebitoId || "NDA"}`
+                                          : row.accion === "SALDO_EXISTENTE_REVERTIDO"
+                                            ? `Saldo anterior revertido · ${row.notaDebitoId || "NDA"}`
+                                            : row.accion || "Acción administrativa"}
+                                </strong>
+                                <span>{row.motivo || "Sin detalle"}</span>
+                                <small>
+                                  {formatDate(row.creadoEn)} · {row.actorNombre || "Sistema"}
+                                </small>
+                              </div>
+                              {Number(row.monto || 0) > 0 && (
+                                <strong className={`clients-money ${["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? "negative" : "positive"}`}>
+                                  {["SALDO_ACREDITACION_REVERTIDA", "SALDO_EXISTENTE_REVERTIDO"].includes(row.accion) ? "−" : "+"} {formatMoney(row.monto)}
+                                </strong>
+                              )}
+                              {row.accion === "SALDO_ACREDITADO_NC" && Number(selectedClient.saldoAFavor || 0) > 0 && reversibleAuditCredits.some((item) => item.id === row.id) && (
+                                <button
+                                  type="button"
+                                  className="clients-audit-history-reverse"
+                                  onClick={() => openAuditAction(
+                                    "credit-reverse",
+                                    reversibleAuditCredits.find((item) => item.id === row.id)
+                                  )}
+                                >
+                                  <RotateCcw size={14} />
+                                  Revertir
+                                </button>
+                              )}
+                            </article>
+                          ))}
+
+                          {!auditRows.length && (
+                            <div className="clients-empty compact">
+                              <History size={23} />
+                              <strong>Todavía no hay acciones registradas</strong>
+                            </div>
+                          )}
+                        </div>
+                      </section>
                     </div>
                   )}
-                </div>
-              </>
-            )}
-          </aside>
-        </section>
+                </motion.div>
+              </AnimatePresence>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="clients-toast-stack" aria-live="polite">
+        <AnimatePresence initial={false}>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              className={`clients-toast ${toast.type}`}
+              initial={{ opacity: 0, y: 18, x: 10, scale: 0.95, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, x: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 10, x: 12, scale: 0.97, filter: "blur(3px)" }}
+              transition={{ type: "spring", stiffness: 430, damping: 30 }}
+            >
+              <div className="clients-toast-icon">
+                {toast.type === "success" ? (
+                  <CheckCircle2 size={20} />
+                ) : (
+                  <AlertTriangle size={20} />
+                )}
+              </div>
+
+              <div className="clients-toast-copy">
+                <strong>{toast.title}</strong>
+                {toast.description && <span>{toast.description}</span>}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                aria-label="Cerrar notificación"
+              >
+                <X size={16} />
+              </button>
+
+              <i className="clients-toast-progress" />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {clientModal && (
@@ -1480,7 +2764,7 @@ export default function Clientes() {
                 />
               </label>
 
-              {!editingClient && (
+              {!editingClient && canCredits && (
                 <label>
                   <span>Límite de crédito</span>
                   <input
@@ -1521,7 +2805,223 @@ export default function Clientes() {
         </div>
       )}
 
+      {auditAction && canAudit && selectedClient && (
+        <div
+          className="clients-modal-overlay audit"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeAuditAction();
+            }
+          }}
+        >
+          <motion.div
+            className={`clients-audit-modal ${auditAction.type === "credit" ? "credit" : auditAction.type === "credit-reverse" ? "reverse" : "danger"}`}
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+          >
+            <header>
+              <div className="clients-audit-modal-icon">
+                {auditAction.type === "credit" ? (
+                  <CircleDollarSign size={24} />
+                ) : auditAction.type === "credit-reverse" ? (
+                  <RotateCcw size={24} />
+                ) : (
+                  <ShieldAlert size={24} />
+                )}
+              </div>
+              <div>
+                <span>Auditoría interna</span>
+                <h3>
+                  {auditAction.type === "credit"
+                    ? "Acreditar saldo con Nota de Crédito"
+                    : auditAction.type === "credit-reverse"
+                      ? "Revertir acreditación"
+                    : auditAction.type === "ticket-delete"
+                      ? "Eliminar ticket permanentemente"
+                      : "Eliminar cliente permanentemente"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="clients-audit-modal-close"
+                disabled={savingAudit}
+                onClick={closeAuditAction}
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="clients-audit-modal-body">
+              {auditAction.type === "credit" ? (
+                <>
+                  <div className="clients-audit-balance-preview">
+                    <span>Saldo actual</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                  </div>
+
+                  <label>
+                    <span>Monto a acreditar *</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={auditAmount}
+                      onChange={(event) => setAuditAmount(event.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <div className="clients-audit-info-box">
+                    <FileText size={18} />
+                    <span>
+                      Se generará una Nota de Crédito interna y el importe se
+                      acreditará automáticamente en la cuenta corriente del cliente.
+                    </span>
+                  </div>
+                </>
+              ) : auditAction.type === "credit-reverse" ? (
+                <>
+                  <div className="clients-audit-balance-preview reverse">
+                    <span>Saldo actual</span>
+                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
+                  </div>
+
+                  <label>
+                    <span>Acreditación original *</span>
+                    <select
+                      value={auditAction.payload?.notaCreditoId || ""}
+                      onChange={(event) => {
+                        const selectedValue = event.target.value;
+                        const nextSource = selectedValue === "__legacy__"
+                          ? {
+                              legacy: true,
+                              notaCreditoId: "__legacy__",
+                              remainingAmount: Number(selectedClient.saldoAFavor || 0),
+                            }
+                          : reversibleAuditCredits.find(
+                              (item) => item.notaCreditoId === selectedValue
+                            );
+                        setAuditAction({ type: "credit-reverse", payload: nextSource || null });
+                        const maxAmount = nextSource?.legacy
+                          ? Number(selectedClient.saldoAFavor || 0)
+                          : Math.min(
+                              Number(nextSource?.remainingAmount || 0),
+                              Number(selectedClient.saldoAFavor || 0)
+                            );
+                        setAuditAmount(maxAmount > 0 ? String(maxAmount) : "");
+                      }}
+                    >
+                      {reversibleAuditCredits.map((item) => (
+                        <option key={item.id} value={item.notaCreditoId}>
+                          {item.notaCreditoId} · acreditado {formatMoney(item.originalAmount)} · disponible {formatMoney(Math.min(item.remainingAmount, Number(selectedClient.saldoAFavor || 0)))}
+                        </option>
+                      ))}
+                      <option value="__legacy__">
+                        Saldo existente anterior / sin NC de Auditoría · disponible {formatMoney(selectedClient.saldoAFavor)}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Monto a revertir *</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      max={auditAction.payload?.legacy
+                        ? Number(selectedClient.saldoAFavor || 0)
+                        : Math.min(
+                            Number(auditAction.payload?.remainingAmount || 0),
+                            Number(selectedClient.saldoAFavor || 0)
+                          )}
+                      value={auditAmount}
+                      onChange={(event) => setAuditAmount(event.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+
+                  <div className="clients-audit-info-box reverse">
+                    <RotateCcw size={18} />
+                    <span>
+                      {auditAction.payload?.legacy
+                        ? "SERVIX descontará saldo existente anterior, generará una Nota de Débito interna y dejará registrado que la reversión no tenía una NC de Auditoría asociada."
+                        : "No se borra la acreditación original. SERVIX generará una Nota de Débito interna, descontará el saldo y registrará la reversión en cuenta corriente y Auditoría."}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="clients-audit-delete-preview">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>
+                      {auditAction.type === "ticket-delete"
+                        ? auditAction.payload?.numero || auditAction.payload?.codigo || auditAction.payload?.id
+                        : getClientDisplayName(selectedClient)}
+                    </strong>
+                    <span>
+                      Esta acción es permanente. El evento y los datos de respaldo
+                      quedarán conservados en Auditoría interna.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <label>
+                <span>Motivo administrativo *</span>
+                <textarea
+                  rows="3"
+                  value={auditReason}
+                  onChange={(event) => setAuditReason(event.target.value)}
+                  placeholder="Ej.: cliente duplicado, ticket creado por error, compensación comercial..."
+                />
+              </label>
+
+              {!["credit", "credit-reverse"].includes(auditAction.type) && (
+                <label>
+                  <span>Escribí ELIMINAR para confirmar *</span>
+                  <input
+                    value={auditConfirmText}
+                    onChange={(event) => setAuditConfirmText(event.target.value)}
+                    placeholder="ELIMINAR"
+                    autoComplete="off"
+                  />
+                </label>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="ghost"
+                disabled={savingAudit}
+                onClick={closeAuditAction}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={auditAction.type === "credit" ? "audit-credit" : auditAction.type === "credit-reverse" ? "audit-reverse" : "audit-danger"}
+                disabled={savingAudit}
+                onClick={handleAuditAction}
+              >
+                {savingAudit
+                  ? "Procesando..."
+                  : auditAction.type === "credit"
+                    ? "Generar crédito + NC"
+                    : auditAction.type === "credit-reverse"
+                      ? "Revertir saldo + NDA"
+                    : auditAction.type === "ticket-delete"
+                      ? "Eliminar ticket"
+                      : "Eliminar cliente"}
+              </button>
+            </footer>
+          </motion.div>
+        </div>
+      )}
+
       {creditModal &&
+        canCredits &&
         selectedClient &&
         selectedClient.archivado !== true && (
         <div

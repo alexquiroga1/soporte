@@ -148,13 +148,17 @@ function ProtectedRoute({
 }
 
 function PublicOnlyRoute({ children }) {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    profile,
+    loading,
+  } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
   }
 
-  if (user) {
+  if (user && profile) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -172,7 +176,11 @@ function Secured({ module, children }) {
 }
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    profile,
+    loading,
+  } = useAuth();
 
   return (
     <>
@@ -275,7 +283,7 @@ export default function App() {
           <Route
             path="/facturacion/presupuestos"
             element={
-              <Secured module="facturacion">
+              <Secured module="presupuestos">
                 <Presupuestos />
               </Secured>
             }
@@ -283,7 +291,7 @@ export default function App() {
           <Route
             path="/facturacion/presupuestos/nuevo"
             element={
-              <Secured module="facturacion">
+              <Secured module="presupuestos">
                 <NuevoPresupuesto />
               </Secured>
             }
@@ -370,7 +378,7 @@ export default function App() {
             element={
               loading ? (
                 <LoadingScreen />
-              ) : user ? (
+              ) : user && profile ? (
                 <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/login" replace />
@@ -383,7 +391,7 @@ export default function App() {
             element={
               loading ? (
                 <LoadingScreen />
-              ) : user ? (
+              ) : user && profile ? (
                 <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/login" replace />

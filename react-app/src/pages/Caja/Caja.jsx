@@ -17,19 +17,25 @@ import {
   Banknote,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   CircleDollarSign,
   CreditCard,
+  Eye,
   FileText,
+  History,
   Landmark,
   MinusCircle,
   Plus,
   PlusCircle,
+  Printer,
   QrCode,
   ReceiptText,
+  RefreshCw,
   Search,
   ShieldCheck,
   WalletCards,
   X,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -37,8 +43,11 @@ import {
 } from "../../context/AuthContext.jsx";
 
 import {
+  PERMISSIONS,
+} from "../../security/permissions.js";
+
+import {
   addCashMovement,
-  closeCashRegister,
   getCashSummary,
   getPaymentEligibility,
   processCashPayment,
@@ -46,6 +55,10 @@ import {
   subscribeToCashPendings,
   subscribeToCashRegister,
 } from "../../services/caja.service.js";
+
+import {
+  cancelCashPending,
+} from "../../services/caja-pendientes.service.js";
 
 import {
   notify,
@@ -57,31 +70,37 @@ const PAYMENT_METHODS = [
   {
     id: "Efectivo",
     label: "Efectivo",
+    helper: "Cobro completo",
     icon: Banknote,
   },
   {
     id: "Transferencia",
     label: "Transferencia",
+    helper: "Con referencia",
     icon: Landmark,
   },
   {
     id: "Mercado Pago",
     label: "Mercado Pago",
+    helper: "QR / referencia",
     icon: QrCode,
   },
   {
     id: "Tarjeta",
     label: "Tarjeta",
+    helper: "Débito / crédito",
     icon: CreditCard,
   },
   {
     id: "Saldo a Favor",
     label: "Saldo a favor",
+    helper: "Usar crédito disponible",
     icon: WalletCards,
   },
   {
     id: "Préstamo personal",
-    label: "Crédito",
+    label: "Financiar",
+    helper: "Generar crédito",
     icon: CalendarClock,
   },
 ];
@@ -108,6 +127,54 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function getLocalISODate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function movementTimestamp(movement) {
+  if (movement?.creadoEn) {
+    const direct = new Date(movement.creadoEn).getTime();
+    if (Number.isFinite(direct)) return direct;
+  }
+
+  const date = String(movement?.fecha || "").trim();
+  const time = String(movement?.hora || "00:00").trim();
+  const fallback = new Date(`${date}T${time}`).getTime();
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function movementContext(movement) {
+  const concept = String(movement?.concepto || "Movimiento");
+  const legacyMatch = concept.match(/^Cobro\s+(.+?)\s+#(.+?)\s+\((.+)\)$/i);
+
+  return {
+    origin:
+      movement?.origen ||
+      legacyMatch?.[1] ||
+      movement?.subcategoria ||
+      "Caja",
+    ref:
+      movement?.origenRef ||
+      legacyMatch?.[2] ||
+      movement?.referencia ||
+      "—",
+    client:
+      movement?.cliente ||
+      legacyMatch?.[3] ||
+      "—",
+    concept,
+  };
+}
+
+function receiptCode(movementId, fallback = "COB") {
+  const clean = String(movementId || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+  if (!clean) return `${fallback}-SERVIX`;
+  return `${fallback}-${clean.slice(-8)}`;
+}
+
 function paymentErrorMessage(error) {
   const map = {
     CASH_PENDING_ID_REQUIRED: "No se indicó la operación a cobrar.",
@@ -122,6 +189,12 @@ function paymentErrorMessage(error) {
     CLIENT_BALANCE_INSUFFICIENT: "El saldo a favor cambió y ahora resulta insuficiente.",
     PAYMENT_TOTAL_INVALID: "La operación tiene un total inválido.",
     STOCK_INSUFFICIENT: `Stock insuficiente para ${error?.productName || "un producto"}.`,
+    CREDIT_NOT_FOUND: "El crédito ya no existe.",
+    CREDIT_ALREADY_PAID: "El crédito ya fue saldado.",
+    PAYMENT_NOT_APPLIED: "El importe no pudo aplicarse al crédito.",
+    PAYMENT_CLIENT_REQUIRED: "El crédito necesita un cliente válido para usar saldo a favor.",
+    PAYMENT_CREDIT_BALANCE_INSUFFICIENT: "El saldo a favor del cliente resulta insuficiente.",
+    CASH_PENDING_CREDIT_MISMATCH: "El pendiente no coincide con el crédito que se intenta cobrar.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error al procesar el cobro.";
@@ -129,7 +202,11 @@ function paymentErrorMessage(error) {
 
 export default function Caja() {
   const navigate = useNavigate();
-  const { profile, user } = useAuth();
+  const {
+    profile,
+    user,
+    hasPermission,
+  } = useAuth();
 
   const author =
     profile?.nombre ||
@@ -139,9 +216,12 @@ export default function Caja() {
 
   const [pendings, setPendings] = useState([]);
   const [cash, setCash] = useState({ fondo: 0, movs: [], sesion: null });
-  const [cuts, setCuts] = useState([]);
+  const [legacyCuts, setLegacyCuts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [originFilter, setOriginFilter] = useState("");
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementMethod, setMovementMethod] = useState("");
   const [activeTab, setActiveTab] = useState("pendings");
 
   const [paymentItem, setPaymentItem] = useState(null);
@@ -156,16 +236,19 @@ export default function Caja() {
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  const [cancelItem, setCancelItem] = useState(null);
+  const [cancellingPendingId, setCancellingPendingId] = useState(null);
+
   const [movementForm, setMovementForm] = useState({
     concept: "",
     type: "egreso",
     amount: "",
   });
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [savingMovement, setSavingMovement] = useState(false);
 
-  const [closeModalOpen, setCloseModalOpen] = useState(false);
-  const [newFund, setNewFund] = useState("0");
-  const [closing, setClosing] = useState(false);
+  const [selectedMovement, setSelectedMovement] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
 
   useEffect(() => {
     let pendingReady = false;
@@ -203,19 +286,46 @@ export default function Caja() {
       }
     );
 
-    const unsubscribeCuts = subscribeToCashCuts(
-      setCuts,
+    // Los cortes dejan de mostrarse como módulo. Se leen únicamente para
+    // conservar los movimientos históricos creados antes de este rediseño.
+    const unsubscribeLegacyCuts = subscribeToCashCuts(
+      setLegacyCuts,
       (error) => console.error(error)
     );
 
     return () => {
       unsubscribePendings();
       unsubscribeCash();
-      unsubscribeCuts();
+      unsubscribeLegacyCuts();
     };
   }, []);
 
   const summary = useMemo(() => getCashSummary(cash), [cash]);
+
+  const canRegisterSales = hasPermission(PERMISSIONS.SALES);
+  const canManageCash = hasPermission(PERMISSIONS.CASH);
+  const canCancelPending = canRegisterSales;
+  const canGrantCredit =
+    canRegisterSales &&
+    hasPermission(PERMISSIONS.CREDITS);
+
+  const availablePaymentMethods = useMemo(
+    () =>
+      PAYMENT_METHODS.filter((method) => {
+        if (
+          paymentItem?.origen === "Crédito" &&
+          method.id === "Préstamo personal"
+        ) {
+          return false;
+        }
+
+        return (
+          method.id !== "Préstamo personal" ||
+          canGrantCredit
+        );
+      }),
+    [canGrantCredit, paymentItem]
+  );
 
   const pendingAmount = useMemo(
     () => pendings.reduce((sum, item) => sum + Number(item.total || 0), 0),
@@ -224,10 +334,9 @@ export default function Caja() {
 
   const filteredPendings = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return pendings;
 
-    return pendings.filter((item) =>
-      [
+    return pendings.filter((item) => {
+      const text = [
         item.id,
         item.ref,
         item.cliente,
@@ -236,15 +345,101 @@ export default function Caja() {
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [pendings, search]);
+        .toLowerCase();
 
-  const movements = useMemo(() => {
-    const rows = Array.isArray(cash?.movs) ? [...cash.movs] : [];
-    return rows.reverse();
-  }, [cash]);
+      const searchMatches = !query || text.includes(query);
+      const originMatches = !originFilter || item.origen === originFilter;
+      return searchMatches && originMatches;
+    });
+  }, [pendings, search, originFilter]);
+
+  const allMovements = useMemo(() => {
+    const current = (Array.isArray(cash?.movs) ? cash.movs : []).map((movement, index) => ({
+      ...movement,
+      _historySource: "actual",
+      _rowKey: movement.id || `actual-${index}-${movement.creadoEn || movement.hora || ""}`,
+    }));
+
+    const archived = legacyCuts.flatMap((cut) =>
+      (Array.isArray(cut?.movs) ? cut.movs : []).map((movement, index) => ({
+        ...movement,
+        _historySource: "legacy",
+        _cutId: cut.id,
+        _rowKey: movement.id || `${cut.id}-${index}-${movement.creadoEn || movement.hora || ""}`,
+      }))
+    );
+
+    const deduped = new Map();
+    [...archived, ...current].forEach((movement) => {
+      const key = movement.id || movement._rowKey;
+      deduped.set(key, movement);
+    });
+
+    return [...deduped.values()].sort(
+      (a, b) => movementTimestamp(b) - movementTimestamp(a)
+    );
+  }, [cash, legacyCuts]);
+
+  const filteredMovements = useMemo(() => {
+    const query = movementSearch.trim().toLowerCase();
+
+    return allMovements.filter((movement) => {
+      const context = movementContext(movement);
+      const text = [
+        movement.id,
+        movement.facturaId,
+        movement.ventaId,
+        movement.usuario,
+        movement.medioPago,
+        movement.referencia,
+        context.origin,
+        context.ref,
+        context.client,
+        context.concept,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const searchMatches = !query || text.includes(query);
+      const methodMatches = !movementMethod || movement.medioPago === movementMethod;
+      return searchMatches && methodMatches;
+    });
+  }, [allMovements, movementSearch, movementMethod]);
+
+  const todayStats = useMemo(() => {
+    const today = getLocalISODate();
+    const todayMovements = allMovements.filter((movement) => movement.fecha === today);
+
+    const isPaymentMovement = (movement) =>
+      movement.clase === "cobro" ||
+      /^Cobro\s/i.test(String(movement.concepto || ""));
+
+    const collected = todayMovements
+      .filter((movement) => movement.tipo === "ingreso" && isPaymentMovement(movement))
+      .reduce((sum, movement) => sum + Number(movement.monto || 0), 0);
+
+    const balanceUsed = todayMovements
+      .filter((movement) => movement.medioPago === "Saldo a Favor")
+      .reduce((sum, movement) => sum + Number(movement.monto || 0), 0);
+
+    const financed = todayMovements
+      .filter((movement) => movement.medioPago === "Préstamo personal")
+      .reduce((sum, movement) => sum + Number(movement.monto || 0), 0);
+
+    return {
+      collected,
+      balanceUsed,
+      financed,
+    };
+  }, [allMovements]);
+
+  useEffect(() => {
+    if (paymentItem) {
+      const stillPending = pendings.some((item) => item.id === paymentItem.id);
+      if (!stillPending && !processingPayment) setPaymentItem(null);
+    }
+  }, [pendings, paymentItem, processingPayment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -282,6 +477,14 @@ export default function Caja() {
   }, [paymentItem, paymentMethod]);
 
   const openPayment = (item) => {
+    if (!canRegisterSales) {
+      notify.warning(
+        "Acción no habilitada",
+        "Tu perfil puede consultar Caja, pero no registrar ventas y cobros."
+      );
+      return;
+    }
+
     setPaymentItem(item);
     setPaymentMethod("Efectivo");
     setPaymentDetails({
@@ -291,11 +494,6 @@ export default function Caja() {
       authorization: "",
     });
     setEligibility({ eligible: true });
-  };
-
-  const closePayment = () => {
-    if (processingPayment) return;
-    setPaymentItem(null);
   };
 
   const paymentCanConfirm = useMemo(() => {
@@ -327,25 +525,65 @@ export default function Caja() {
     processingPayment,
   ]);
 
+  const buildPendingReceipt = (item, overrides = {}) => ({
+    kind: "cobro",
+    receiptNumber: overrides.receiptNumber || "VISTA PREVIA",
+    movementId: overrides.movementId || "PENDIENTE",
+    operationRef: item?.ref || item?.id || "—",
+    origin: item?.origen || "Operación",
+    client: item?.cliente || "Consumidor Final",
+    concept: item?.concepto || "Servicio",
+    method: overrides.method || paymentMethod,
+    total: Number(overrides.total ?? item?.total ?? 0),
+    invoiceId: overrides.invoiceId || null,
+    author,
+    dateTime: overrides.dateTime || new Date().toISOString(),
+    change: Number(overrides.change || 0),
+  });
+
   const handlePayment = async () => {
     if (!paymentItem || !paymentCanConfirm) return;
+
+    const itemBeingPaid = paymentItem;
 
     try {
       setProcessingPayment(true);
 
       const result = await processCashPayment({
-        pendingId: paymentItem.id,
+        pendingId: itemBeingPaid.id,
         method: paymentMethod,
         details: paymentDetails,
         author,
       });
 
-      notify.success(
-        "Cobro procesado",
-        `${result.invoiceId} emitida por ${formatMoney(result.total)}.`
-      );
+      const receipt = buildPendingReceipt(itemBeingPaid, {
+        receiptNumber: receiptCode(result.movementId || result.invoiceId, "COB"),
+        movementId: result.movementId || "—",
+        method: result.method,
+        total: result.total,
+        invoiceId: result.invoiceId,
+        change: result.change,
+        dateTime: new Date().toISOString(),
+      });
 
+      setReceiptPreview(receipt);
       setPaymentItem(null);
+
+      if (result.kind === "credit-payment") {
+        notify.success(
+          "Pago de crédito registrado",
+          `${result.creditId} · ${formatMoney(result.total)} aplicado. Saldo restante: ${formatMoney(result.balance)}.`
+        );
+      } else {
+        notify.success(
+          result.paymentState === "Financiado"
+            ? "Financiación registrada"
+            : "Cobro procesado",
+          result.paymentState === "Financiado"
+            ? `${result.invoiceId} emitida y crédito ${result.creditId} generado por ${formatMoney(result.total)}.`
+            : `${result.invoiceId} emitida por ${formatMoney(result.total)}.`
+        );
+      }
     } catch (error) {
       console.error(error);
       notify.error("No se pudo cobrar", paymentErrorMessage(error));
@@ -354,7 +592,45 @@ export default function Caja() {
     }
   };
 
+  const handleCancelPending = async () => {
+    const item = cancelItem;
+    if (!item?.id || !canCancelPending || cancellingPendingId) return;
+
+    try {
+      setCancellingPendingId(item.id);
+      await cancelCashPending(item.id, author);
+
+      notify.success(
+        "Pendiente cancelado",
+        item.ticketId
+          ? `El Ticket ${item.ticketId} volvió a quedar sin envío a Caja.`
+          : `La operación ${item.presupuestoId || item.ref || item.id} volvió a quedar sin envío a Caja.`
+      );
+
+      if (paymentItem?.id === item.id) setPaymentItem(null);
+      setCancelItem(null);
+    } catch (error) {
+      console.error(error);
+      notify.error(
+        "No se pudo cancelar",
+        error?.message === "CASH_PENDING_NOT_FOUND"
+          ? "La operación ya no está pendiente; probablemente fue cobrada o cancelada desde otra pantalla."
+          : error?.message || "Ocurrió un error inesperado."
+      );
+    } finally {
+      setCancellingPendingId(null);
+    }
+  };
+
   const handleAddMovement = async () => {
+    if (!canManageCash) {
+      notify.warning(
+        "Acción no habilitada",
+        "Necesitás permiso de administración de Caja para registrar movimientos manuales."
+      );
+      return;
+    }
+
     try {
       setSavingMovement(true);
 
@@ -370,8 +646,8 @@ export default function Caja() {
         type: "egreso",
         amount: "",
       });
-
-      notify.success("Movimiento registrado", "La caja activa fue actualizada.");
+      setMovementModalOpen(false);
+      notify.success("Movimiento registrado", "El movimiento quedó incorporado al historial de Caja.");
     } catch (error) {
       console.error(error);
       notify.error("No se pudo registrar", error?.message || "Revisá los datos del movimiento.");
@@ -380,555 +656,992 @@ export default function Caja() {
     }
   };
 
-  const handleCloseCash = async () => {
-    try {
-      setClosing(true);
-
-      const result = await closeCashRegister({
-        newFund,
-        author,
-      });
-
-      notify.success(
-        "Corte cerrado",
-        `${result.cutId} guardado. Nuevo fondo: ${formatMoney(result.newFund)}.`
-      );
-
-      setCloseModalOpen(false);
-      setNewFund("0");
-      setActiveTab("cuts");
-    } catch (error) {
-      console.error(error);
-
-      notify.error(
-        "No se pudo cerrar Caja",
-        error?.message === "NEW_FUND_EXCEEDS_CASH"
-          ? "El fondo a dejar no puede superar el efectivo esperado."
-          : error?.message || "Ocurrió un error al cerrar el turno."
-      );
-    } finally {
-      setClosing(false);
-    }
+  const openMovement = (movement) => {
+    setSelectedMovement(movement);
   };
+
+  const printMovement = (movement) => {
+    const context = movementContext(movement);
+
+    setReceiptPreview({
+      kind: "movimiento",
+      receiptNumber: receiptCode(movement.id, "MOV"),
+      movementId: movement.id || "MOV-LEGACY",
+      operationRef: context.ref,
+      origin: context.origin,
+      client: context.client,
+      concept: context.concept,
+      method: movement.medioPago || "Movimiento manual",
+      total: Number(movement.monto || 0) * (movement.tipo === "egreso" ? -1 : 1),
+      invoiceId: movement.facturaId || null,
+      author: movement.usuario || "Sistema",
+      dateTime: movement.creadoEn || `${movement.fecha || ""}T${movement.hora || "00:00"}`,
+      change: 0,
+      movementType: movement.tipo,
+      reference: movement.referencia || null,
+    });
+  };
+
+  const movementNavigation = (movement) => {
+    const context = movementContext(movement);
+    const origin = String(context.origin || "").toLowerCase();
+
+    if (origin.includes("ticket") && context.ref && context.ref !== "—") {
+      return {
+        label: "Ver ticket",
+        path: `/tickets/${encodeURIComponent(context.ref)}`,
+      };
+    }
+
+    if (origin.includes("presupuesto")) {
+      return {
+        label: "Ver presupuestos",
+        path: "/facturacion/presupuestos",
+      };
+    }
+
+    if (origin.includes("crédito") || origin.includes("credito")) {
+      return {
+        label: "Ver crédito",
+        path: "/creditos",
+      };
+    }
+
+    if (origin.includes("pos") || origin.includes("venta")) {
+      return {
+        label: "Ir a Punto de Venta",
+        path: "/pos",
+      };
+    }
+
+    if (movement?.facturaId) {
+      return {
+        label: "Ver facturas",
+        path: "/facturacion/facturas",
+      };
+    }
+
+    return null;
+  };
+
+  const selectedMovementNavigation = selectedMovement
+    ? movementNavigation(selectedMovement)
+    : null;
 
   return (
     <main className="cash-page">
-      <header className="cash-header">
-        <div className="cash-header-left">
-          <button type="button" className="cash-back" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft size={20} />
-          </button>
+      <div className="cash-shell">
+        <header className="cash-topbar">
+          <div className="cash-brand">
+            <button
+              type="button"
+              className="cash-icon-button"
+              onClick={() => navigate("/dashboard")}
+              aria-label="Volver al dashboard"
+            >
+              <ArrowLeft size={20} />
+            </button>
 
-          <div className="cash-header-icon">
-            <CircleDollarSign size={21} />
+            <div className="cash-brand-icon">
+              <CircleDollarSign size={22} />
+            </div>
+
+            <div className="cash-brand-copy">
+              <strong>Caja</strong>
+              <span>SERVIX · Cobros y movimientos</span>
+            </div>
           </div>
 
-          <div>
-            <span>Administración</span>
-            <h1>Caja</h1>
+          <div className="cash-top-actions">
+            <div className="cash-online-status">
+              <span />
+              Caja operativa
+            </div>
+
+            <div className="cash-user-pill">
+              <span>{String(author).slice(0, 2).toUpperCase()}</span>
+              <strong>{author}</strong>
+            </div>
           </div>
-        </div>
+        </header>
 
-        <button
-          type="button"
-          className="cash-close-shift"
-          onClick={() => {
-            setNewFund("0");
-            setCloseModalOpen(true);
-          }}
-        >
-          <ReceiptText size={16} />
-          Cerrar turno
-        </button>
-      </header>
-
-      <div className="cash-content">
         <motion.section
-          className="cash-intro"
+          className="cash-page-head"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <div>
-            <span className="cash-kicker">Operación diaria</span>
-            <h2>Cobros y movimientos</h2>
+            <span className="cash-eyebrow">
+              <CircleDollarSign size={15} />
+              Caja
+            </span>
+            <h1>Cobros</h1>
             <p>
-              Los tickets listos llegan acá, se cobra el medio elegido y la factura se genera automáticamente.
+              Gestioná pendientes, confirmá pagos y consultá movimientos con trazabilidad completa.
             </p>
           </div>
 
-          <div className="cash-live">
-            <span />
-            <div>
-              <strong>Caja activa</strong>
-              <small>Firestore en tiempo real</small>
-            </div>
-          </div>
-        </motion.section>
-
-        <section className="cash-stats">
-          <article>
-            <WalletCards size={18} />
-            <span>Pendientes</span>
-            <strong>{pendings.length}</strong>
-            <small>{formatMoney(pendingAmount)}</small>
-          </article>
-
-          <article>
-            <PlusCircle size={18} />
-            <span>Ingresos</span>
-            <strong>{formatMoney(summary.income)}</strong>
-            <small>Turno actual</small>
-          </article>
-
-          <article>
-            <MinusCircle size={18} />
-            <span>Egresos</span>
-            <strong>{formatMoney(summary.expenses)}</strong>
-            <small>Turno actual</small>
-          </article>
-
-          <article className="cash-stat-primary">
-            <Banknote size={18} />
-            <span>Efectivo esperado</span>
-            <strong>{formatMoney(summary.cashExpected)}</strong>
-            <small>Fondo + efectivo − egresos</small>
-          </article>
-        </section>
-
-        <section className="cash-workspace">
-          <div className="cash-tabs">
+          <div className="cash-page-actions">
             <button
               type="button"
-              className={activeTab === "pendings" ? "active" : ""}
-              onClick={() => setActiveTab("pendings")}
-            >
-              <WalletCards size={16} />
-              Pendientes
-              <span>{pendings.length}</span>
-            </button>
-
-            <button
-              type="button"
-              className={activeTab === "movements" ? "active" : ""}
+              className="cash-button soft"
               onClick={() => setActiveTab("movements")}
             >
-              <CircleDollarSign size={16} />
+              <History size={16} />
               Movimientos
             </button>
 
             <button
               type="button"
-              className={activeTab === "cuts" ? "active" : ""}
-              onClick={() => setActiveTab("cuts")}
+              className="cash-button mint"
+              onClick={() => notify.success("Caja actualizada", "La información se sincroniza en tiempo real.")}
             >
-              <FileText size={16} />
-              Cortes
+              <RefreshCw size={16} />
+              Actualizar
             </button>
           </div>
+        </motion.section>
 
-          {activeTab === "pendings" && (
-            <div className="cash-tab-content">
-              <div className="cash-toolbar">
-                <div className="cash-search">
-                  <Search size={17} />
-                  <input
-                    type="search"
-                    value={search}
-                    placeholder="Buscar ticket, cliente o concepto..."
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                  {search && (
-                    <button type="button" onClick={() => setSearch("")}>
-                      <X size={14} />
-                    </button>
-                  )}
+        <section className="cash-metrics">
+          <article>
+            <div className="cash-metric-top">
+              <span>Pendientes de cobro</span>
+              <div className="cash-metric-icon"><WalletCards size={18} /></div>
+            </div>
+            <strong>{pendings.length}</strong>
+            <small>{formatMoney(pendingAmount)} por cobrar</small>
+          </article>
+
+          <article>
+            <div className="cash-metric-top">
+              <span>Cobrado hoy</span>
+              <div className="cash-metric-icon"><Banknote size={18} /></div>
+            </div>
+            <strong>{formatMoney(todayStats.collected)}</strong>
+            <small>Ingresos reales confirmados</small>
+          </article>
+
+          <article>
+            <div className="cash-metric-top">
+              <span>Saldo a favor utilizado</span>
+              <div className="cash-metric-icon"><WalletCards size={18} /></div>
+            </div>
+            <strong>{formatMoney(todayStats.balanceUsed)}</strong>
+            <small>Aplicado hoy en cobros</small>
+          </article>
+
+          <article>
+            <div className="cash-metric-top">
+              <span>Financiado hoy</span>
+              <div className="cash-metric-icon"><CalendarClock size={18} /></div>
+            </div>
+            <strong>{formatMoney(todayStats.financed)}</strong>
+            <small>Créditos generados desde Caja</small>
+          </article>
+        </section>
+
+        <section className="cash-layout">
+          <div className="cash-main-column">
+            <section className="cash-card cash-center-card">
+              <div className="cash-card-head cash-center-head">
+                <div className="cash-card-title">
+                  <div className="cash-card-title-icon"><CircleDollarSign size={18} /></div>
+                  <div>
+                    <strong>Centro de Caja</strong>
+                    <span>Pendientes y movimientos en un mismo módulo</span>
+                  </div>
+                </div>
+
+                <div className="cash-tabs">
+                  <button
+                    type="button"
+                    className={activeTab === "pendings" ? "active" : ""}
+                    onClick={() => setActiveTab("pendings")}
+                  >
+                    <WalletCards size={15} />
+                    Pendientes
+                    <b>{pendings.length}</b>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={activeTab === "movements" ? "active" : ""}
+                    onClick={() => setActiveTab("movements")}
+                  >
+                    <ReceiptText size={15} />
+                    Movimientos
+                  </button>
                 </div>
               </div>
 
-              {loading ? (
-                <div className="cash-empty">
-                  <div className="cash-loader" />
-                  <strong>Cargando Caja</strong>
-                  <span>Sincronizando operaciones...</span>
-                </div>
-              ) : filteredPendings.length === 0 ? (
-                <div className="cash-empty">
-                  <CheckCircle2 size={30} />
-                  <strong>No hay cobros pendientes</strong>
-                  <span>Los tickets enviados a Caja aparecerán automáticamente.</span>
-                </div>
-              ) : (
-                <div className="cash-pending-list">
-                  {filteredPendings.map((item) => (
-                    <motion.article layout key={item.id} className="cash-pending-card">
-                      <div className="cash-pending-origin">
-                        <span>{item.origen || "Operación"}</span>
-                        <strong>#{item.ref || item.id}</strong>
-                      </div>
+              {activeTab === "pendings" && (
+                <div className="cash-card-body">
+                  <div className="cash-toolbar">
+                    <div className="cash-search">
+                      <Search size={17} />
+                      <input
+                        type="search"
+                        value={search}
+                        placeholder="Buscar cliente, ticket, presupuesto..."
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                      {search && (
+                        <button type="button" onClick={() => setSearch("")}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
 
-                      <div className="cash-pending-main">
-                        <h3>{item.cliente || "Consumidor Final"}</h3>
-                        <p>{item.concepto || "Sin detalle"}</p>
-                        {item.presupuestoId && <small>Presupuesto {item.presupuestoId}</small>}
-                      </div>
+                    <select
+                      value={originFilter}
+                      onChange={(event) => setOriginFilter(event.target.value)}
+                    >
+                      <option value="">Todos los orígenes</option>
+                      <option value="POS">POS</option>
+                      <option value="Ticket">Ticket</option>
+                      <option value="Presupuesto">Presupuesto</option>
+                    </select>
+                  </div>
 
-                      <div className="cash-pending-total">
-                        <span>Total</span>
-                        <strong>{formatMoney(item.total)}</strong>
-                      </div>
+                  {loading ? (
+                    <div className="cash-empty">
+                      <div className="cash-loader" />
+                      <strong>Cargando Caja</strong>
+                      <span>Sincronizando operaciones...</span>
+                    </div>
+                  ) : filteredPendings.length === 0 ? (
+                    <div className="cash-empty">
+                      <CheckCircle2 size={30} />
+                      <strong>No hay cobros pendientes</strong>
+                      <span>Los envíos desde POS, Tickets y Presupuestos aparecerán automáticamente.</span>
+                    </div>
+                  ) : (
+                    <div className="cash-pending-list">
+                      {filteredPendings.map((item) => {
+                        const selected = paymentItem?.id === item.id;
 
-                      <button type="button" onClick={() => openPayment(item)}>
-                        <CircleDollarSign size={16} />
-                        Cobrar
-                      </button>
-                    </motion.article>
-                  ))}
+                        return (
+                          <motion.article
+                            layout
+                            key={item.id}
+                            className={`cash-pending-row ${selected ? "selected" : ""}`}
+                            onClick={() => openPayment(item)}
+                          >
+                            <div className="cash-pending-code">
+                              <strong>#{item.ref || item.id}</strong>
+                              <span>{item.creadoEn ? formatDateTime(item.creadoEn) : "Pendiente"}</span>
+                            </div>
+
+                            <div className="cash-pending-client">
+                              <strong>{item.cliente || "Consumidor Final"}</strong>
+                              <span>{item.concepto || "Sin detalle"}</span>
+                            </div>
+
+                            <span className={`cash-badge ${item.origen === "Ticket" ? "violet" : item.origen === "Presupuesto" ? "amber" : "blue"}`}>
+                              {item.origen || "Operación"}
+                            </span>
+
+                            <span className="cash-badge green">Listo</span>
+
+                            <strong className="cash-pending-amount">{formatMoney(item.total)}</strong>
+
+                            <div className="cash-pending-row-actions">
+                              {canCancelPending && (
+                                <button
+                                  type="button"
+                                  className="cash-row-action danger"
+                                  title="Cancelar pendiente"
+                                  disabled={cancellingPendingId === item.id || processingPayment}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setCancelItem(item);
+                                  }}
+                                >
+                                  <XCircle size={16} />
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                className="cash-row-action"
+                                title="Seleccionar"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openPayment(item);
+                                }}
+                              >
+                                <ChevronRight size={17} />
+                              </button>
+                            </div>
+                          </motion.article>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {activeTab === "movements" && (
-            <div className="cash-tab-content cash-movements-layout">
-              <section className="cash-movement-panel">
-                <div className="cash-section-heading">
-                  <div>
-                    <span>Turno actual</span>
-                    <h3>Movimientos de Caja</h3>
+              {activeTab === "movements" && (
+                <div className="cash-card-body">
+                  <div className="cash-toolbar movements">
+                    <div className="cash-search">
+                      <Search size={17} />
+                      <input
+                        type="search"
+                        value={movementSearch}
+                        placeholder="Buscar movimiento, cliente, referencia..."
+                        onChange={(event) => setMovementSearch(event.target.value)}
+                      />
+                      {movementSearch && (
+                        <button type="button" onClick={() => setMovementSearch("")}>
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <select
+                      value={movementMethod}
+                      onChange={(event) => setMovementMethod(event.target.value)}
+                    >
+                      <option value="">Todos los medios</option>
+                      <option value="Efectivo">Efectivo</option>
+                      <option value="Transferencia">Transferencia</option>
+                      <option value="Mercado Pago">Mercado Pago</option>
+                      <option value="Tarjeta">Tarjeta</option>
+                      <option value="Saldo a Favor">Saldo a favor</option>
+                      <option value="Préstamo personal">Financiado</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      className="cash-button soft compact"
+                      disabled={!canManageCash}
+                      title={
+                        canManageCash
+                          ? "Registrar movimiento manual"
+                          : "Requiere permiso de administración de Caja"
+                      }
+                      onClick={() => setMovementModalOpen(true)}
+                    >
+                      <Plus size={15} />
+                      Registrar movimiento
+                    </button>
+                  </div>
+
+                  {filteredMovements.length === 0 ? (
+                    <div className="cash-empty">
+                      <ReceiptText size={28} />
+                      <strong>Sin movimientos</strong>
+                      <span>No encontramos movimientos con estos filtros.</span>
+                    </div>
+                  ) : (
+                    <div className="cash-movements-table-wrap">
+                      <div className="cash-movements-head">
+                        <span>Movimiento</span>
+                        <span>Fecha</span>
+                        <span>Cliente / concepto</span>
+                        <span>Medio</span>
+                        <span>Estado</span>
+                        <span>Importe</span>
+                        <span>Acciones</span>
+                      </div>
+
+                      {filteredMovements.map((movement) => {
+                        const context = movementContext(movement);
+                        const isExpense = movement.tipo === "egreso";
+                        const isInfo = movement.tipo === "informativo";
+                        const status =
+                          movement.medioPago === "Préstamo personal"
+                            ? "Financiado"
+                            : movement.medioPago === "Saldo a Favor"
+                              ? "Saldo aplicado"
+                              : isExpense
+                                ? "Egreso"
+                                : movement.clase === "manual"
+                                  ? "Manual"
+                                  : "Confirmado";
+
+                        return (
+                          <article
+                            key={movement._rowKey}
+                            className={`cash-movement-row ${selectedMovement?._rowKey === movement._rowKey ? "selected" : ""}`}
+                            onClick={() => openMovement(movement)}
+                          >
+                            <div className="cash-movement-ref">
+                              <strong>{movement.id || "MOV-LEGACY"}</strong>
+                              <span>{context.ref}</span>
+                            </div>
+
+                            <div className="cash-movement-date">
+                              <strong>{movement.fecha || "—"}</strong>
+                              <span>{movement.hora || "—"}</span>
+                            </div>
+
+                            <div className="cash-movement-client">
+                              <strong>{context.client !== "—" ? context.client : context.origin}</strong>
+                              <span>{context.concept}</span>
+                            </div>
+
+                            <span className="cash-movement-method">{movement.medioPago || "Manual"}</span>
+
+                            <span className={`cash-badge ${isExpense ? "red" : isInfo ? "amber" : "green"}`}>
+                              {status}
+                            </span>
+
+                            <strong className={`cash-movement-amount ${isExpense ? "negative" : isInfo ? "neutral" : "positive"}`}>
+                              {isExpense ? "− " : isInfo ? "" : "+ "}
+                              {formatMoney(movement.monto)}
+                            </strong>
+
+                            <div className="cash-movement-actions">
+                              <button
+                                type="button"
+                                className="cash-row-action"
+                                title="Consultar movimiento"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openMovement(movement);
+                                }}
+                              >
+                                <Eye size={16} />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="cash-row-action"
+                                title="Imprimir movimiento"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  printMovement(movement);
+                                }}
+                              >
+                                <Printer size={16} />
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="cash-side-column">
+            {activeTab === "pendings" ? (
+              <section className="cash-card cash-payment-panel">
+                <div className="cash-card-head">
+                  <div className="cash-card-title">
+                    <div className="cash-card-title-icon coral"><CircleDollarSign size={18} /></div>
+                    <div>
+                      <strong>Cobrar operación</strong>
+                      <span>{paymentItem ? `#${paymentItem.ref || paymentItem.id}` : "Seleccioná un pendiente"}</span>
+                    </div>
                   </div>
                 </div>
 
-                {movements.length === 0 ? (
-                  <div className="cash-empty compact">
-                    <CircleDollarSign size={26} />
-                    <strong>Sin movimientos</strong>
-                  </div>
-                ) : (
-                  <div className="cash-movement-list">
-                    {movements.map((movement, index) => (
-                      <article key={movement.id || `${movement.hora}-${index}`}>
-                        <div className={`cash-movement-icon ${movement.tipo}`}>
-                          {movement.tipo === "egreso" ? (
-                            <MinusCircle size={16} />
-                          ) : (
-                            <PlusCircle size={16} />
-                          )}
+                <div className="cash-card-body">
+                  {!paymentItem ? (
+                    <div className="cash-side-empty">
+                      <CircleDollarSign size={34} />
+                      <strong>Seleccioná una operación</strong>
+                      <span>Elegí un pendiente de la lista para revisar el total y registrar el cobro.</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="cash-customer-card">
+                        <div className="cash-customer-left">
+                          <div className="cash-customer-avatar">
+                            {String(paymentItem.cliente || "CF")
+                              .split(" ")
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((part) => part[0])
+                              .join("")
+                              .toUpperCase()}
+                          </div>
+                          <div>
+                            <strong>{paymentItem.cliente || "Consumidor Final"}</strong>
+                            <span>{paymentItem.origen || "Operación"} #{paymentItem.ref || paymentItem.id}</span>
+                          </div>
                         </div>
 
-                        <div>
-                          <strong>{movement.concepto || "Movimiento"}</strong>
+                        {eligibility?.balance !== undefined && (
+                          <div className="cash-customer-balance">
+                            <span>Saldo a favor</span>
+                            <strong>{formatMoney(eligibility.balance)}</strong>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="cash-payment-summary-card">
+                        <div><span>Origen</span><strong>{paymentItem.origen || "Operación"}</strong></div>
+                        <div><span>Concepto</span><strong>{paymentItem.concepto || "Servicio"}</strong></div>
+                        {paymentItem.descuentoPorcentaje !== undefined && Number(paymentItem.descuentoPorcentaje) > 0 && (
+                          <div><span>Descuento POS</span><strong>{Number(paymentItem.descuentoPorcentaje)}%</strong></div>
+                        )}
+                        <div className="total"><span>Total a cobrar</span><strong>{formatMoney(paymentItem.total)}</strong></div>
+                      </div>
+
+                      <span className="cash-payment-label">Medio de pago</span>
+
+                      <div className="cash-payment-grid">
+                        {availablePaymentMethods.map((method) => {
+                          const Icon = method.icon;
+                          return (
+                            <button
+                              type="button"
+                              key={method.id}
+                              className={paymentMethod === method.id ? "active" : ""}
+                              onClick={() => setPaymentMethod(method.id)}
+                            >
+                              <Icon size={19} />
+                              <strong>{method.label}</strong>
+                              <span>{method.helper}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="cash-payment-dynamic">
+                        {paymentMethod === "Efectivo" && (
+                          <>
+                            <label>
+                              <span>Dinero recibido</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={paymentDetails.received}
+                                placeholder="0"
+                                onChange={(event) =>
+                                  setPaymentDetails((current) => ({ ...current, received: event.target.value }))
+                                }
+                              />
+                            </label>
+
+                            <div className="cash-change">
+                              <span>Vuelto</span>
+                              <strong>
+                                {Number(paymentDetails.received || 0) >= Number(paymentItem.total || 0)
+                                  ? formatMoney(Number(paymentDetails.received || 0) - Number(paymentItem.total || 0))
+                                  : "Importe insuficiente"}
+                              </strong>
+                            </div>
+                          </>
+                        )}
+
+                        {["Transferencia", "Mercado Pago"].includes(paymentMethod) && (
+                          <label>
+                            <span>Comprobante / referencia</span>
+                            <input
+                              value={paymentDetails.reference}
+                              placeholder="Ej: REF-88392011"
+                              onChange={(event) =>
+                                setPaymentDetails((current) => ({ ...current, reference: event.target.value }))
+                              }
+                            />
+                          </label>
+                        )}
+
+                        {paymentMethod === "Tarjeta" && (
+                          <div className="cash-card-fields">
+                            <label>
+                              <span>Últimos 4</span>
+                              <input
+                                maxLength={4}
+                                value={paymentDetails.last4}
+                                placeholder="4242"
+                                onChange={(event) =>
+                                  setPaymentDetails((current) => ({
+                                    ...current,
+                                    last4: event.target.value.replace(/\D/g, "").slice(0, 4),
+                                  }))
+                                }
+                              />
+                            </label>
+
+                            <label>
+                              <span>Autorización</span>
+                              <input
+                                value={paymentDetails.authorization}
+                                placeholder="AUTH-9921"
+                                onChange={(event) =>
+                                  setPaymentDetails((current) => ({ ...current, authorization: event.target.value }))
+                                }
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        {["Saldo a Favor", "Préstamo personal"].includes(paymentMethod) && (
+                          <div className={`cash-eligibility ${eligibility?.eligible ? "approved" : "rejected"}`}>
+                            <ShieldCheck size={18} />
+                            <div>
+                              <strong>
+                                {checkingEligibility
+                                  ? "Evaluando cliente..."
+                                  : eligibility?.eligible
+                                    ? "Operación habilitada"
+                                    : "Operación no disponible"}
+                              </strong>
+                              <span>{checkingEligibility ? "Consultando Firestore" : eligibility?.reason || "—"}</span>
+                              {paymentMethod === "Saldo a Favor" && eligibility?.balance !== undefined && (
+                                <small>Disponible: {formatMoney(eligibility.balance)}</small>
+                              )}
+                              {paymentMethod === "Préstamo personal" && eligibility?.available !== undefined && (
+                                <small>Cupo disponible: {formatMoney(eligibility.available)}</small>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="cash-professional-note">
+                        <strong>Registro trazable</strong>
+                        <span>
+                          Al confirmar, SERVIX genera un movimiento único con fecha, operador, origen y medio de pago. Si hay un error, se corrige con una reversión; no se borra el movimiento original.
+                        </span>
+                      </div>
+
+                      <div className="cash-payment-actions">
+                        <button
+                          type="button"
+                          className="cash-button soft"
+                          onClick={() => setReceiptPreview(buildPendingReceipt(paymentItem))}
+                        >
+                          <Eye size={15} />
+                          Previsualizar
+                        </button>
+
+                        <button
+                          type="button"
+                          className="cash-button"
+                          onClick={() => setPaymentItem(null)}
+                        >
+                          Dejar pendiente
+                        </button>
+
+                        <button
+                          type="button"
+                          className="cash-button primary wide"
+                          disabled={!paymentCanConfirm}
+                          onClick={handlePayment}
+                        >
+                          <CheckCircle2 size={16} />
+                          {processingPayment
+                            ? "Procesando..."
+                            : paymentMethod === "Préstamo personal"
+                              ? "Financiar y emitir factura"
+                              : "Confirmar cobro"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <section className="cash-card cash-movement-detail-card">
+                <div className="cash-card-head">
+                  <div className="cash-card-title">
+                    <div className="cash-card-title-icon coral"><FileText size={18} /></div>
+                    <div>
+                      <strong>Detalle de movimiento</strong>
+                      <span>{selectedMovement?.id || "Seleccioná un movimiento"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cash-card-body">
+                  {!selectedMovement ? (
+                    <div className="cash-side-empty">
+                      <History size={34} />
+                      <strong>Consultá cualquier movimiento</strong>
+                      <span>Podés ver el detalle, imprimirlo y volver al origen cuando esté disponible.</span>
+                    </div>
+                  ) : (() => {
+                    const context = movementContext(selectedMovement);
+                    const isExpense = selectedMovement.tipo === "egreso";
+
+                    return (
+                      <>
+                        <div className="cash-movement-detail-grid">
+                          <div><span>Movimiento</span><strong>{selectedMovement.id || "MOV-LEGACY"}</strong></div>
+                          <div><span>Fecha / hora</span><strong>{selectedMovement.fecha || "—"} · {selectedMovement.hora || "—"}</strong></div>
+                          <div><span>Origen</span><strong>{context.origin}</strong></div>
+                          <div><span>Referencia</span><strong>{context.ref}</strong></div>
+                          <div><span>Cliente</span><strong>{context.client}</strong></div>
+                          <div><span>Medio</span><strong>{selectedMovement.medioPago || "Manual"}</strong></div>
+                          <div><span>Operador</span><strong>{selectedMovement.usuario || "Sistema"}</strong></div>
+                          <div><span>Factura</span><strong>{selectedMovement.facturaId || "—"}</strong></div>
+                        </div>
+
+                        <div className="cash-movement-concept-box">
+                          <span>Concepto</span>
+                          <strong>{context.concept}</strong>
+                        </div>
+
+                        <div className={`cash-movement-detail-total ${isExpense ? "negative" : ""}`}>
+                          <span>Importe</span>
+                          <strong>{isExpense ? "− " : ""}{formatMoney(selectedMovement.monto)}</strong>
+                        </div>
+
+                        <div className="cash-professional-note">
+                          <strong>Historial inmutable</strong>
                           <span>
-                            {movement.hora || "—"}
-                            {movement.medioPago ? ` · ${movement.medioPago}` : ""}
+                            Este registro queda como parte de la trazabilidad de Caja. Una corrección debe generar otro movimiento de reversión, no eliminar éste.
                           </span>
                         </div>
 
-                        <strong className={movement.tipo === "egreso" ? "negative" : "positive"}>
-                          {movement.tipo === "egreso" ? "− " : "+ "}
-                          {formatMoney(movement.monto)}
-                        </strong>
-                      </article>
-                    ))}
-                  </div>
-                )}
+                        <div className="cash-detail-actions">
+                          {selectedMovementNavigation && (
+                            <button
+                              type="button"
+                              className="cash-button soft"
+                              onClick={() => navigate(selectedMovementNavigation.path)}
+                            >
+                              <ChevronRight size={15} />
+                              {selectedMovementNavigation.label}
+                            </button>
+                          )}
+
+                          {selectedMovement.facturaId && (
+                            <button
+                              type="button"
+                              className="cash-button"
+                              onClick={() => navigate("/facturacion/facturas")}
+                            >
+                              <ReceiptText size={15} />
+                              Ver facturas
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="cash-button primary wide"
+                            onClick={() => printMovement(selectedMovement)}
+                          >
+                            <Printer size={16} />
+                            Imprimir movimiento
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
               </section>
+            )}
 
-              <aside className="cash-manual-panel">
-                <div className="cash-section-heading">
-                  <div>
-                    <span>Manual</span>
-                    <h3>Registrar movimiento</h3>
-                  </div>
-                </div>
-
-                <label>
-                  <span>Concepto</span>
-                  <input
-                    value={movementForm.concept}
-                    placeholder="Ej: Compra de insumos"
-                    onChange={(event) =>
-                      setMovementForm((current) => ({ ...current, concept: event.target.value }))
-                    }
-                  />
-                </label>
-
-                <div className="cash-manual-grid">
-                  <label>
-                    <span>Tipo</span>
-                    <select
-                      value={movementForm.type}
-                      onChange={(event) =>
-                        setMovementForm((current) => ({ ...current, type: event.target.value }))
-                      }
-                    >
-                      <option value="ingreso">Ingreso</option>
-                      <option value="egreso">Egreso</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Monto</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={movementForm.amount}
-                      placeholder="0"
-                      onChange={(event) =>
-                        setMovementForm((current) => ({ ...current, amount: event.target.value }))
-                      }
-                    />
-                  </label>
-                </div>
-
-                <button
-                  type="button"
-                  className="cash-manual-save"
-                  disabled={savingMovement}
-                  onClick={handleAddMovement}
-                >
-                  <Plus size={16} />
-                  {savingMovement ? "Guardando..." : "Registrar movimiento"}
-                </button>
-
-                <div className="cash-summary-box">
-                  <div><span>Fondo inicial</span><strong>{formatMoney(summary.fund)}</strong></div>
-                  <div><span>Ingresos</span><strong>{formatMoney(summary.income)}</strong></div>
-                  <div><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
-                  <div className="total"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
-                </div>
-              </aside>
-            </div>
-          )}
-
-          {activeTab === "cuts" && (
-            <div className="cash-tab-content">
-              {cuts.length === 0 ? (
-                <div className="cash-empty">
-                  <FileText size={28} />
-                  <strong>Sin cortes registrados</strong>
-                  <span>Los cierres de turno aparecerán acá.</span>
-                </div>
-              ) : (
-                <div className="cash-cuts-list">
-                  {cuts.map((cut) => (
-                    <article key={cut.id}>
-                      <div className="cash-cut-icon"><ReceiptText size={17} /></div>
-                      <div>
-                        <strong>{cut.id}</strong>
-                        <span>{formatDateTime(cut.cierre)} · {cut.usuario || "Sistema"}</span>
-                      </div>
-                      <div><span>Ingresos</span><strong>{formatMoney(cut.ingresos)}</strong></div>
-                      <div><span>Egresos</span><strong>{formatMoney(cut.egresos)}</strong></div>
-                      <div><span>Cierre</span><strong>{formatMoney(cut.efectivoEsperado)}</strong></div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            <section className="cash-card cash-compact-summary">
+              <div className="cash-card-body">
+                <div className="cash-summary-line"><span>Fondo actual</span><strong>{formatMoney(summary.fund)}</strong></div>
+                <div className="cash-summary-line"><span>Ingresos manuales / cobros</span><strong>{formatMoney(summary.income)}</strong></div>
+                <div className="cash-summary-line"><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
+                <div className="cash-summary-line total"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
+              </div>
+            </section>
+          </aside>
         </section>
       </div>
 
-      {paymentItem && (
-        <div className="cash-modal-overlay" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) closePayment();
-        }}>
+      {cancelItem && (
+        <div
+          className="cash-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !cancellingPendingId) setCancelItem(null);
+          }}
+        >
           <motion.div
-            className="cash-payment-modal"
+            className="cash-modal cash-confirm-modal"
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
           >
             <div className="cash-modal-heading">
-              <div className="cash-modal-icon"><CircleDollarSign size={21} /></div>
+              <div className="cash-modal-icon danger"><XCircle size={20} /></div>
               <section>
-                <span>Cobro</span>
-                <h3>{paymentItem.origen || "Operación"} #{paymentItem.ref || paymentItem.id}</h3>
+                <span>Acción administrativa</span>
+                <h3>Cancelar pendiente</h3>
               </section>
-              <button type="button" onClick={closePayment} disabled={processingPayment}>
+              <button type="button" disabled={Boolean(cancellingPendingId)} onClick={() => setCancelItem(null)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="cash-payment-summary">
-              <div><span>Cliente</span><strong>{paymentItem.cliente || "Consumidor Final"}</strong></div>
-              <div><span>Concepto</span><strong>{paymentItem.concepto || "Servicio"}</strong></div>
-              <div className="total"><span>Total a cobrar</span><strong>{formatMoney(paymentItem.total)}</strong></div>
-            </div>
-
-            <span className="cash-payment-label">Medio de pago</span>
-
-            <div className="cash-payment-methods">
-              {PAYMENT_METHODS.map((method) => {
-                const Icon = method.icon;
-                return (
-                  <button
-                    type="button"
-                    key={method.id}
-                    className={paymentMethod === method.id ? "active" : ""}
-                    onClick={() => setPaymentMethod(method.id)}
-                  >
-                    <Icon size={17} />
-                    {method.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="cash-payment-dynamic">
-              {paymentMethod === "Efectivo" && (
-                <>
-                  <label>
-                    <span>Dinero recibido</span>
-                    <input
-                      type="number"
-                      min="0"
-                      autoFocus
-                      value={paymentDetails.received}
-                      placeholder="0"
-                      onChange={(event) =>
-                        setPaymentDetails((current) => ({ ...current, received: event.target.value }))
-                      }
-                    />
-                  </label>
-
-                  <div className="cash-change">
-                    <span>Vuelto</span>
-                    <strong>
-                      {Number(paymentDetails.received || 0) >= Number(paymentItem.total || 0)
-                        ? formatMoney(Number(paymentDetails.received || 0) - Number(paymentItem.total || 0))
-                        : "Importe insuficiente"}
-                    </strong>
-                  </div>
-                </>
-              )}
-
-              {["Transferencia", "Mercado Pago"].includes(paymentMethod) && (
-                <label>
-                  <span>Comprobante / referencia</span>
-                  <input
-                    value={paymentDetails.reference}
-                    placeholder="Ej: REF-88392011"
-                    onChange={(event) =>
-                      setPaymentDetails((current) => ({ ...current, reference: event.target.value }))
-                    }
-                  />
-                </label>
-              )}
-
-              {paymentMethod === "Tarjeta" && (
-                <div className="cash-card-fields">
-                  <label>
-                    <span>Últimos 4</span>
-                    <input
-                      maxLength={4}
-                      value={paymentDetails.last4}
-                      placeholder="4242"
-                      onChange={(event) =>
-                        setPaymentDetails((current) => ({
-                          ...current,
-                          last4: event.target.value.replace(/\D/g, "").slice(0, 4),
-                        }))
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    <span>Autorización</span>
-                    <input
-                      value={paymentDetails.authorization}
-                      placeholder="AUTH-9921"
-                      onChange={(event) =>
-                        setPaymentDetails((current) => ({ ...current, authorization: event.target.value }))
-                      }
-                    />
-                  </label>
-                </div>
-              )}
-
-              {["Saldo a Favor", "Préstamo personal"].includes(paymentMethod) && (
-                <div className={`cash-eligibility ${eligibility?.eligible ? "approved" : "rejected"}`}>
-                  <ShieldCheck size={18} />
-                  <div>
-                    <strong>
-                      {checkingEligibility
-                        ? "Evaluando cliente..."
-                        : eligibility?.eligible
-                          ? "Operación habilitada"
-                          : "Operación no disponible"}
-                    </strong>
-                    <span>{checkingEligibility ? "Consultando Firestore" : eligibility?.reason || "—"}</span>
-                    {paymentMethod === "Saldo a Favor" && eligibility?.balance !== undefined && (
-                      <small>Disponible: {formatMoney(eligibility.balance)}</small>
-                    )}
-                    {paymentMethod === "Préstamo personal" && eligibility?.available !== undefined && (
-                      <small>Cupo disponible: {formatMoney(eligibility.available)}</small>
-                    )}
-                  </div>
-                </div>
-              )}
+            <div className="cash-confirm-copy">
+              <strong>{cancelItem.cliente || "Cliente"}</strong>
+              <span>{cancelItem.origen || "Operación"} #{cancelItem.ref || cancelItem.id}</span>
+              <b>{formatMoney(cancelItem.total)}</b>
+              <p>La operación dejará de estar pendiente en Caja y volverá a su estado anterior cuando corresponda.</p>
             </div>
 
             <div className="cash-modal-actions">
-              <button type="button" onClick={closePayment} disabled={processingPayment}>
-                Cancelar
+              <button type="button" disabled={Boolean(cancellingPendingId)} onClick={() => setCancelItem(null)}>
+                Volver
               </button>
               <button
                 type="button"
-                className="primary"
-                disabled={!paymentCanConfirm}
-                onClick={handlePayment}
+                className="danger"
+                disabled={Boolean(cancellingPendingId)}
+                onClick={handleCancelPending}
               >
-                <ReceiptText size={16} />
-                {processingPayment ? "Procesando..." : "Cobrar y emitir factura"}
+                {cancellingPendingId ? "Cancelando..." : "Cancelar pendiente"}
               </button>
             </div>
           </motion.div>
         </div>
       )}
 
-      {closeModalOpen && (
-        <div className="cash-modal-overlay" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !closing) setCloseModalOpen(false);
-        }}>
+      {movementModalOpen && (
+        <div
+          className="cash-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !savingMovement) setMovementModalOpen(false);
+          }}
+        >
           <motion.div
-            className="cash-close-modal"
+            className="cash-modal cash-manual-modal"
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
           >
             <div className="cash-modal-heading">
-              <div className="cash-modal-icon graphite"><ReceiptText size={20} /></div>
+              <div className="cash-modal-icon"><PlusCircle size={20} /></div>
               <section>
-                <span>Turno actual</span>
-                <h3>Cerrar Caja</h3>
+                <span>Movimientos</span>
+                <h3>Registrar movimiento manual</h3>
               </section>
-              <button type="button" disabled={closing} onClick={() => setCloseModalOpen(false)}>
+              <button type="button" disabled={savingMovement} onClick={() => setMovementModalOpen(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="cash-summary-box modal">
-              <div><span>Fondo inicial</span><strong>{formatMoney(summary.fund)}</strong></div>
-              <div><span>Ingresos</span><strong>{formatMoney(summary.income)}</strong></div>
-              <div><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
-              <div className="total"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
-            </div>
-
-            <label className="cash-close-field">
-              <span>Fondo a dejar para el próximo turno</span>
+            <label className="cash-field">
+              <span>Concepto</span>
               <input
-                type="number"
-                min="0"
-                value={newFund}
-                onChange={(event) => setNewFund(event.target.value)}
+                value={movementForm.concept}
+                placeholder="Ej: Compra de insumos"
+                onChange={(event) =>
+                  setMovementForm((current) => ({ ...current, concept: event.target.value }))
+                }
               />
             </label>
 
+            <div className="cash-field-grid">
+              <label className="cash-field">
+                <span>Tipo</span>
+                <select
+                  value={movementForm.type}
+                  onChange={(event) =>
+                    setMovementForm((current) => ({ ...current, type: event.target.value }))
+                  }
+                >
+                  <option value="ingreso">Ingreso</option>
+                  <option value="egreso">Egreso</option>
+                </select>
+              </label>
+
+              <label className="cash-field">
+                <span>Monto</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={movementForm.amount}
+                  placeholder="0"
+                  onChange={(event) =>
+                    setMovementForm((current) => ({ ...current, amount: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+
             <div className="cash-modal-actions">
-              <button type="button" disabled={closing} onClick={() => setCloseModalOpen(false)}>
+              <button type="button" disabled={savingMovement} onClick={() => setMovementModalOpen(false)}>
                 Cancelar
               </button>
-              <button type="button" className="primary graphite" disabled={closing} onClick={handleCloseCash}>
-                {closing ? "Cerrando..." : "Confirmar cierre"}
+              <button type="button" className="primary" disabled={savingMovement} onClick={handleAddMovement}>
+                <Plus size={15} />
+                {savingMovement ? "Guardando..." : "Registrar movimiento"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {receiptPreview && (
+        <div className="cash-modal-overlay cash-receipt-overlay">
+          <motion.div
+            className="cash-modal cash-receipt-modal"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+          >
+            <div className="cash-modal-heading no-print">
+              <div className="cash-modal-icon graphite"><ReceiptText size={20} /></div>
+              <section>
+                <span>{receiptPreview.kind === "movimiento" ? "Movimiento" : "Cobro"}</span>
+                <h3>{receiptPreview.kind === "movimiento" ? "Comprobante de movimiento" : "Comprobante de cobro"}</h3>
+              </section>
+              <button type="button" onClick={() => setReceiptPreview(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="cash-print-sheet" id="cash-print-sheet">
+              <div className="cash-receipt-brand">
+                <strong>ALEX SOPORTE TÉCNICO</strong>
+                <span>Comprobante interno SERVIX</span>
+                <b>{receiptPreview.receiptNumber}</b>
+              </div>
+
+              <div className="cash-receipt-grid">
+                <div><span>Fecha</span><strong>{formatDateTime(receiptPreview.dateTime)}</strong></div>
+                <div><span>Cliente</span><strong>{receiptPreview.client}</strong></div>
+                <div><span>Origen</span><strong>{receiptPreview.origin} · {receiptPreview.operationRef}</strong></div>
+                <div><span>Movimiento</span><strong>{receiptPreview.movementId || "—"}</strong></div>
+                <div><span>Medio</span><strong>{receiptPreview.method || "—"}</strong></div>
+                <div><span>Operador</span><strong>{receiptPreview.author || "Sistema"}</strong></div>
+                {receiptPreview.invoiceId && (
+                  <div><span>Factura</span><strong>{receiptPreview.invoiceId}</strong></div>
+                )}
+                {receiptPreview.reference && (
+                  <div><span>Referencia</span><strong>{receiptPreview.reference}</strong></div>
+                )}
+              </div>
+
+              <div className="cash-receipt-concept">
+                <span>Concepto</span>
+                <strong>{receiptPreview.concept}</strong>
+              </div>
+
+              <div className={`cash-receipt-total ${Number(receiptPreview.total) < 0 ? "negative" : ""}`}>
+                <span>{receiptPreview.kind === "movimiento" ? "Importe" : "Total cobrado"}</span>
+                <strong>{formatMoney(receiptPreview.total)}</strong>
+              </div>
+
+              {receiptPreview.change > 0 && (
+                <div className="cash-receipt-change">
+                  <span>Vuelto</span>
+                  <strong>{formatMoney(receiptPreview.change)}</strong>
+                </div>
+              )}
+
+              <p className="cash-receipt-note">
+                Comprobante interno SERVIX. No reemplaza una factura o comprobante fiscal.
+                El registro queda guardado en Caja y puede consultarse o reimprimirse posteriormente.
+              </p>
+            </div>
+
+            <div className="cash-modal-actions no-print">
+              {receiptPreview.invoiceId && (
+                <button type="button" onClick={() => navigate("/facturacion/facturas")}>
+                  <ReceiptText size={15} />
+                  Ver facturas
+                </button>
+              )}
+              <button type="button" onClick={() => setReceiptPreview(null)}>
+                Cerrar
+              </button>
+              <button type="button" className="primary" onClick={() => window.print()}>
+                <Printer size={16} />
+                Imprimir comprobante
               </button>
             </div>
           </motion.div>
