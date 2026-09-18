@@ -15,9 +15,6 @@ import {
 
 import { db } from "./firebase.js";
 
-import {
-  sendTicketToCash,
-} from "./caja-pendientes.service.js";
 
 import {
   releaseTicketStockInTransaction,
@@ -1117,37 +1114,6 @@ export async function updateTicketStage(
     );
   }
 
-  /*
-   * Listo para entrega es una operación de negocio única:
-   * cambia el estado y genera el pendiente de Caja dentro de
-   * la misma transacción. De esta forma nunca puede quedar un
-   * ticket en "listo" sin su cobro pendiente.
-   */
-  if (newStage === "listo") {
-    const cashResult =
-      await sendTicketToCash(
-        ticket.id,
-        author,
-        { markReady: true }
-      );
-
-    return {
-      changed: true,
-      stage: "listo",
-      stageLabel:
-        getStageLabel(
-          "listo"
-        ),
-      historyEntry:
-        cashResult.historyEntry ||
-        null,
-      cashPendingId:
-        cashResult.pendingId,
-      cashTotal:
-        cashResult.total,
-    };
-  }
-
   const ticketRef =
     doc(
       db,
@@ -1383,73 +1349,6 @@ export async function updateTicketStage(
       };
     }
   );
-}
-
-/* =========================================
-   DIAGNÓSTICO
-========================================= */
-
-export async function updateTicketDiagnosis(
-  ticketId,
-  diagnosis,
-  author
-) {
-  if (!ticketId) {
-    throw new Error(
-      "TICKET_REQUIRED"
-    );
-  }
-
-  const cleanDiagnosis =
-    String(
-      diagnosis || ""
-    ).trim();
-
-  if (!cleanDiagnosis) {
-    throw new Error(
-      "DIAGNOSIS_REQUIRED"
-    );
-  }
-
-  const historyEntry =
-    createHistoryEntry({
-      author,
-
-      action:
-        "Diagnóstico actualizado",
-
-      detail:
-        cleanDiagnosis,
-    });
-
-  await updateDoc(
-    doc(
-      db,
-      "tickets",
-      String(ticketId)
-    ),
-
-    {
-      diagnostico:
-        cleanDiagnosis,
-
-      actualizadoEn:
-        new Date()
-          .toISOString(),
-
-      historial:
-        arrayUnion(
-          historyEntry
-        ),
-    }
-  );
-
-  return {
-    diagnosis:
-      cleanDiagnosis,
-
-    historyEntry,
-  };
 }
 
 /* =========================================

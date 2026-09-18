@@ -15,14 +15,12 @@ import { motion } from "motion/react";
 import {
   ArrowLeft,
   CalendarDays,
-  Camera,
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
   Clock3,
   Copy,
   Cpu,
-  HardDrive,
   LockKeyhole,
   MessageSquareText,
   Package,
@@ -47,7 +45,6 @@ import {
   removeTicketPiece,
   subscribeToTicket,
   unlockTicketBudget,
-  updateTicketDiagnosis,
   updateTicketPiece,
   updateTicketStage,
 } from "../../services/tickets.service.js";
@@ -271,20 +268,6 @@ export default function TicketDetail() {
   ] = useState(false);
 
   /* =======================================
-     DIAGNÓSTICO
-  ======================================= */
-
-  const [
-    diagnosis,
-    setDiagnosis,
-  ] = useState("");
-
-  const [
-    savingDiagnosis,
-    setSavingDiagnosis,
-  ] = useState(false);
-
-  /* =======================================
      BITÁCORA
   ======================================= */
 
@@ -452,23 +435,6 @@ export default function TicketDetail() {
   ]);
 
   /* =======================================
-     SINCRONIZAR DIAGNÓSTICO
-  ======================================= */
-
-  useEffect(() => {
-    if (!ticket) {
-      return;
-    }
-
-    setDiagnosis(
-      ticket.diagnostico ||
-        ""
-    );
-  }, [
-    ticket?.diagnostico,
-  ]);
-
-  /* =======================================
      SINCRONIZAR PRESUPUESTO
   ======================================= */
 
@@ -531,17 +497,6 @@ export default function TicketDetail() {
         : [];
     }, [
       ticket?.piezas,
-    ]);
-
-  const photos =
-    useMemo(() => {
-      return Array.isArray(
-        ticket?.fotos
-      )
-        ? ticket.fotos
-        : [];
-    }, [
-      ticket?.fotos,
     ]);
 
   const history =
@@ -700,12 +655,6 @@ export default function TicketDetail() {
      CAJA / FACTURACIÓN
   ======================================= */
 
-  const budgetAccepted =
-    ticket?.presupuestoAprobado ===
-      true ||
-    ticket?.presupuestoEstado ===
-      "Aceptado";
-
   const cashPending =
     ticket?.estadoCaja ===
     "Pendiente";
@@ -738,9 +687,6 @@ export default function TicketDetail() {
     );
 
   const canSendToCash =
-    ticket?.stage ===
-      "listo" &&
-    budgetAccepted &&
     !cashPending &&
     !cashResolved &&
     !alreadyBilled;
@@ -821,23 +767,10 @@ export default function TicketDetail() {
           return;
         }
 
-        if (
-          selectedStage ===
-            "listo" &&
-          result.cashPendingId
-        ) {
-          notify.success(
-            "Listo y enviado a Caja",
-            `Ticket #${ticket.id} quedó pendiente de cobro por ${formatMoney(
-              result.cashTotal
-            )}.`
-          );
-        } else {
-          notify.success(
-            "Estado actualizado",
-            `Ticket #${ticket.id}: ${result.stageLabel}.`
-          );
-        }
+        notify.success(
+          "Estado actualizado",
+          `Ticket #${ticket.id}: ${result.stageLabel}.`
+        );
       } catch (
         stageError
       ) {
@@ -856,16 +789,6 @@ export default function TicketDetail() {
             "El ticket debe estar cobrado o financiado y facturado antes de marcarlo como Entregado.",
           TICKET_FINANCIAL_REVERSAL_REQUIRED:
             "El ticket ya tiene una operación financiera. Primero anulá o rectificá la factura correspondiente.",
-          BUDGET_NOT_ACCEPTED:
-            "Para dejar el ticket Listo para entrega, el presupuesto debe estar aceptado.",
-          BUDGET_INVALID_TOTAL:
-            "El presupuesto no tiene un total válido para generar el cobro.",
-          CASH_PENDING_EXISTS:
-            "El ticket ya tiene un cobro pendiente en Caja.",
-          TICKET_ALREADY_PAID:
-            "El ticket ya figura como cobrado.",
-          TICKET_ALREADY_BILLED:
-            "El ticket ya tiene una factura asociada.",
         };
 
         notify.error(
@@ -875,72 +798,6 @@ export default function TicketDetail() {
         );
       } finally {
         setSavingStage(
-          false
-        );
-      }
-    };
-
-  /* =======================================
-     DIAGNÓSTICO
-  ======================================= */
-
-  const handleSaveDiagnosis =
-    async () => {
-      const cleanDiagnosis =
-        diagnosis.trim();
-
-      if (!cleanDiagnosis) {
-        notify.warning(
-          "Diagnóstico vacío",
-          "Escribí el diagnóstico antes de guardar."
-        );
-
-        return;
-      }
-
-      if (
-        cleanDiagnosis ===
-        String(
-          ticket?.diagnostico ||
-            ""
-        ).trim()
-      ) {
-        notify.info(
-          "Sin cambios",
-          "El diagnóstico no fue modificado."
-        );
-
-        return;
-      }
-
-      try {
-        setSavingDiagnosis(
-          true
-        );
-
-        await updateTicketDiagnosis(
-          ticket.id,
-          cleanDiagnosis,
-          author
-        );
-
-        notify.success(
-          "Diagnóstico guardado",
-          `El diagnóstico del ticket #${ticket.id} fue actualizado.`
-        );
-      } catch (
-        diagnosisError
-      ) {
-        console.error(
-          diagnosisError
-        );
-
-        notify.error(
-          "No se pudo guardar",
-          "Ocurrió un error al actualizar el diagnóstico."
-        );
-      } finally {
-        setSavingDiagnosis(
           false
         );
       }
@@ -1725,12 +1582,6 @@ export default function TicketDetail() {
           TICKET_NOT_FOUND:
             "No encontramos el ticket en Firestore.",
 
-          TICKET_NOT_READY:
-            "El ticket debe estar en Listo para entrega antes de pasar a Caja.",
-
-          BUDGET_NOT_ACCEPTED:
-            "El presupuesto debe estar aceptado antes de cobrar.",
-
           BUDGET_INVALID_TOTAL:
             "El presupuesto no tiene un total válido.",
 
@@ -2136,18 +1987,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                <div>
-
-                  <span>
-                    Técnico
-                  </span>
-
-                  <strong>
-                    {ticket.tecnico ||
-                      "Sin asignar"}
-                  </strong>
-
-                </div>
 
               </div>
 
@@ -2251,86 +2090,6 @@ export default function TicketDetail() {
               {ticket.falla ||
                 "No se registró una falla informada por el cliente."}
             </p>
-
-          </section>
-
-          {/* DIAGNÓSTICO */}
-
-          <section className="ticket-content-card">
-
-            <div className="ticket-content-heading">
-
-              <div className="ticket-content-icon diagnosis">
-
-                <HardDrive
-                  size={18}
-                />
-
-              </div>
-
-              <div>
-
-                <span>
-                  Trabajo técnico
-                </span>
-
-                <h3>
-                  Diagnóstico
-                </h3>
-
-              </div>
-
-            </div>
-
-            <textarea
-              className="ticket-diagnosis-textarea"
-
-              value={
-                diagnosis
-              }
-
-              disabled={
-                savingDiagnosis
-              }
-
-              placeholder="Describí el diagnóstico técnico..."
-
-              onChange={(event) =>
-                setDiagnosis(
-                  event.target.value
-                )
-              }
-            />
-
-            <div className="ticket-content-action-row">
-
-              <small>
-                {diagnosis.length} caracteres
-              </small>
-
-              <button
-                type="button"
-
-                className="ticket-primary-action"
-
-                disabled={
-                  savingDiagnosis
-                }
-
-                onClick={
-                  handleSaveDiagnosis
-                }
-              >
-                <Save
-                  size={16}
-                />
-
-                {savingDiagnosis
-                  ? "Guardando..."
-                  : "Guardar diagnóstico"}
-              </button>
-
-            </div>
 
           </section>
 
@@ -2510,36 +2269,6 @@ export default function TicketDetail() {
 
               </button>
 
-              <button
-                type="button"
-
-                className={
-                  activeTab ===
-                  "photos"
-                    ? "active"
-                    : ""
-                }
-
-                onClick={() =>
-                  setActiveTab(
-                    "photos"
-                  )
-                }
-              >
-                <Camera
-                  size={16}
-                />
-
-                Fotos
-
-                {photos.length >
-                  0 && (
-                  <span>
-                    {photos.length}
-                  </span>
-                )}
-
-              </button>
 
               <button
                 type="button"
@@ -3456,96 +3185,6 @@ export default function TicketDetail() {
             )}
 
             {/* =================================
-                FOTOS
-            ================================= */}
-
-            {activeTab ===
-              "photos" && (
-              <div className="ticket-tab-content">
-
-                <div className="ticket-tab-heading">
-
-                  <div>
-
-                    <span>
-                      Evidencia
-                    </span>
-
-                    <h3>
-                      Fotografías
-                    </h3>
-
-                    <p>
-                      Registro visual asociado al equipo.
-                    </p>
-
-                  </div>
-
-                </div>
-
-                {photos.length ===
-                0 ? (
-                  <div className="ticket-tab-empty">
-
-                    <Camera
-                      size={25}
-                    />
-
-                    <strong>
-                      Sin fotografías
-                    </strong>
-
-                    <span>
-                      Este ticket todavía no tiene imágenes registradas.
-                    </span>
-
-                  </div>
-                ) : (
-                  <div className="ticket-photo-grid">
-
-                    {photos.map(
-                      (
-                        url,
-                        index
-                      ) => (
-                        <a
-                          key={
-                            `${url}-${index}`
-                          }
-
-                          href={
-                            url
-                          }
-
-                          target="_blank"
-
-                          rel="noreferrer"
-                        >
-                          <img
-                            src={
-                              url
-                            }
-
-                            alt={
-                              `Ticket ${ticket.id} - ${index + 1}`
-                            }
-                          />
-
-                          <span>
-                            Foto {index + 1}
-                          </span>
-
-                        </a>
-                      )
-                    )}
-
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {/* =================================
                 BITÁCORA
             ================================= */}
 
@@ -3868,23 +3507,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                <div>
-
-                  <UserRound
-                    size={15}
-                  />
-
-                  <span>
-                    Técnico
-                  </span>
-
-                  <strong>
-                    {ticket.tecnico ||
-                      "Sin asignar"}
-                  </strong>
-
-                </div>
-
               </div>
 
             </section>
@@ -4097,19 +3719,6 @@ export default function TicketDetail() {
                           : "Enviar a Caja"}
                 </button>
 
-                {!canSendToCash &&
-                  !cashPending &&
-                  !cashResolved &&
-                  !alreadyBilled && (
-                  <small className="ticket-cash-hint">
-                    {!budgetAccepted
-                      ? "Primero debe aceptarse el presupuesto."
-                      : ticket?.stage !==
-                          "listo"
-                        ? "Disponible cuando el ticket esté Listo para entrega."
-                        : ""}
-                  </small>
-                )}
 
                 <button
                   type="button"
