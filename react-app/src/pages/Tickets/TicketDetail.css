@@ -1160,9 +1160,6 @@
   color: var(--ink-2);
 }
 
-.ticket-budget-discount-line {
-  min-height: 48px;
-}
 
 .ticket-discount-input {
   display: flex;
@@ -1247,33 +1244,7 @@
   color: var(--ink);
 }
 
-.ticket-budget-state {
-  display: block;
 
-  margin-top: 3px;
-
-  padding:
-    0
-    4px;
-
-  font-size: 0.52rem;
-
-  color: var(--muted);
-}
-
-.ticket-budget-unsaved-note {
-  display: block;
-
-  margin-top: 5px;
-
-  padding:
-    0
-    4px;
-
-  font-size: 0.49rem;
-
-  color: #9ba4b1;
-}
 
 /* =========================================
    EMPTY
@@ -1794,9 +1765,6 @@
   color: var(--copper);
 }
 
-.ticket-budget-fixed-label {
-  color: var(--teal) !important;
-}
 
 .ticket-budget-small-meta button {
   padding: 0;
@@ -2224,83 +2192,14 @@
   gap: 10px;
 }
 
-.ticket-budget-lock-badge {
-  display: inline-flex;
-  align-items: center;
-
-  gap: 5px;
-
-  padding:
-    5px
-    7px;
-
-  font-size: 0.52rem;
-  font-weight: 800;
-
-  color: #687386;
-
-  background: #f0f2f5;
-
-  border:
-    1px solid #e1e5ea;
-
-  border-radius: 7px;
-}
 
 /* =========================================
    BLOQUEO DE REPUESTOS
 ========================================= */
 
-.ticket-budget-locked-notice {
-  display: flex;
-  align-items: center;
 
-  gap: 8px;
 
-  margin-bottom: 12px;
 
-  padding:
-    9px
-    11px;
-
-  font-size: 0.58rem;
-
-  color: #6f7785;
-
-  background: #f7f8fa;
-
-  border:
-    1px solid var(--line);
-
-  border-radius: 9px;
-}
-
-.ticket-budget-locked-notice svg {
-  flex: 0 0 auto;
-
-  color: #8a94a3;
-}
-
-.ticket-budget-locked-notice span {
-  flex: 1;
-
-  line-height: 1.45;
-}
-
-.ticket-budget-locked-notice button {
-  padding: 0;
-
-  font-size: 0.55rem;
-  font-weight: 800;
-
-  white-space: nowrap;
-
-  color: var(--copper);
-
-  background: transparent;
-
-  border: 0;
-}
 
 /* =========================================
    MANO DE OBRA
@@ -2396,7 +2295,7 @@
     1px solid var(--line);
 }
 
-.ticket-budget-status-row > div {
+.ticket-budget-status-row > span {
   display: flex;
   align-items: center;
 
@@ -2407,12 +2306,9 @@
   color: var(--muted);
 }
 
-.ticket-budget-status-row > div svg {
-  color: #8d97a5;
-}
 
 /* =========================================
-   FIJAR
+   GUARDAR PRESUPUESTO
 ========================================= */
 
 .ticket-budget-fix-button {
@@ -2445,38 +2341,7 @@
     rgba(17, 24, 39, 0.1);
 }
 
-/* =========================================
-   DESBLOQUEAR
-========================================= */
-
-.ticket-budget-unlock-button {
-  min-height: 34px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: 6px;
-
-  padding:
-    0
-    11px;
-
-  font-size: 0.58rem;
-  font-weight: 800;
-
-  color: #8a5b18;
-
-  background: #fff8e9;
-
-  border:
-    1px solid #f1dfb8;
-
-  border-radius: 8px;
-}
-
-.ticket-budget-fix-button:disabled,
-.ticket-budget-unlock-button:disabled {
+.ticket-budget-fix-button:disabled {
   cursor: not-allowed;
 
   opacity: 0.55;
@@ -2489,16 +2354,10 @@
     flex-direction: column;
   }
 
-  .ticket-budget-fix-button,
-  .ticket-budget-unlock-button {
+  .ticket-budget-fix-button {
     width: 100%;
   }
 
-  .ticket-budget-locked-notice {
-    align-items: flex-start;
-
-    flex-wrap: wrap;
-  }
 }
 /* =========================================
    LEGIBILIDAD 2026
@@ -2663,32 +2522,16 @@
   font-size: 1rem;
 }
 
-.ticket-budget-state {
-  font-size: 0.68rem;
-}
 
-.ticket-budget-unsaved-note {
-  font-size: 0.66rem;
-}
 
-.ticket-budget-lock-badge {
-  font-size: 0.65rem;
-}
 
-.ticket-budget-locked-notice {
+
+
+.ticket-budget-status-row > span {
   font-size: 0.7rem;
 }
 
-.ticket-budget-locked-notice button {
-  font-size: 0.7rem;
-}
-
-.ticket-budget-status-row > div {
-  font-size: 0.7rem;
-}
-
-.ticket-budget-fix-button,
-.ticket-budget-unlock-button {
+.ticket-budget-fix-button {
   min-height: 38px;
   font-size: 0.75rem;
 }
@@ -3320,15 +3163,12 @@
 .ticket-piece-form,
 .ticket-piece-row,
 .ticket-note-box,
-.ticket-budget-locked-notice,
-.ticket-budget-summary,
 .ticket-history-item {
   border-color: var(--sv-line);
   border-radius: 16px;
 }
 
 .ticket-piece-field input,
-.ticket-budget-field input,
 .ticket-note-box textarea {
   border-color: var(--sv-line);
   border-radius: 12px;
@@ -3336,21 +3176,9 @@
 }
 
 .ticket-piece-field input:focus,
-.ticket-budget-field input:focus,
 .ticket-note-box textarea:focus {
   border-color: rgba(139, 120, 250, 0.35);
   box-shadow: 0 0 0 4px rgba(139, 120, 250, 0.07);
-}
-
-.ticket-budget-lock-badge,
-.ticket-budget-fixed-label {
-  color: #6553c9;
-  background: rgba(139, 120, 250, 0.10);
-}
-
-.ticket-budget-locked-notice {
-  color: #6f5abc;
-  background: rgba(139, 120, 250, 0.07);
 }
 
 .ticket-history-dot {

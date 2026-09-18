@@ -272,94 +272,8 @@ export async function sendTicketToCash(
       }
 
       /* =================================
-         PRESUPUESTO
+         IMPORTE ACTUAL DEL TICKET
       ================================= */
-
-      let budget =
-        null;
-
-      let budgetRef =
-        null;
-
-      if (
-        ticket.presupuestoId
-      ) {
-        budgetRef =
-          doc(
-            db,
-            "presupuestos",
-            ticket.presupuestoId
-          );
-
-        const budgetSnapshot =
-          await transaction.get(
-            budgetRef
-          );
-
-        if (
-          budgetSnapshot.exists()
-        ) {
-          budget =
-            budgetSnapshot.data();
-        }
-      }
-
-      /* =================================
-         VALIDAR PRESUPUESTO
-      ================================= */
-
-
-      if (
-        budget?.estadoCaja ===
-          "Pendiente"
-      ) {
-        throw new Error(
-          "CASH_PENDING_EXISTS"
-        );
-      }
-
-      if (
-        budget?.estadoCaja ===
-          "Cobrado"
-      ) {
-        throw new Error(
-          "TICKET_ALREADY_PAID"
-        );
-      }
-
-      /* =================================
-         TOTAL
-      ================================= */
-
-      const total =
-        Number(
-          budget?.total ??
-          ticket.presupuestoEstimado ??
-          ticket.presupuestoTotal ??
-          0
-        ) ||
-        0;
-
-      if (
-        total <= 0
-      ) {
-        throw new Error(
-          "BUDGET_INVALID_TOTAL"
-        );
-      }
-
-      /* =================================
-         ITEMS DEL PRESUPUESTO
-      ================================= */
-
-      const budgetItems =
-        Array.isArray(
-          budget?.items
-        )
-          ? budget.items.map(
-              normalizeItem
-            )
-          : [];
 
       const ticketItems =
         Array.isArray(
@@ -370,14 +284,60 @@ export async function sendTicketToCash(
             )
           : [];
 
-      const sourceItems =
-        budgetItems.length >
-        0
-          ? budgetItems
-          : ticketItems;
+      const itemsTotal =
+        ticketItems.reduce(
+          (sum, item) =>
+            sum +
+            item.quantity *
+            item.price,
+          0
+        );
+
+      const labor =
+        Math.max(
+          0,
+          Number(
+            ticket.manoObra ||
+            0
+          ) || 0
+        );
+
+      const discountPercent =
+        Math.min(
+          100,
+          Math.max(
+            0,
+            Number(
+              ticket.descuentoPorcentaje ||
+              0
+            ) || 0
+          )
+        );
+
+      const subtotal =
+        itemsTotal +
+        labor;
+
+      const total =
+        Math.max(
+          0,
+          Math.round(
+            (
+              subtotal -
+              subtotal *
+              (discountPercent / 100)
+            ) * 100
+          ) / 100
+        );
+
+      if (total <= 0) {
+        throw new Error(
+          "BUDGET_INVALID_TOTAL"
+        );
+      }
 
       const articulosCart =
-        sourceItems.map(
+        ticketItems.map(
           (item) => ({
             sku:
               item.sku ||
@@ -394,19 +354,28 @@ export async function sendTicketToCash(
           })
         );
 
+      if (labor > 0) {
+        articulosCart.push({
+          sku: null,
+          nombre:
+            "Mano de obra",
+          cantidad: 1,
+          precio:
+            labor,
+        });
+      }
+
       let concepto =
-        sourceItems
+        articulosCart
           .map(
             (item) =>
-              `${item.quantity}x ${item.description}`
+              `${item.cantidad}x ${item.nombre}`
           )
           .join(", ");
 
-      if (
-        !concepto
-      ) {
+      if (!concepto) {
         concepto =
-          `Presupuesto ${ticket.presupuestoId || cleanTicketId}`;
+          `Servicio Ticket ${cleanTicketId}`;
       }
 
       /* =================================
@@ -529,54 +498,6 @@ export async function sendTicketToCash(
           ],
         }
       );
-
-      /* =================================
-         PRESUPUESTO
-      ================================= */
-
-      if (
-        budget &&
-        budgetRef
-      ) {
-        const budgetHistory =
-          Array.isArray(
-            budget.historial
-          )
-            ? budget.historial
-            : [];
-
-        transaction.update(
-          budgetRef,
-
-          {
-            estadoCaja:
-              "Pendiente",
-
-            cajaPendienteId:
-              pendingId,
-
-            actualizadoEn:
-              nowISO,
-
-            historial: [
-              ...budgetHistory,
-
-              {
-                fecha:
-                  historyDate,
-
-                accion:
-                  "Enviado a Caja",
-
-                detalle:
-                  `Ticket ${cleanTicketId} enviado a cobro por $${total.toLocaleString(
-                    "es-AR"
-                  )}. Usuario: ${cleanAuthor}`,
-              },
-            ],
-          }
-        );
-      }
 
       return {
         pendingId,

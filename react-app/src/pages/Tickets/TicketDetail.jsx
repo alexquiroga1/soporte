@@ -21,7 +21,6 @@ import {
   Clock3,
   Copy,
   Cpu,
-  LockKeyhole,
   MessageSquareText,
   Package,
   Pencil,
@@ -31,7 +30,6 @@ import {
   ShieldCheck,
   Tag,
   Trash2,
-  UnlockKeyhole,
   UserRound,
   WalletCards,
   Wrench,
@@ -41,10 +39,9 @@ import {
 import {
   addTicketNote,
   addTicketPiece,
-  fixTicketBudget,
+  saveTicketBudgetSummary,
   removeTicketPiece,
   subscribeToTicket,
-  unlockTicketBudget,
   updateTicketPiece,
   updateTicketStage,
 } from "../../services/tickets.service.js";
@@ -80,7 +77,7 @@ const STAGES = {
   },
 
   presupuesto: {
-    label: "Esperando aprobación",
+    label: "Presupuesto",
     className: "detail-stage-budget",
   },
 
@@ -339,10 +336,6 @@ export default function TicketDetail() {
     setSavingBudget,
   ] = useState(false);
 
-  const [
-    unlockingBudget,
-    setUnlockingBudget,
-  ] = useState(false);
 
   /* =======================================
      AUTOR
@@ -484,9 +477,6 @@ export default function TicketDetail() {
       (item) => item.key === workflowStageKey
     );
 
-  const budgetLocked =
-    ticket?.presupuestoFijado ===
-    true;
 
   const pieces =
     useMemo(() => {
@@ -640,16 +630,6 @@ export default function TicketDetail() {
         budgetDiscountAmount
     );
 
-  const persistedBudgetTotal =
-    Number(
-      ticket?.presupuestoEstimado ||
-        0
-    );
-
-  const displayedBudgetTotal =
-    budgetLocked
-      ? persistedBudgetTotal
-      : budgetTotal;
 
   /* =======================================
      CAJA / FACTURACIÓN
@@ -862,20 +842,6 @@ export default function TicketDetail() {
 
   const handleAddPiece =
     async () => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloqueá el presupuesto antes de modificar sus ítems."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       const name =
         pieceForm.nombre.trim();
@@ -988,20 +954,6 @@ export default function TicketDetail() {
       piece,
       index
     ) => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de editar repuestos o servicios."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       setEditingPieceIndex(
         index
@@ -1039,16 +991,6 @@ export default function TicketDetail() {
 
   const handleSavePiece =
     async () => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de modificar los ítems."
-        );
-
-        return;
-      }
 
       if (
         editingPieceIndex ===
@@ -1167,20 +1109,6 @@ export default function TicketDetail() {
       piece,
       index
     ) => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de eliminar ítems."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       const confirmed =
         window.confirm(
@@ -1301,43 +1229,21 @@ export default function TicketDetail() {
     };
 
   /* =======================================
-     FIJAR PRESUPUESTO
+     GUARDAR PRESUPUESTO
   ======================================= */
 
-  const handleFixBudget =
+  const handleSaveBudget =
     async () => {
       if (
-        budgetLocked
-      ) {
-        notify.info(
-          "Presupuesto fijado",
-          "Desbloquealo antes de modificarlo."
-        );
-
-        return;
-      }
-
-      if (
-        budgetSubtotal <=
+        budgetTotal <=
         0
       ) {
         notify.warning(
           "Presupuesto vacío",
-          "Agregá al menos un repuesto, servicio o importe de mano de obra."
+          "Agregá un repuesto, servicio o importe de mano de obra."
         );
 
-        return;
-      }
-
-      const confirmed =
-        window.confirm(
-          `¿Fijar el presupuesto del ticket #${ticket.id} en ${formatMoney(budgetTotal)}?`
-        );
-
-      if (
-        !confirmed
-      ) {
-        return;
+        return null;
       }
 
       try {
@@ -1346,7 +1252,7 @@ export default function TicketDetail() {
         );
 
         const result =
-          await fixTicketBudget(
+          await saveTicketBudgetSummary(
             ticket.id,
             {
               labor:
@@ -1359,132 +1265,24 @@ export default function TicketDetail() {
           );
 
         notify.success(
-          "Presupuesto fijado",
-          `Total final: ${formatMoney(result.total)}`
+          "Presupuesto guardado",
+          `Total actualizado: ${formatMoney(result.total)}`
         );
-      } catch (
-        budgetError
-      ) {
+
+        return result;
+      } catch (budgetError) {
         console.error(
           budgetError
         );
 
-        if (
-          budgetError?.message ===
-          "BUDGET_EMPTY"
-        ) {
-          notify.warning(
-            "Presupuesto vacío",
-            "No hay importes suficientes para fijar el presupuesto."
-          );
-
-          return;
-        }
-
-        if (
-          budgetError?.message ===
-          "BUDGET_LOCKED"
-        ) {
-          notify.warning(
-            "Presupuesto bloqueado",
-            "Este presupuesto ya se encuentra fijado."
-          );
-
-          return;
-        }
-
-        if (
-          budgetError?.message ===
-          "PUBLIC_RESPONSE_UNAPPLIED"
-        ) {
-          notify.warning(
-            "Respuesta pendiente de aplicar",
-            "El cliente ya respondió desde el enlace público. Aplicá esa respuesta antes de generar una nueva revisión."
-          );
-
-          return;
-        }
-
         notify.error(
-          "No se pudo fijar",
-          "Ocurrió un error al guardar el presupuesto."
+          "No se pudo guardar",
+          "Ocurrió un error al actualizar el presupuesto."
         );
+
+        return null;
       } finally {
         setSavingBudget(
-          false
-        );
-      }
-    };
-
-  /* =======================================
-     DESBLOQUEAR PRESUPUESTO
-  ======================================= */
-
-  const handleUnlockBudget =
-    async () => {
-      if (
-        !budgetLocked
-      ) {
-        notify.info(
-          "Presupuesto editable",
-          "El presupuesto ya está desbloqueado."
-        );
-
-        return;
-      }
-
-      const confirmed =
-        window.confirm(
-          "¿Desbloquear el presupuesto? Si fue aprobado anteriormente, esa aprobación dejará de ser válida."
-        );
-
-      if (
-        !confirmed
-      ) {
-        return;
-      }
-
-      try {
-        setUnlockingBudget(
-          true
-        );
-
-        const result =
-          await unlockTicketBudget(
-            ticket.id,
-            author
-          );
-
-        if (
-          !result.changed
-        ) {
-          notify.info(
-            "Sin cambios",
-            "El presupuesto ya estaba desbloqueado."
-          );
-
-          return;
-        }
-
-        notify.success(
-          "Presupuesto desbloqueado",
-          "Ya podés modificar importes, descuento y repuestos."
-        );
-      } catch (
-        unlockError
-      ) {
-        console.error(
-          unlockError
-        );
-
-        notify.error(
-          "No se pudo desbloquear",
-          unlockError?.message === "PUBLIC_RESPONSE_UNAPPLIED"
-            ? "El cliente ya respondió desde el enlace público. Aplicá esa respuesta antes de editar el presupuesto."
-            : "Ocurrió un error al modificar el presupuesto."
-        );
-      } finally {
-        setUnlockingBudget(
           false
         );
       }
@@ -1538,11 +1336,24 @@ export default function TicketDetail() {
         return;
       }
 
+      if (budgetTotal <= 0) {
+        notify.warning(
+          "Sin importe para cobrar",
+          "Cargá al menos un repuesto, servicio o mano de obra antes de enviar a Caja."
+        );
+
+        setActiveTab(
+          "budget"
+        );
+
+        return;
+      }
+
       const confirmed =
         window.confirm(
           `¿Enviar ${ticket.id} a Caja?\n\n` +
             `Total a cobrar: ${formatMoney(
-              displayedBudgetTotal
+              budgetTotal
             )}`
         );
 
@@ -1554,6 +1365,24 @@ export default function TicketDetail() {
         setSendingToCash(
           true
         );
+
+        const savedBudget =
+          await saveTicketBudgetSummary(
+            ticket.id,
+            {
+              labor:
+                safeLabor,
+              discountPercent:
+                safeDiscount,
+            },
+            author
+          );
+
+        if (savedBudget.total <= 0) {
+          throw new Error(
+            "BUDGET_INVALID_TOTAL"
+          );
+        }
 
         const result =
           await sendTicketToCash(
@@ -2331,15 +2160,6 @@ export default function TicketDetail() {
 
                   <div className="ticket-tab-heading-right">
 
-                    {budgetLocked && (
-                      <span className="ticket-budget-lock-badge">
-                        <LockKeyhole
-                          size={12}
-                        />
-
-                        Bloqueado
-                      </span>
-                    )}
 
                     <strong className="ticket-tab-total">
                       {formatMoney(
@@ -2351,31 +2171,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                {budgetLocked && (
-                  <div className="ticket-budget-locked-notice">
-
-                    <LockKeyhole
-                      size={16}
-                    />
-
-                    <span>
-                      El presupuesto está fijado. Desbloquealo para modificar repuestos o servicios.
-                    </span>
-
-                    <button
-                      type="button"
-
-                      onClick={() =>
-                        setActiveTab(
-                          "budget"
-                        )
-                      }
-                    >
-                      Ir al presupuesto
-                    </button>
-
-                  </div>
-                )}
 
                 <div className="ticket-piece-form">
 
@@ -2395,8 +2190,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2431,8 +2225,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2467,8 +2260,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2505,8 +2297,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2531,8 +2322,7 @@ export default function TicketDetail() {
                     className="ticket-piece-add"
 
                     disabled={
-                      addingPiece ||
-                      budgetLocked
+                      addingPiece
                     }
 
                     onClick={
@@ -2833,7 +2623,6 @@ export default function TicketDetail() {
                                           type="button"
 
                                           disabled={
-                                            budgetLocked ||
                                             editingPieceIndex !==
                                               null
                                           }
@@ -2845,11 +2634,7 @@ export default function TicketDetail() {
                                             )
                                           }
 
-                                          title={
-                                            budgetLocked
-                                              ? "Presupuesto bloqueado"
-                                              : "Editar"
-                                          }
+                                          title="Editar"
                                         >
                                           <Pencil
                                             size={14}
@@ -2862,7 +2647,6 @@ export default function TicketDetail() {
                                           className="delete"
 
                                           disabled={
-                                            budgetLocked ||
                                             deletingPieceIndex ===
                                               index
                                           }
@@ -2874,11 +2658,7 @@ export default function TicketDetail() {
                                             )
                                           }
 
-                                          title={
-                                            budgetLocked
-                                              ? "Presupuesto bloqueado"
-                                              : "Eliminar"
-                                          }
+                                          title="Eliminar"
                                         >
                                           <Trash2
                                             size={14}
@@ -2933,15 +2713,6 @@ export default function TicketDetail() {
 
                   </div>
 
-                  {budgetLocked && (
-                    <span className="ticket-budget-lock-badge">
-                      <LockKeyhole
-                        size={12}
-                      />
-
-                      Fijado
-                    </span>
-                  )}
 
                 </div>
 
@@ -2991,7 +2762,6 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          budgetLocked ||
                           savingBudget
                         }
 
@@ -3046,7 +2816,6 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          budgetLocked ||
                           savingBudget
                         }
 
@@ -3095,87 +2864,36 @@ export default function TicketDetail() {
 
                     <strong>
                       {formatMoney(
-                        displayedBudgetTotal
+                        budgetTotal
                       )}
                     </strong>
 
                   </div>
 
-                  {/* ESTADO */}
-
                   <div className="ticket-budget-status-row">
 
-                    <div>
+                    <span>
+                      Los cambios quedan registrados en la bitácora.
+                    </span>
 
-                      {budgetLocked ? (
-                        <>
-                          <LockKeyhole
-                            size={14}
-                          />
+                    <button
+                      type="button"
+                      className="ticket-budget-fix-button"
+                      disabled={
+                        savingBudget
+                      }
+                      onClick={
+                        handleSaveBudget
+                      }
+                    >
+                      <Save
+                        size={14}
+                      />
 
-                          <span>
-                            Presupuesto fijado
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <UnlockKeyhole
-                            size={14}
-                          />
-
-                          <span>
-                            Presupuesto editable
-                          </span>
-                        </>
-                      )}
-
-                    </div>
-
-                    {budgetLocked ? (
-                      <button
-                        type="button"
-
-                        className="ticket-budget-unlock-button"
-
-                        disabled={
-                          unlockingBudget
-                        }
-
-                        onClick={
-                          handleUnlockBudget
-                        }
-                      >
-                        <UnlockKeyhole
-                          size={14}
-                        />
-
-                        {unlockingBudget
-                          ? "Desbloqueando..."
-                          : "Desbloquear"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-
-                        className="ticket-budget-fix-button"
-
-                        disabled={
-                          savingBudget
-                        }
-
-                        onClick={
-                          handleFixBudget
-                        }
-                      >
-                        <LockKeyhole
-                          size={14}
-                        />
-
-                        {savingBudget
-                          ? "Fijando..."
-                          : "Fijar presupuesto"}
-                      </button>
-                    )}
+                      {savingBudget
+                        ? "Guardando..."
+                        : "Guardar presupuesto"}
+                    </button>
 
                   </div>
 
@@ -3525,21 +3243,15 @@ export default function TicketDetail() {
 
                   <strong>
                     {formatMoney(
-                      displayedBudgetTotal
+                      budgetTotal
                     )}
                   </strong>
 
                 </div>
 
-                {budgetLocked ? (
-                  <LockKeyhole
-                    size={16}
-                  />
-                ) : (
-                  <CircleDollarSign
-                    size={17}
-                  />
-                )}
+                <CircleDollarSign
+                  size={17}
+                />
 
               </div>
 
@@ -3554,11 +3266,6 @@ export default function TicketDetail() {
                     </span>
                   )}
 
-                  {budgetLocked && (
-                    <span className="ticket-budget-fixed-label">
-                      Fijado
-                    </span>
-                  )}
 
                 </div>
 

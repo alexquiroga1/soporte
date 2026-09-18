@@ -70,7 +70,7 @@ const TICKET_STAGES = {
     className: "stage-diagnostic",
   },
   presupuesto: {
-    label: "Esperando aprobación",
+    label: "Presupuesto",
     shortLabel: "Presupuesto",
     className: "stage-budget",
   },
@@ -1081,7 +1081,7 @@ export default function Tickets() {
                           <div className="ticket-row-data">
                             <span>Presupuesto</span>
 
-                            {ticket.presupuestoFijado ? (
+                            {Number(ticket.presupuestoEstimado || 0) > 0 ? (
                               <strong className="ticket-money">
                                 {formatMoney(
                                   ticket.presupuestoEstimado
@@ -1089,7 +1089,7 @@ export default function Tickets() {
                               </strong>
                             ) : (
                               <strong className="ticket-pending">
-                                Pendiente
+                                Sin importe
                               </strong>
                             )}
                           </div>
@@ -1284,16 +1284,16 @@ export default function Tickets() {
 
                                       <strong
                                         className={
-                                          ticket.presupuestoFijado
+                                          Number(ticket.presupuestoEstimado || 0) > 0
                                             ? "ready"
                                             : "pending"
                                         }
                                       >
-                                        {ticket.presupuestoFijado
+                                        {Number(ticket.presupuestoEstimado || 0) > 0
                                           ? formatMoney(
                                               ticket.presupuestoEstimado
                                             )
-                                          : "Presupuesto pendiente"}
+                                          : "Sin importe"}
                                       </strong>
                                     </div>
 

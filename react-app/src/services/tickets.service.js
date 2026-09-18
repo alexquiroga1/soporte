@@ -1,16 +1,11 @@
 import {
   arrayUnion,
   collection,
-  deleteField,
   doc,
-  getDocs,
-  limit,
   onSnapshot,
-  query,
   runTransaction,
   setDoc,
   updateDoc,
-  where,
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
@@ -28,7 +23,7 @@ import {
 const TICKET_STAGE_LABELS = {
   pendiente: "Recibido",
   diagnostico: "En diagnóstico",
-  presupuesto: "Esperando aprobación",
+  presupuesto: "Presupuesto",
   presupuesto_rechazado: "Presupuesto rechazado",
   reparacion: "En reparación",
   repuesto: "Esperando repuesto",
@@ -243,27 +238,6 @@ function createHistoryEntry({
   };
 }
 
-function createBudgetHistoryEntry({
-  author,
-  action,
-  detail = "",
-}) {
-  return {
-    fecha:
-      formatHistoryDate(),
-
-    autor:
-      cleanAuthor(author),
-
-    accion:
-      action,
-
-    detalle:
-      String(
-        detail || ""
-      ).trim(),
-  };
-}
 
 function calculatePiecesTotal(
   pieces
@@ -307,165 +281,65 @@ function calculatePiecesTotal(
 }
 
 /* =========================================
-   ITEMS PRESUPUESTO
+   RESUMEN ECONÓMICO DEL TICKET
 ========================================= */
 
-function buildBudgetItems(
+function calculateTicketBudgetSummary(
   pieces,
-  labor
+  labor = 0,
+  discountPercent = 0
 ) {
-  const items = [];
+  const piecesTotal =
+    calculatePiecesTotal(pieces);
 
-  if (Array.isArray(pieces)) {
-    pieces.forEach(
-      (piece) => {
-        const description =
-          String(
-            piece?.nombre ||
-              "Ítem"
-          ).trim();
-
-        const quantity =
-          Math.max(
-            1,
-            normalizeNumber(
-              piece?.cant,
-              1
-            )
-          );
-
-        const price =
-          Math.max(
-            0,
-            normalizeNumber(
-              piece?.costo,
-              0
-            )
-          );
-
-        items.push({
-          descripcion:
-            description,
-
-          cantidad:
-            quantity,
-
-          precio:
-            price,
-
-          subtotal:
-            roundMoney(
-              quantity *
-                price
-            ),
-
-          sku:
-            String(
-              piece?.sku ||
-                ""
-            ).trim(),
-
-          tipo:
-            "Repuesto / Servicio",
-        });
-      }
-    );
-  }
-
-  if (labor > 0) {
-    items.push({
-      descripcion:
-        "Mano de obra",
-
-      cantidad: 1,
-
-      precio:
+  const cleanLabor =
+    Math.max(
+      0,
+      normalizeNumber(
         labor,
+        0
+      )
+    );
 
-      subtotal:
-        labor,
-
-      sku: "",
-
-      tipo:
-        "Mano de obra",
-    });
-  }
-
-  return items;
-}
-
-/* =========================================
-   BUSCAR PRESUPUESTO POR TICKET
-========================================= */
-
-async function findBudgetIdByTicket(
-  ticketId
-) {
-  if (!ticketId) {
-    return null;
-  }
-
-  const presupuestoQuery =
-    query(
-      collection(
-        db,
-        "presupuestos"
+  const cleanDiscount =
+    clamp(
+      normalizeNumber(
+        discountPercent,
+        0
       ),
-      where(
-        "ticketId",
-        "==",
-        String(ticketId)
-      ),
-      limit(1)
+      0,
+      100
     );
 
-  const snapshot =
-    await getDocs(
-      presupuestoQuery
+  const subtotal =
+    roundMoney(
+      piecesTotal +
+      cleanLabor
     );
 
-  if (snapshot.empty) {
-    return null;
-  }
-
-  return snapshot.docs[0].id;
-}
-
-/* =========================================
-   VALIDAR PRESUPUESTO
-========================================= */
-
-function assertBudgetCanBeModified(
-  budget
-) {
-  if (!budget) {
-    return;
-  }
-
-  const billed =
-    budget.estado ===
-      "Facturado" ||
-    budget.estadoCaja ===
-      "Cobrado" ||
-    Boolean(
-      budget.facturaId
+  const discountAmount =
+    roundMoney(
+      subtotal *
+      (cleanDiscount / 100)
     );
 
-  if (billed) {
-    throw new Error(
-      "BUDGET_ALREADY_BILLED"
+  const total =
+    roundMoney(
+      Math.max(
+        0,
+        subtotal -
+        discountAmount
+      )
     );
-  }
 
-  if (
-    budget.estadoCaja ===
-    "Pendiente"
-  ) {
-    throw new Error(
-      "BUDGET_ALREADY_IN_CASH"
-    );
-  }
+  return {
+    piecesTotal,
+    labor: cleanLabor,
+    discountPercent: cleanDiscount,
+    subtotal,
+    discountAmount,
+    total,
+  };
 }
 
 /* =========================================
@@ -792,17 +666,8 @@ export async function createTicket({
         ),
     },
 
-    presupuestoFijado:
-      false,
-
     presupuestoEstimado:
       0,
-
-    presupuestoAprobado:
-      false,
-
-    presupuestoEstado:
-      "Pendiente",
 
     prioridad:
       "P2",
@@ -1440,14 +1305,6 @@ export async function addTicketPiece(
       const data =
         snapshot.data();
 
-      if (
-        data.presupuestoFijado ===
-        true
-      ) {
-        throw new Error(
-          "BUDGET_LOCKED"
-        );
-      }
 
       const currentPieces =
         Array.isArray(
@@ -1466,6 +1323,13 @@ export async function addTicketPiece(
         roundMoney(
           quantity *
             price
+        );
+
+      const budgetSummary =
+        calculateTicketBudgetSummary(
+          updatedPieces,
+          data.manoObra,
+          data.descuentoPorcentaje
         );
 
       const historyEntry =
@@ -1492,6 +1356,15 @@ export async function addTicketPiece(
         {
           piezas:
             updatedPieces,
+
+          presupuestoSubtotal:
+            budgetSummary.subtotal,
+
+          descuentoImporte:
+            budgetSummary.discountAmount,
+
+          presupuestoEstimado:
+            budgetSummary.total,
 
           actualizadoEn:
             new Date()
@@ -1565,14 +1438,6 @@ export async function updateTicketPiece(
       const data =
         snapshot.data();
 
-      if (
-        data.presupuestoFijado ===
-        true
-      ) {
-        throw new Error(
-          "BUDGET_LOCKED"
-        );
-      }
 
       const pieces =
         Array.isArray(
@@ -1664,6 +1529,13 @@ export async function updateTicketPiece(
         pieceIndex
       ] = updated;
 
+      const budgetSummary =
+        calculateTicketBudgetSummary(
+          pieces,
+          data.manoObra,
+          data.descuentoPorcentaje
+        );
+
       const historyEntry =
         createHistoryEntry({
           author,
@@ -1687,6 +1559,15 @@ export async function updateTicketPiece(
 
         {
           piezas,
+
+          presupuestoSubtotal:
+            budgetSummary.subtotal,
+
+          descuentoImporte:
+            budgetSummary.discountAmount,
+
+          presupuestoEstimado:
+            budgetSummary.total,
 
           actualizadoEn:
             new Date()
@@ -1757,14 +1638,6 @@ export async function removeTicketPiece(
       const data =
         snapshot.data();
 
-      if (
-        data.presupuestoFijado ===
-        true
-      ) {
-        throw new Error(
-          "BUDGET_LOCKED"
-        );
-      }
 
       const pieces =
         Array.isArray(
@@ -1790,6 +1663,13 @@ export async function removeTicketPiece(
         pieceIndex,
         1
       );
+
+      const budgetSummary =
+        calculateTicketBudgetSummary(
+          pieces,
+          data.manoObra,
+          data.descuentoPorcentaje
+        );
 
       const historyEntry =
         createHistoryEntry({
@@ -1818,6 +1698,15 @@ export async function removeTicketPiece(
         {
           piezas,
 
+          presupuestoSubtotal:
+            budgetSummary.subtotal,
+
+          descuentoImporte:
+            budgetSummary.discountAmount,
+
+          presupuestoEstimado:
+            budgetSummary.total,
+
           actualizadoEn:
             new Date()
               .toISOString(),
@@ -1833,15 +1722,15 @@ export async function removeTicketPiece(
 }
 
 /* =========================================
-   FIJAR PRESUPUESTO
+   GUARDAR RESUMEN ECONÓMICO
 ========================================= */
 
-export async function fixTicketBudget(
+export async function saveTicketBudgetSummary(
   ticketId,
   {
     labor = 0,
     discountPercent = 0,
-  },
+  } = {},
   author
 ) {
   if (!ticketId) {
@@ -1850,927 +1739,85 @@ export async function fixTicketBudget(
     );
   }
 
-  const cleanTicketId =
-    String(ticketId);
-
-  const cleanAuthorValue =
-    cleanAuthor(author);
-
-  const cleanLabor =
-    Math.max(
-      0,
-      normalizeNumber(
-        labor,
-        0
-      )
-    );
-
-  const cleanDiscount =
-    clamp(
-      normalizeNumber(
-        discountPercent,
-        0
-      ),
-      0,
-      100
-    );
-
-  const linkedBudgetId =
-    await findBudgetIdByTicket(
-      cleanTicketId
-    );
-
   const ticketRef =
     doc(
       db,
       "tickets",
-      cleanTicketId
-    );
-
-  const counterRef =
-    doc(
-      db,
-      "negocio",
-      "contadores"
+      String(ticketId)
     );
 
   let result = null;
 
   await runTransaction(
     db,
-
-    async (
-      transaction
-    ) => {
-      const ticketSnapshot =
+    async (transaction) => {
+      const snapshot =
         await transaction.get(
           ticketRef
         );
 
-      if (
-        !ticketSnapshot.exists()
-      ) {
+      if (!snapshot.exists()) {
         throw new Error(
           "TICKET_NOT_FOUND"
         );
       }
 
-      const ticketData =
-        ticketSnapshot.data();
+      const data =
+        snapshot.data();
 
-      if (
-        ticketData.presupuestoFijado ===
-        true
-      ) {
-        throw new Error(
-          "BUDGET_LOCKED"
-        );
-      }
-
-      let presupuestoId =
-        ticketData
-          .presupuestoId ||
-        linkedBudgetId ||
-        null;
-
-      let budgetRef = null;
-      let existingBudget =
-        null;
-
-      let publicRef = null;
-      let publicData = null;
-
-      if (presupuestoId) {
-        budgetRef =
-          doc(
-            db,
-            "presupuestos",
-            presupuestoId
-          );
-
-        const budgetSnapshot =
-          await transaction.get(
-            budgetRef
-          );
-
-        if (
-          budgetSnapshot.exists()
-        ) {
-          existingBudget =
-            budgetSnapshot.data();
-
-          assertBudgetCanBeModified(
-            existingBudget
-          );
-
-          const publicToken =
-            String(
-              existingBudget.publicToken ||
-              ""
-            ).trim();
-
-          if (publicToken) {
-            publicRef =
-              doc(
-                db,
-                "presupuestos_publicos",
-                publicToken
-              );
-
-            const publicSnapshot =
-              await transaction.get(
-                publicRef
-              );
-
-            if (publicSnapshot.exists()) {
-              publicData =
-                publicSnapshot.data();
-
-              if (
-                publicData.respuesta &&
-                !publicData.aplicadoEn
-              ) {
-                throw new Error(
-                  "PUBLIC_RESPONSE_UNAPPLIED"
-                );
-              }
-            }
-          }
-        }
-      }
-
-      let nextCounter =
-        null;
-
-      if (!presupuestoId) {
-        const counterSnapshot =
-          await transaction.get(
-            counterRef
-          );
-
-        const currentCounter =
-          counterSnapshot.exists()
-            ? normalizeNumber(
-                counterSnapshot
-                  .data()
-                  .presupuestos,
-                0
-              )
-            : 0;
-
-        nextCounter =
-          currentCounter + 1;
-
-        presupuestoId =
-          `PRE-${String(
-            nextCounter
-          ).padStart(
-            6,
-            "0"
-          )}`;
-
-        budgetRef =
-          doc(
-            db,
-            "presupuestos",
-            presupuestoId
-          );
-      }
-
-      const pieces =
-        Array.isArray(
-          ticketData.piezas
-        )
-          ? ticketData.piezas
-          : [];
-
-      const piecesTotal =
-        calculatePiecesTotal(
-          pieces
+      const summary =
+        calculateTicketBudgetSummary(
+          data.piezas || [],
+          labor,
+          discountPercent
         );
 
-      const subtotal =
-        roundMoney(
-          piecesTotal +
-            cleanLabor
-        );
-
-      if (subtotal <= 0) {
-        throw new Error(
-          "BUDGET_EMPTY"
-        );
-      }
-
-      const discountAmount =
-        roundMoney(
-          subtotal *
-            (
-              cleanDiscount /
-              100
-            )
-        );
-
-      const total =
-        roundMoney(
-          Math.max(
-            0,
-            subtotal -
-              discountAmount
-          )
-        );
-
-      const items =
-        buildBudgetItems(
-          pieces,
-          cleanLabor
-        );
-
-      const now =
-        new Date();
-
-      const nowISO =
-        now.toISOString();
-
-      const today =
-        formatDateYMD(now);
-
-      const validityDays =
-        Math.max(
-          1,
-          normalizeNumber(
-            existingBudget
-              ?.validezDias,
-            7
-          )
-        );
-
-      const budgetDate =
-        existingBudget
-          ?.fecha ||
-        today;
-
-      // Cada revisión renueva la vigencia. Mantener la fecha de vencimiento
-      // anterior podía dejar un presupuesto recién corregido ya vencido.
-      const expiryDate =
-        formatDateYMD(
-          addDays(
-            now,
-            validityDays
-          )
-        );
-
-      const isNewBudget =
-        !existingBudget;
-
-      const revision =
-        isNewBudget
-          ? 1
-          : Math.max(
-              1,
-              normalizeNumber(
-                existingBudget?.revision,
-                1
-              )
-            ) + 1;
-
-      const budgetHistoryEntry =
-        createBudgetHistoryEntry({
-          author:
-            cleanAuthorValue,
-
-          action:
-            isNewBudget
-              ? "Presupuesto creado"
-              : "Presupuesto actualizado",
-
-          detail:
-            isNewBudget
-              ? `Generado desde Ticket ${cleanTicketId}. Total: ${total}.`
-              : `Actualizado desde Ticket ${cleanTicketId}. Total: ${total}.`,
-        });
-
-      const previousBudgetHistory =
-        Array.isArray(
-          existingBudget
-            ?.historial
-        )
-          ? existingBudget
-              .historial
-          : [];
-
-      const presupuestoData =
-        {
-          id:
-            presupuestoId,
-
-          numero:
-            presupuestoId,
-
-          fecha:
-            budgetDate,
-
-          hora:
-            existingBudget
-              ?.hora ||
-            formatTimeAR(now),
-
-          fechaVencimiento:
-            expiryDate,
-
-          validezDias:
-            validityDays,
-
-          clienteId:
-            ticketData
-              .clienteId ||
-            existingBudget
-              ?.clienteId ||
-            null,
-
-          cliente:
-            ticketData
-              .cliente ||
-            existingBudget
-              ?.cliente ||
-            "Consumidor Final",
-
-          doc:
-            ticketData.dni ||
-            ticketData.documento ||
-            existingBudget
-              ?.doc ||
-            "C.F.",
-
-          ticketId:
-            cleanTicketId,
-
-          origen:
-            "Ticket",
-
-          estado:
-            "Pendiente",
-
-          estadoCaja:
-            "No enviado",
-
-          presupuestoFijado:
-            true,
-
-          publicado:
-            false,
-
-          revision,
-
-          items,
-
-          subtotal,
-
-          descuento:
-            discountAmount,
-
-          descuentoPorcentaje:
-            cleanDiscount,
-
-          descuentoImporte:
-            discountAmount,
-
-          manoObra:
-            cleanLabor,
-
-          total,
-
-          observaciones:
-            existingBudget
-              ?.observaciones ||
-            "",
-
-          usuario:
-            cleanAuthorValue,
-
-          creadoEn:
-            existingBudget
-              ?.creadoEn ||
-            nowISO,
-
-          actualizadoEn:
-            nowISO,
-
-          historial: [
-            ...previousBudgetHistory,
-            budgetHistoryEntry,
-          ],
-        };
-
-      const detailParts =
-        [
-          `Presupuesto ${presupuestoId}`,
-          `Repuestos/servicios: ${piecesTotal}`,
-          `Mano de obra: ${cleanLabor}`,
-          `Subtotal: ${subtotal}`,
-        ];
-
-      if (
-        cleanDiscount > 0
-      ) {
-        detailParts.push(
-          `Descuento: ${cleanDiscount}% (-${discountAmount})`
-        );
-      }
-
-      detailParts.push(
-        `Total: ${total}`
-      );
-
-      const ticketHistoryEntry =
-        createHistoryEntry({
-          author:
-            cleanAuthorValue,
-
-          action:
-            isNewBudget
-              ? "Presupuesto generado"
-              : "Presupuesto actualizado",
-
-          detail:
-            detailParts.join(
-              " · "
-            ),
-        });
-
-      const previousTicketHistory =
-        Array.isArray(
-          ticketData.historial
-        )
-          ? ticketData.historial
-          : [];
-
-      if (
-        nextCounter !==
-        null
-      ) {
-        transaction.set(
-          counterRef,
-
-          {
-            presupuestos:
-              nextCounter,
-          },
-
-          {
-            merge: true,
-          }
-        );
-      }
-
-      transaction.set(
-        budgetRef,
-
-        presupuestoData,
-
-        {
-          merge: true,
-        }
-      );
-
-      if (existingBudget) {
-        transaction.update(
-          budgetRef,
-          {
-            presupuestoAprobado:
-              deleteField(),
-
-            respuestaPublica:
-              deleteField(),
-
-            respuestaPublicaEn:
-              deleteField(),
-
-            cajaPendienteId:
-              deleteField(),
-          }
-        );
-      }
-
-      if (
-        publicRef &&
-        publicData
-      ) {
-        transaction.update(
-          publicRef,
-          {
-            activo:
-              false,
-
-            estado:
-              "En edición",
-
-            respuesta:
-              null,
-
-            respondidoEn:
-              null,
-
-            aplicadoEn:
-              null,
-
-            aplicadoPor:
-              null,
-
-            cerradoEn:
-              nowISO,
-
-            cerradoPor:
-              cleanAuthorValue,
-
-            actualizadoEn:
-              nowISO,
-          }
-        );
-      }
-
-      transaction.update(
-        ticketRef,
-
-        {
-          presupuestoId,
-
-          stage:
-            "presupuesto",
-
-          presupuestoEstado:
-            "Pendiente",
-
-          manoObra:
-            cleanLabor,
-
-          descuentoPorcentaje:
-            cleanDiscount,
-
-          presupuestoSubtotal:
-            subtotal,
-
-          descuentoImporte:
-            discountAmount,
-
-          presupuestoEstimado:
-            total,
-
-          presupuestoFijado:
-            true,
-
-          presupuestoAprobado:
-            deleteField(),
-
-          actualizadoEn:
-            nowISO,
-
-          historial: [
-            ...previousTicketHistory,
-            ticketHistoryEntry,
-          ],
-        }
-      );
-
-      result = {
-        budgetId:
-          presupuestoId,
-
-        created:
-          isNewBudget,
-
-        piecesTotal,
-
-        labor:
-          cleanLabor,
-
-        subtotal,
-
-        discountPercent:
-          cleanDiscount,
-
-        discountAmount,
-
-        total,
-
-        fixed: true,
-      };
-    }
-  );
-
-  return result;
-}
-
-/* =========================================
-   DESBLOQUEAR PRESUPUESTO
-========================================= */
-
-export async function unlockTicketBudget(
-  ticketId,
-  author
-) {
-  if (!ticketId) {
-    throw new Error(
-      "TICKET_REQUIRED"
-    );
-  }
-
-  const cleanTicketId =
-    String(ticketId);
-
-  const linkedBudgetId =
-    await findBudgetIdByTicket(
-      cleanTicketId
-    );
-
-  const ticketRef =
-    doc(
-      db,
-      "tickets",
-      cleanTicketId
-    );
-
-  let result = {
-    changed: false,
-    budgetId: null,
-  };
-
-  await runTransaction(
-    db,
-
-    async (
-      transaction
-    ) => {
-      const ticketSnapshot =
-        await transaction.get(
-          ticketRef
-        );
-
-      if (
-        !ticketSnapshot.exists()
-      ) {
-        throw new Error(
-          "TICKET_NOT_FOUND"
-        );
-      }
-
-      const ticketData =
-        ticketSnapshot.data();
-
-      const presupuestoId =
-        ticketData
-          .presupuestoId ||
-        linkedBudgetId ||
-        null;
-
-      let budgetRef = null;
-      let budgetData = null;
-      let publicRef = null;
-      let publicData = null;
-
-      if (presupuestoId) {
-        budgetRef =
-          doc(
-            db,
-            "presupuestos",
-            presupuestoId
-          );
-
-        const budgetSnapshot =
-          await transaction.get(
-            budgetRef
-          );
-
-        if (
-          budgetSnapshot.exists()
-        ) {
-          budgetData =
-            budgetSnapshot.data();
-
-          assertBudgetCanBeModified(
-            budgetData
-          );
-
-          const publicToken =
-            String(
-              budgetData.publicToken ||
-              ""
-            ).trim();
-
-          if (publicToken) {
-            publicRef =
-              doc(
-                db,
-                "presupuestos_publicos",
-                publicToken
-              );
-
-            const publicSnapshot =
-              await transaction.get(
-                publicRef
-              );
-
-            if (publicSnapshot.exists()) {
-              publicData =
-                publicSnapshot.data();
-
-              if (
-                publicData.respuesta &&
-                !publicData.aplicadoEn
-              ) {
-                throw new Error(
-                  "PUBLIC_RESPONSE_UNAPPLIED"
-                );
-              }
-            }
-          }
-        }
-      }
-
-      if (
-        ticketData
-          .presupuestoFijado !==
-          true &&
-        !budgetData
-      ) {
-        return;
-      }
-
-      const nowISO =
-        new Date()
-          .toISOString();
-
-      const releasedReservation =
-        await releaseTicketStockInTransaction(
-          transaction,
-          {
-            ticketId:
-              cleanTicketId,
-            pieces:
-              ticketData.piezas ||
-              [],
-            author,
-            reference:
-              presupuestoId ||
-              cleanTicketId,
-            reason:
-              "Presupuesto desbloqueado",
-          }
-        );
-
-      const ticketHistoryEntry =
+      const historyEntry =
         createHistoryEntry({
           author,
-
           action:
-            "Presupuesto desbloqueado",
-
+            "Presupuesto actualizado",
           detail:
-            (
-              presupuestoId
-                ? `Se habilitó la edición del presupuesto ${presupuestoId}.`
-                : "Se habilitó nuevamente la edición del presupuesto."
-            ) +
-            (
-              releasedReservation.released > 0
-                ? ` Reserva liberada: ${releasedReservation.released} un.`
-                : ""
-            ),
+            `Repuestos/servicios: ${summary.piecesTotal} · Mano de obra: ${summary.labor} · Descuento: ${summary.discountPercent}% · Total: ${summary.total}`,
         });
 
-      const ticketHistory =
+      const currentHistory =
         Array.isArray(
-          ticketData.historial
+          data.historial
         )
-          ? ticketData.historial
+          ? data.historial
           : [];
 
       transaction.update(
         ticketRef,
-
         {
-          presupuestoFijado:
-            false,
+          manoObra:
+            summary.labor,
 
-          presupuestoEstado:
-            "En edición",
+          descuentoPorcentaje:
+            summary.discountPercent,
 
-          stage:
-            "presupuesto",
+          presupuestoSubtotal:
+            summary.subtotal,
 
-          presupuestoAprobado:
-            deleteField(),
+          descuentoImporte:
+            summary.discountAmount,
+
+          presupuestoEstimado:
+            summary.total,
 
           actualizadoEn:
-            nowISO,
+            new Date()
+              .toISOString(),
 
           historial: [
-            ...ticketHistory,
-            ticketHistoryEntry,
+            ...currentHistory,
+            historyEntry,
           ],
         }
       );
 
-      if (
-        budgetRef &&
-        budgetData
-      ) {
-        const budgetHistoryEntry =
-          createBudgetHistoryEntry({
-            author,
-
-            action:
-              "Presupuesto desbloqueado",
-
-            detail:
-              `Se habilitó la edición desde Ticket ${cleanTicketId}.`,
-          });
-
-        const budgetHistory =
-          Array.isArray(
-            budgetData.historial
-          )
-            ? budgetData.historial
-            : [];
-
-        transaction.update(
-          budgetRef,
-
-          {
-            estado:
-              "En edición",
-
-            estadoCaja:
-              "No enviado",
-
-            presupuestoFijado:
-              false,
-
-            presupuestoAprobado:
-              deleteField(),
-
-            respuestaPublica:
-              deleteField(),
-
-            respuestaPublicaEn:
-              deleteField(),
-
-            publicado:
-              false,
-
-            actualizadoEn:
-              nowISO,
-
-            historial: [
-              ...budgetHistory,
-              budgetHistoryEntry,
-            ],
-          }
-        );
-      }
-
-      if (
-        publicRef &&
-        publicData
-      ) {
-        transaction.update(
-          publicRef,
-          {
-            activo:
-              false,
-
-            estado:
-              "En edición",
-
-            respuesta:
-              null,
-
-            respondidoEn:
-              null,
-
-            aplicadoEn:
-              null,
-
-            aplicadoPor:
-              null,
-
-            cerradoEn:
-              nowISO,
-
-            cerradoPor:
-              cleanAuthor(author),
-
-            actualizadoEn:
-              nowISO,
-          }
-        );
-      }
-
-      result = {
-        changed: true,
-
-        budgetId:
-          presupuestoId,
-      };
+      result = summary;
     }
   );
 
