@@ -15,15 +15,12 @@ import { motion } from "motion/react";
 import {
   ArrowLeft,
   CalendarDays,
-  Camera,
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
   Clock3,
   Copy,
   Cpu,
-  HardDrive,
-  LockKeyhole,
   MessageSquareText,
   Package,
   Pencil,
@@ -31,9 +28,7 @@ import {
   Printer,
   Save,
   ShieldCheck,
-  Tag,
   Trash2,
-  UnlockKeyhole,
   UserRound,
   WalletCards,
   Wrench,
@@ -43,16 +38,15 @@ import {
 import {
   addTicketNote,
   addTicketPiece,
-  fixTicketBudget,
+  saveTicketBudgetSummary,
   removeTicketPiece,
   subscribeToTicket,
-  unlockTicketBudget,
-  updateTicketDiagnosis,
   updateTicketPiece,
   updateTicketStage,
 } from "../../services/tickets.service.js";
 
 import {
+  cancelCashPending,
   sendTicketToCash,
 } from "../../services/caja-pendientes.service.js";
 
@@ -82,7 +76,7 @@ const STAGES = {
   },
 
   presupuesto: {
-    label: "Esperando aprobación",
+    label: "Presupuesto",
     className: "detail-stage-budget",
   },
 
@@ -126,6 +120,15 @@ const STAGES = {
     className: "detail-stage-warranty",
   },
 };
+
+const WORKFLOW_STAGES = [
+  { key: "pendiente", label: "Ingresado" },
+  { key: "diagnostico", label: "Diagnóstico" },
+  { key: "presupuesto", label: "Presupuesto" },
+  { key: "reparacion", label: "Reparación" },
+  { key: "listo", label: "Listo" },
+  { key: "entregado", label: "Entregado" },
+];
 
 /* =========================================
    HELPERS
@@ -255,18 +258,9 @@ export default function TicketDetail() {
     setSendingToCash,
   ] = useState(false);
 
-  /* =======================================
-     DIAGNÓSTICO
-  ======================================= */
-
   const [
-    diagnosis,
-    setDiagnosis,
-  ] = useState("");
-
-  const [
-    savingDiagnosis,
-    setSavingDiagnosis,
+    cancellingCashPending,
+    setCancellingCashPending,
   ] = useState(false);
 
   /* =======================================
@@ -341,10 +335,6 @@ export default function TicketDetail() {
     setSavingBudget,
   ] = useState(false);
 
-  const [
-    unlockingBudget,
-    setUnlockingBudget,
-  ] = useState(false);
 
   /* =======================================
      AUTOR
@@ -437,23 +427,6 @@ export default function TicketDetail() {
   ]);
 
   /* =======================================
-     SINCRONIZAR DIAGNÓSTICO
-  ======================================= */
-
-  useEffect(() => {
-    if (!ticket) {
-      return;
-    }
-
-    setDiagnosis(
-      ticket.diagnostico ||
-        ""
-    );
-  }, [
-    ticket?.diagnostico,
-  ]);
-
-  /* =======================================
      SINCRONIZAR PRESUPUESTO
   ======================================= */
 
@@ -489,9 +462,20 @@ export default function TicketDetail() {
       ticket?.stage
     );
 
-  const budgetLocked =
-    ticket?.presupuestoFijado ===
-    true;
+  const workflowStageKey =
+    ({
+      presupuesto_rechazado: "presupuesto",
+      repuesto: "reparacion",
+      garantia: "entregado",
+    })[ticket?.stage] ||
+    ticket?.stage ||
+    "pendiente";
+
+  const workflowStageIndex =
+    WORKFLOW_STAGES.findIndex(
+      (item) => item.key === workflowStageKey
+    );
+
 
   const pieces =
     useMemo(() => {
@@ -502,17 +486,6 @@ export default function TicketDetail() {
         : [];
     }, [
       ticket?.piezas,
-    ]);
-
-  const photos =
-    useMemo(() => {
-      return Array.isArray(
-        ticket?.fotos
-      )
-        ? ticket.fotos
-        : [];
-    }, [
-      ticket?.fotos,
     ]);
 
   const history =
@@ -656,26 +629,10 @@ export default function TicketDetail() {
         budgetDiscountAmount
     );
 
-  const persistedBudgetTotal =
-    Number(
-      ticket?.presupuestoEstimado ||
-        0
-    );
-
-  const displayedBudgetTotal =
-    budgetLocked
-      ? persistedBudgetTotal
-      : budgetTotal;
 
   /* =======================================
      CAJA / FACTURACIÓN
   ======================================= */
-
-  const budgetAccepted =
-    ticket?.presupuestoAprobado ===
-      true ||
-    ticket?.presupuestoEstado ===
-      "Aceptado";
 
   const cashPending =
     ticket?.estadoCaja ===
@@ -687,6 +644,20 @@ export default function TicketDetail() {
     ticket?.estadoPago ===
       "Pagado";
 
+  const cashFinanced =
+    ticket?.estadoCaja ===
+      "Financiado" ||
+    [
+      "Financiado",
+      "Pago Parcial",
+    ].includes(
+      ticket?.estadoPago
+    );
+
+  const cashResolved =
+    cashPaid ||
+    cashFinanced;
+
   const alreadyBilled =
     Boolean(
       ticket?.estadoFacturacion &&
@@ -695,11 +666,8 @@ export default function TicketDetail() {
     );
 
   const canSendToCash =
-    ticket?.stage ===
-      "listo" &&
-    budgetAccepted &&
     !cashPending &&
-    !cashPaid &&
+    !cashResolved &&
     !alreadyBilled;
 
   /* =======================================
@@ -793,78 +761,22 @@ export default function TicketDetail() {
           currentStage
         );
 
+        const stageMessages = {
+          TICKET_CASH_PENDING_LOCKED:
+            "Primero cancelá el pendiente de Caja o completá el cobro.",
+          TICKET_PAYMENT_REQUIRED:
+            "El ticket debe estar cobrado o financiado y facturado antes de marcarlo como Entregado.",
+          TICKET_FINANCIAL_REVERSAL_REQUIRED:
+            "El ticket ya tiene una operación financiera. Primero anulá o rectificá la factura correspondiente.",
+        };
+
         notify.error(
           "No se pudo cambiar el estado",
-          "Firestore rechazó la actualización."
+          stageMessages[stageError?.message] ||
+            "Firestore rechazó la actualización."
         );
       } finally {
         setSavingStage(
-          false
-        );
-      }
-    };
-
-  /* =======================================
-     DIAGNÓSTICO
-  ======================================= */
-
-  const handleSaveDiagnosis =
-    async () => {
-      const cleanDiagnosis =
-        diagnosis.trim();
-
-      if (!cleanDiagnosis) {
-        notify.warning(
-          "Diagnóstico vacío",
-          "Escribí el diagnóstico antes de guardar."
-        );
-
-        return;
-      }
-
-      if (
-        cleanDiagnosis ===
-        String(
-          ticket?.diagnostico ||
-            ""
-        ).trim()
-      ) {
-        notify.info(
-          "Sin cambios",
-          "El diagnóstico no fue modificado."
-        );
-
-        return;
-      }
-
-      try {
-        setSavingDiagnosis(
-          true
-        );
-
-        await updateTicketDiagnosis(
-          ticket.id,
-          cleanDiagnosis,
-          author
-        );
-
-        notify.success(
-          "Diagnóstico guardado",
-          `El diagnóstico del ticket #${ticket.id} fue actualizado.`
-        );
-      } catch (
-        diagnosisError
-      ) {
-        console.error(
-          diagnosisError
-        );
-
-        notify.error(
-          "No se pudo guardar",
-          "Ocurrió un error al actualizar el diagnóstico."
-        );
-      } finally {
-        setSavingDiagnosis(
           false
         );
       }
@@ -929,20 +841,6 @@ export default function TicketDetail() {
 
   const handleAddPiece =
     async () => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloqueá el presupuesto antes de modificar sus ítems."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       const name =
         pieceForm.nombre.trim();
@@ -1055,20 +953,6 @@ export default function TicketDetail() {
       piece,
       index
     ) => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de editar repuestos o servicios."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       setEditingPieceIndex(
         index
@@ -1106,16 +990,6 @@ export default function TicketDetail() {
 
   const handleSavePiece =
     async () => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de modificar los ítems."
-        );
-
-        return;
-      }
 
       if (
         editingPieceIndex ===
@@ -1234,20 +1108,6 @@ export default function TicketDetail() {
       piece,
       index
     ) => {
-      if (
-        budgetLocked
-      ) {
-        notify.warning(
-          "Presupuesto bloqueado",
-          "Desbloquealo antes de eliminar ítems."
-        );
-
-        setActiveTab(
-          "budget"
-        );
-
-        return;
-      }
 
       const confirmed =
         window.confirm(
@@ -1368,43 +1228,21 @@ export default function TicketDetail() {
     };
 
   /* =======================================
-     FIJAR PRESUPUESTO
+     GUARDAR PRESUPUESTO
   ======================================= */
 
-  const handleFixBudget =
+  const handleSaveBudget =
     async () => {
       if (
-        budgetLocked
-      ) {
-        notify.info(
-          "Presupuesto fijado",
-          "Desbloquealo antes de modificarlo."
-        );
-
-        return;
-      }
-
-      if (
-        budgetSubtotal <=
+        budgetTotal <=
         0
       ) {
         notify.warning(
           "Presupuesto vacío",
-          "Agregá al menos un repuesto, servicio o importe de mano de obra."
+          "Agregá un repuesto, servicio o importe de mano de obra."
         );
 
-        return;
-      }
-
-      const confirmed =
-        window.confirm(
-          `¿Fijar el presupuesto del ticket #${ticket.id} en ${formatMoney(budgetTotal)}?`
-        );
-
-      if (
-        !confirmed
-      ) {
-        return;
+        return null;
       }
 
       try {
@@ -1413,7 +1251,7 @@ export default function TicketDetail() {
         );
 
         const result =
-          await fixTicketBudget(
+          await saveTicketBudgetSummary(
             ticket.id,
             {
               labor:
@@ -1426,118 +1264,24 @@ export default function TicketDetail() {
           );
 
         notify.success(
-          "Presupuesto fijado",
-          `Total final: ${formatMoney(result.total)}`
+          "Presupuesto guardado",
+          `Total actualizado: ${formatMoney(result.total)}`
         );
-      } catch (
-        budgetError
-      ) {
+
+        return result;
+      } catch (budgetError) {
         console.error(
           budgetError
         );
 
-        if (
-          budgetError?.message ===
-          "BUDGET_EMPTY"
-        ) {
-          notify.warning(
-            "Presupuesto vacío",
-            "No hay importes suficientes para fijar el presupuesto."
-          );
-
-          return;
-        }
-
-        if (
-          budgetError?.message ===
-          "BUDGET_LOCKED"
-        ) {
-          notify.warning(
-            "Presupuesto bloqueado",
-            "Este presupuesto ya se encuentra fijado."
-          );
-
-          return;
-        }
-
         notify.error(
-          "No se pudo fijar",
-          "Ocurrió un error al guardar el presupuesto."
+          "No se pudo guardar",
+          "Ocurrió un error al actualizar el presupuesto."
         );
+
+        return null;
       } finally {
         setSavingBudget(
-          false
-        );
-      }
-    };
-
-  /* =======================================
-     DESBLOQUEAR PRESUPUESTO
-  ======================================= */
-
-  const handleUnlockBudget =
-    async () => {
-      if (
-        !budgetLocked
-      ) {
-        notify.info(
-          "Presupuesto editable",
-          "El presupuesto ya está desbloqueado."
-        );
-
-        return;
-      }
-
-      const confirmed =
-        window.confirm(
-          "¿Desbloquear el presupuesto? Si fue aprobado anteriormente, esa aprobación dejará de ser válida."
-        );
-
-      if (
-        !confirmed
-      ) {
-        return;
-      }
-
-      try {
-        setUnlockingBudget(
-          true
-        );
-
-        const result =
-          await unlockTicketBudget(
-            ticket.id,
-            author
-          );
-
-        if (
-          !result.changed
-        ) {
-          notify.info(
-            "Sin cambios",
-            "El presupuesto ya estaba desbloqueado."
-          );
-
-          return;
-        }
-
-        notify.success(
-          "Presupuesto desbloqueado",
-          "Ya podés modificar importes, descuento y repuestos."
-        );
-      } catch (
-        unlockError
-      ) {
-        console.error(
-          unlockError
-        );
-
-        notify.error(
-          "No se pudo desbloquear",
-          "Ocurrió un error al modificar el presupuesto."
-        );
-      } finally {
-        setUnlockingBudget(
           false
         );
       }
@@ -1591,11 +1335,24 @@ export default function TicketDetail() {
         return;
       }
 
+      if (budgetTotal <= 0) {
+        notify.warning(
+          "Sin importe para cobrar",
+          "Cargá al menos un repuesto, servicio o mano de obra antes de enviar a Caja."
+        );
+
+        setActiveTab(
+          "budget"
+        );
+
+        return;
+      }
+
       const confirmed =
         window.confirm(
           `¿Enviar ${ticket.id} a Caja?\n\n` +
             `Total a cobrar: ${formatMoney(
-              displayedBudgetTotal
+              budgetTotal
             )}`
         );
 
@@ -1607,6 +1364,24 @@ export default function TicketDetail() {
         setSendingToCash(
           true
         );
+
+        const savedBudget =
+          await saveTicketBudgetSummary(
+            ticket.id,
+            {
+              labor:
+                safeLabor,
+              discountPercent:
+                safeDiscount,
+            },
+            author
+          );
+
+        if (savedBudget.total <= 0) {
+          throw new Error(
+            "BUDGET_INVALID_TOTAL"
+          );
+        }
 
         const result =
           await sendTicketToCash(
@@ -1621,9 +1396,6 @@ export default function TicketDetail() {
           )}.`
         );
 
-        navigate(
-          "/caja"
-        );
       } catch (
         cashError
       ) {
@@ -1637,12 +1409,6 @@ export default function TicketDetail() {
 
           TICKET_NOT_FOUND:
             "No encontramos el ticket en Firestore.",
-
-          TICKET_NOT_READY:
-            "El ticket debe estar en Listo para entrega antes de pasar a Caja.",
-
-          BUDGET_NOT_ACCEPTED:
-            "El presupuesto debe estar aceptado antes de cobrar.",
 
           BUDGET_INVALID_TOTAL:
             "El presupuesto no tiene un total válido.",
@@ -1669,6 +1435,55 @@ export default function TicketDetail() {
         setSendingToCash(
           false
         );
+      }
+    };
+
+  const handleCancelCashPending =
+    async () => {
+      const pendingId =
+        ticket?.cajaPendienteId;
+
+      if (!pendingId) {
+        notify.info(
+          "Sin pendiente",
+          "El ticket ya no tiene un cobro pendiente en Caja."
+        );
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `¿Cancelar el envío del ticket #${ticket.id} a Caja?\n\n` +
+            "No se elimina el presupuesto; solamente se retira el pendiente de cobro."
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setCancellingCashPending(true);
+
+        await cancelCashPending(
+          pendingId,
+          author
+        );
+
+        notify.success(
+          "Envío cancelado",
+          `El ticket #${ticket.id} volvió a quedar disponible para revisión antes del cobro.`
+        );
+      } catch (cashError) {
+        console.error(cashError);
+
+        notify.error(
+          "No se pudo cancelar",
+          cashError?.message === "CASH_PENDING_NOT_FOUND"
+            ? "El pendiente ya no existe; probablemente fue procesado desde Caja."
+            : cashError?.message || "Ocurrió un error inesperado."
+        );
+      } finally {
+        setCancellingCashPending(false);
       }
     };
 
@@ -1800,7 +1615,7 @@ export default function TicketDetail() {
           <div className="ticket-detail-title">
 
             <span>
-              Orden de servicio
+              ALEX SOPORTE TÉCNICO · Orden de servicio
             </span>
 
             <div>
@@ -1892,7 +1707,7 @@ export default function TicketDetail() {
             <div className="ticket-detail-hero-copy">
 
               <span className="ticket-detail-kicker">
-                Equipo recibido
+                Equipo recibido · seguimiento técnico
               </span>
 
               <h2>
@@ -1925,6 +1740,34 @@ export default function TicketDetail() {
             </div>
 
           </motion.section>
+
+          <section className="ticket-workflow" aria-label="Flujo del ticket">
+            {WORKFLOW_STAGES.map((item, index) => {
+              const isCurrent = index === workflowStageIndex;
+              const isDone =
+                workflowStageIndex >= 0 &&
+                index < workflowStageIndex;
+
+              return (
+                <div
+                  key={item.key}
+                  className={`ticket-workflow-step ${
+                    isDone ? "done" : ""
+                  } ${isCurrent ? "current" : ""}`}
+                >
+                  <span className="ticket-workflow-marker">
+                    {isDone ? (
+                      <CheckCircle2 size={14} />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+
+                  <strong>{item.label}</strong>
+                </div>
+              );
+            })}
+          </section>
 
           {/* CLIENTE / EQUIPO */}
 
@@ -1972,18 +1815,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                <div>
-
-                  <span>
-                    Técnico
-                  </span>
-
-                  <strong>
-                    {ticket.tecnico ||
-                      "Sin asignar"}
-                  </strong>
-
-                </div>
 
               </div>
 
@@ -2087,86 +1918,6 @@ export default function TicketDetail() {
               {ticket.falla ||
                 "No se registró una falla informada por el cliente."}
             </p>
-
-          </section>
-
-          {/* DIAGNÓSTICO */}
-
-          <section className="ticket-content-card">
-
-            <div className="ticket-content-heading">
-
-              <div className="ticket-content-icon diagnosis">
-
-                <HardDrive
-                  size={18}
-                />
-
-              </div>
-
-              <div>
-
-                <span>
-                  Trabajo técnico
-                </span>
-
-                <h3>
-                  Diagnóstico
-                </h3>
-
-              </div>
-
-            </div>
-
-            <textarea
-              className="ticket-diagnosis-textarea"
-
-              value={
-                diagnosis
-              }
-
-              disabled={
-                savingDiagnosis
-              }
-
-              placeholder="Describí el diagnóstico técnico..."
-
-              onChange={(event) =>
-                setDiagnosis(
-                  event.target.value
-                )
-              }
-            />
-
-            <div className="ticket-content-action-row">
-
-              <small>
-                {diagnosis.length} caracteres
-              </small>
-
-              <button
-                type="button"
-
-                className="ticket-primary-action"
-
-                disabled={
-                  savingDiagnosis
-                }
-
-                onClick={
-                  handleSaveDiagnosis
-                }
-              >
-                <Save
-                  size={16}
-                />
-
-                {savingDiagnosis
-                  ? "Guardando..."
-                  : "Guardar diagnóstico"}
-              </button>
-
-            </div>
 
           </section>
 
@@ -2346,36 +2097,6 @@ export default function TicketDetail() {
 
               </button>
 
-              <button
-                type="button"
-
-                className={
-                  activeTab ===
-                  "photos"
-                    ? "active"
-                    : ""
-                }
-
-                onClick={() =>
-                  setActiveTab(
-                    "photos"
-                  )
-                }
-              >
-                <Camera
-                  size={16}
-                />
-
-                Fotos
-
-                {photos.length >
-                  0 && (
-                  <span>
-                    {photos.length}
-                  </span>
-                )}
-
-              </button>
 
               <button
                 type="button"
@@ -2438,15 +2159,6 @@ export default function TicketDetail() {
 
                   <div className="ticket-tab-heading-right">
 
-                    {budgetLocked && (
-                      <span className="ticket-budget-lock-badge">
-                        <LockKeyhole
-                          size={12}
-                        />
-
-                        Bloqueado
-                      </span>
-                    )}
 
                     <strong className="ticket-tab-total">
                       {formatMoney(
@@ -2458,31 +2170,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                {budgetLocked && (
-                  <div className="ticket-budget-locked-notice">
-
-                    <LockKeyhole
-                      size={16}
-                    />
-
-                    <span>
-                      El presupuesto está fijado. Desbloquealo para modificar repuestos o servicios.
-                    </span>
-
-                    <button
-                      type="button"
-
-                      onClick={() =>
-                        setActiveTab(
-                          "budget"
-                        )
-                      }
-                    >
-                      Ir al presupuesto
-                    </button>
-
-                  </div>
-                )}
 
                 <div className="ticket-piece-form">
 
@@ -2502,8 +2189,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2538,8 +2224,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2574,8 +2259,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2612,8 +2296,7 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece ||
-                        budgetLocked
+                        addingPiece
                       }
 
                       onChange={(event) =>
@@ -2638,8 +2321,7 @@ export default function TicketDetail() {
                     className="ticket-piece-add"
 
                     disabled={
-                      addingPiece ||
-                      budgetLocked
+                      addingPiece
                     }
 
                     onClick={
@@ -2940,7 +2622,6 @@ export default function TicketDetail() {
                                           type="button"
 
                                           disabled={
-                                            budgetLocked ||
                                             editingPieceIndex !==
                                               null
                                           }
@@ -2952,11 +2633,7 @@ export default function TicketDetail() {
                                             )
                                           }
 
-                                          title={
-                                            budgetLocked
-                                              ? "Presupuesto bloqueado"
-                                              : "Editar"
-                                          }
+                                          title="Editar"
                                         >
                                           <Pencil
                                             size={14}
@@ -2969,7 +2646,6 @@ export default function TicketDetail() {
                                           className="delete"
 
                                           disabled={
-                                            budgetLocked ||
                                             deletingPieceIndex ===
                                               index
                                           }
@@ -2981,11 +2657,7 @@ export default function TicketDetail() {
                                             )
                                           }
 
-                                          title={
-                                            budgetLocked
-                                              ? "Presupuesto bloqueado"
-                                              : "Eliminar"
-                                          }
+                                          title="Eliminar"
                                         >
                                           <Trash2
                                             size={14}
@@ -3040,15 +2712,6 @@ export default function TicketDetail() {
 
                   </div>
 
-                  {budgetLocked && (
-                    <span className="ticket-budget-lock-badge">
-                      <LockKeyhole
-                        size={12}
-                      />
-
-                      Fijado
-                    </span>
-                  )}
 
                 </div>
 
@@ -3098,7 +2761,6 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          budgetLocked ||
                           savingBudget
                         }
 
@@ -3153,7 +2815,6 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          budgetLocked ||
                           savingBudget
                         }
 
@@ -3202,181 +2863,40 @@ export default function TicketDetail() {
 
                     <strong>
                       {formatMoney(
-                        displayedBudgetTotal
+                        budgetTotal
                       )}
                     </strong>
 
                   </div>
-
-                  {/* ESTADO */}
 
                   <div className="ticket-budget-status-row">
 
-                    <div>
+                    <span>
+                      Los cambios quedan registrados en la bitácora.
+                    </span>
 
-                      {budgetLocked ? (
-                        <>
-                          <LockKeyhole
-                            size={14}
-                          />
+                    <button
+                      type="button"
+                      className="ticket-budget-fix-button"
+                      disabled={
+                        savingBudget
+                      }
+                      onClick={
+                        handleSaveBudget
+                      }
+                    >
+                      <Save
+                        size={14}
+                      />
 
-                          <span>
-                            Presupuesto fijado
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <UnlockKeyhole
-                            size={14}
-                          />
-
-                          <span>
-                            Presupuesto editable
-                          </span>
-                        </>
-                      )}
-
-                    </div>
-
-                    {budgetLocked ? (
-                      <button
-                        type="button"
-
-                        className="ticket-budget-unlock-button"
-
-                        disabled={
-                          unlockingBudget
-                        }
-
-                        onClick={
-                          handleUnlockBudget
-                        }
-                      >
-                        <UnlockKeyhole
-                          size={14}
-                        />
-
-                        {unlockingBudget
-                          ? "Desbloqueando..."
-                          : "Desbloquear"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-
-                        className="ticket-budget-fix-button"
-
-                        disabled={
-                          savingBudget
-                        }
-
-                        onClick={
-                          handleFixBudget
-                        }
-                      >
-                        <LockKeyhole
-                          size={14}
-                        />
-
-                        {savingBudget
-                          ? "Fijando..."
-                          : "Fijar presupuesto"}
-                      </button>
-                    )}
+                      {savingBudget
+                        ? "Guardando..."
+                        : "Guardar presupuesto"}
+                    </button>
 
                   </div>
 
                 </div>
-
-              </div>
-            )}
-
-            {/* =================================
-                FOTOS
-            ================================= */}
-
-            {activeTab ===
-              "photos" && (
-              <div className="ticket-tab-content">
-
-                <div className="ticket-tab-heading">
-
-                  <div>
-
-                    <span>
-                      Evidencia
-                    </span>
-
-                    <h3>
-                      Fotografías
-                    </h3>
-
-                    <p>
-                      Registro visual asociado al equipo.
-                    </p>
-
-                  </div>
-
-                </div>
-
-                {photos.length ===
-                0 ? (
-                  <div className="ticket-tab-empty">
-
-                    <Camera
-                      size={25}
-                    />
-
-                    <strong>
-                      Sin fotografías
-                    </strong>
-
-                    <span>
-                      Este ticket todavía no tiene imágenes registradas.
-                    </span>
-
-                  </div>
-                ) : (
-                  <div className="ticket-photo-grid">
-
-                    {photos.map(
-                      (
-                        url,
-                        index
-                      ) => (
-                        <a
-                          key={
-                            `${url}-${index}`
-                          }
-
-                          href={
-                            url
-                          }
-
-                          target="_blank"
-
-                          rel="noreferrer"
-                        >
-                          <img
-                            src={
-                              url
-                            }
-
-                            alt={
-                              `Ticket ${ticket.id} - ${index + 1}`
-                            }
-                          />
-
-                          <span>
-                            Foto {index + 1}
-                          </span>
-
-                        </a>
-                      )
-                    )}
-
-                  </div>
-                )}
 
               </div>
             )}
@@ -3402,7 +2922,7 @@ export default function TicketDetail() {
                     </h3>
 
                     <p>
-                      Eventos automáticos y observaciones internas.
+                      Eventos automáticos, diagnósticos y observaciones internas.
                     </p>
 
                   </div>
@@ -3432,7 +2952,7 @@ export default function TicketDetail() {
                       savingNote
                     }
 
-                    placeholder="Ej: Cliente informado sobre el avance del trabajo..."
+                    placeholder="Ej: Diagnóstico: falla en conector de carga. Cliente informado sobre el avance..."
 
                     onChange={(event) =>
                       setNote(
@@ -3687,39 +3207,6 @@ export default function TicketDetail() {
 
                 </div>
 
-                <div>
-
-                  <Tag
-                    size={15}
-                  />
-
-                  <span>
-                    Prioridad
-                  </span>
-
-                  <strong>
-                    {ticket.prioridad ||
-                      "P2"}
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <UserRound
-                    size={15}
-                  />
-
-                  <span>
-                    Técnico
-                  </span>
-
-                  <strong>
-                    {ticket.tecnico ||
-                      "Sin asignar"}
-                  </strong>
-
-                </div>
 
               </div>
 
@@ -3739,21 +3226,15 @@ export default function TicketDetail() {
 
                   <strong>
                     {formatMoney(
-                      displayedBudgetTotal
+                      budgetTotal
                     )}
                   </strong>
 
                 </div>
 
-                {budgetLocked ? (
-                  <LockKeyhole
-                    size={16}
-                  />
-                ) : (
-                  <CircleDollarSign
-                    size={17}
-                  />
-                )}
+                <CircleDollarSign
+                  size={17}
+                />
 
               </div>
 
@@ -3768,11 +3249,6 @@ export default function TicketDetail() {
                     </span>
                   )}
 
-                  {budgetLocked && (
-                    <span className="ticket-budget-fixed-label">
-                      Fijado
-                    </span>
-                  )}
 
                 </div>
 
@@ -3905,11 +3381,14 @@ export default function TicketDetail() {
 
                   disabled={
                     sendingToCash ||
-                    !canSendToCash
+                    cancellingCashPending ||
+                    (!canSendToCash && !cashPending)
                   }
 
                   onClick={
-                    handleSendToCash
+                    cashPending
+                      ? handleCancelCashPending
+                      : handleSendToCash
                   }
                 >
                   <WalletCards
@@ -3918,27 +3397,18 @@ export default function TicketDetail() {
 
                   {sendingToCash
                     ? "Enviando a Caja..."
-                    : cashPending
-                      ? "Pendiente en Caja"
-                      : cashPaid ||
-                          alreadyBilled
-                        ? "Cobrado / facturado"
-                        : "Enviar a Caja"}
+                    : cancellingCashPending
+                      ? "Cancelando envío..."
+                      : cashPending
+                        ? "Cancelar envío a Caja"
+                      : cashFinanced
+                        ? "Financiado / facturado"
+                        : cashPaid ||
+                            alreadyBilled
+                          ? "Cobrado / facturado"
+                          : "Enviar a Caja"}
                 </button>
 
-                {!canSendToCash &&
-                  !cashPending &&
-                  !cashPaid &&
-                  !alreadyBilled && (
-                  <small className="ticket-cash-hint">
-                    {!budgetAccepted
-                      ? "Primero debe aceptarse el presupuesto."
-                      : ticket?.stage !==
-                          "listo"
-                        ? "Disponible cuando el ticket esté Listo para entrega."
-                        : ""}
-                  </small>
-                )}
 
                 <button
                   type="button"
