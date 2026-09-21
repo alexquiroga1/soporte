@@ -1927,3 +1927,52 @@
     transition: none !important;
   }
 }
+
+/* =========================================
+   AJUSTE FULLSCREEN · CARTERA Y COBRANZAS
+   - La cartera usa todo el ancho disponible.
+   - El detalle del cliente/crédito queda debajo, no al costado.
+   - Si no hay crédito seleccionado, no muestra una tarjeta vacía.
+========================================= */
+
+.credits-pro-page {
+  width: 100%;
+  max-width: none;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.credits-pro-shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.credits-pro-grid {
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.credits-pro-main-card,
+.credits-pro-detail-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.credits-pro-detail-card {
+  position: static;
+  top: auto;
+}
+
+.credits-pro-detail-card.is-empty {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .credits-pro-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+

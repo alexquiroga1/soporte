@@ -10,22 +10,31 @@ import {
   useSearchParams,
 } from "react-router-dom";
 
-import {
-  motion,
-} from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 
 import {
+  AlertTriangle,
   ArrowLeft,
-  Clock3,
+  ArrowUp,
+  CalendarDays,
   Check,
-  CircleAlert,
+  CircleDollarSign,
+  Clock3,
   Cpu,
+  Eye,
+  FileText,
   Home,
-  MapPin,
+  Laptop,
+  MessageCircle,
   Monitor,
+  Package,
+  Plus,
   Save,
   Search,
+  Settings,
   ShieldCheck,
+  Sparkles,
+  Trash2,
   UserPlus,
   UserRound,
   Wifi,
@@ -33,34 +42,17 @@ import {
   X,
 } from "lucide-react";
 
-import {
-  createTicket,
-  subscribeToTickets,
-} from "../../services/tickets.service.js";
-
+import { createTicket } from "../../services/tickets.service.js";
 import {
   createClient,
   getClientDisplayName,
   subscribeToClients,
 } from "../../services/clientes.service.js";
+import { notify } from "../../services/notifications.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
-import {
-  subscribeToBusinessConfig,
-} from "../../services/configuracion.service.js";
-
-import {
-  notify,
-} from "../../services/notifications.js";
-
-import {
-  useAuth,
-} from "../../context/AuthContext.jsx";
-
+import technicianCharacter from "./assets/technician-character.png";
 import "./NuevoTicket.css";
-
-/* =========================================
-   CONSTANTES
-========================================= */
 
 const EQUIPMENT_TYPES = [
   "Notebook",
@@ -72,25 +64,18 @@ const EQUIPMENT_TYPES = [
   "Otro",
 ];
 
+const JOB_TYPES = [
+  "Reparación",
+  "Diagnóstico",
+  "Mantenimiento",
+  "Instalación",
+  "Soporte",
+];
+
 const SERVICE_TYPES = [
-  {
-    id: "Taller",
-    label: "Taller",
-    description: "El equipo ingresa al taller.",
-    icon: Monitor,
-  },
-  {
-    id: "Domicilio",
-    label: "Domicilio",
-    description: "Servicio en la ubicación del cliente.",
-    icon: Home,
-  },
-  {
-    id: "Remoto",
-    label: "Remoto",
-    description: "Asistencia mediante conexión remota.",
-    icon: Wifi,
-  },
+  { id: "Taller", label: "Taller", icon: Monitor },
+  { id: "Domicilio", label: "Domicilio", icon: Home },
+  { id: "Remoto", label: "Remoto", icon: Wifi },
 ];
 
 const PHYSICAL_ITEMS = [
@@ -103,7 +88,7 @@ const PHYSICAL_ITEMS = [
 
 const ACCESSORY_ITEMS = [
   ["cargador", "Cargador"],
-  ["funda", "Funda"],
+  ["funda", "Funda / bolso"],
   ["cable", "Cable"],
 ];
 
@@ -116,2377 +101,830 @@ const EMPTY_NEW_CLIENT = {
   email: "",
 };
 
-/* =========================================
-   FORMULARIO VACÍO
-========================================= */
-
-function createEmptyForm(
-  warrantyDays = 30
-) {
+function createEmptyForm() {
   return {
-    serviceType:
-      "Taller",
-
-    equipment:
-      "Notebook",
-
-    brand:
-      "",
-
-    model:
-      "",
-
-    serial:
-      "",
-
-    pin:
-      "",
-
-    specs:
-      "",
-
-    condition:
-      "",
-
-    warrantyDays:
-      String(
-        warrantyDays
-      ),
-
+    arrivalStatus: "received",
+    jobType: "Reparación",
+    serviceType: "Taller",
+    equipment: "Notebook",
+    brand: "",
+    model: "",
+    serial: "",
+    pin: "",
+    specs: "",
+    condition: "Buen estado general",
+    issue: "",
+    visibleObservations: "",
+    priority: "P2",
+    technician: "Alex",
+    estimatedDate: "",
+    estimatedBudget: "",
+    advance: "",
+    paymentMethod: "A definir",
+    internalNotes: "",
+    warrantyDays: "90",
     physicalState: {
-      pantalla:
-        false,
-
-      carcasa:
-        false,
-
-      teclado:
-        false,
-
-      cargador:
-        false,
-
-      bateria:
-        false,
-
-      puertos:
-        false,
+      pantalla: false,
+      carcasa: false,
+      teclado: false,
+      puertos: false,
+      bateria: false,
     },
-
     accessories: {
-      cargador:
-        false,
-
-      funda:
-        false,
-
-      cable:
-        false,
+      cargador: false,
+      funda: false,
+      cable: false,
     },
-
     homeService: {
-      direccion:
-        "",
-
-      fecha:
-        "",
-
-      hora:
-        "",
-
-      contacto:
-        "",
+      direccion: "",
+      fecha: "",
+      hora: "",
+      contacto: "",
     },
-
     remoteService: {
-      plataforma:
-        "AnyDesk",
-
-      idConexion:
-        "",
-
-      clave:
-        "",
+      plataforma: "AnyDesk",
+      idConexion: "",
+      clave: "",
     },
   };
 }
 
-/* =========================================
-   HELPERS
-========================================= */
-
-function normalizeText(
-  value
-) {
-  return String(
-    value ?? ""
-  )
-    .trim()
-    .toLowerCase();
+function normalizeText(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
-function formatDate(
-  value
-) {
-  if (!value) {
-    return "—";
-  }
-
-  const date =
-    new Date(
-      String(value).length ===
-      10
-        ? `${value}T12:00:00`
-        : value
-    );
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(
-    "es-AR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
-  ).format(
-    date
-  );
+function formatMoney(value) {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
 }
 
-function errorMessage(
-  error
-) {
+function errorMessage(error) {
   const map = {
-    TICKET_CLIENT_ARCHIVED:
-      "Ese cliente está archivado. Restauralo antes de crear un ticket.",
-
-    TICKET_HOME_ADDRESS_REQUIRED:
-      "Ingresá la dirección donde se realizará el servicio.",
-
-    TICKET_REMOTE_ID_REQUIRED:
-      "Ingresá el ID o código de conexión remota.",
-
+    TICKET_CLIENT_ARCHIVED: "Ese cliente está archivado. Restauralo antes de crear un ticket.",
+    TICKET_HOME_ADDRESS_REQUIRED: "Ingresá la dirección donde se realizará el servicio.",
+    TICKET_REMOTE_ID_REQUIRED: "Ingresá el ID o código de conexión remota.",
   };
 
-  return (
-    map[
-      error?.message
-    ] ||
-    error?.message ||
-    "No se pudo crear el ticket."
-  );
+  return map[error?.message] || error?.message || "No se pudo crear el ticket.";
 }
-
-/* =========================================
-   COMPONENTE
-========================================= */
 
 export default function NuevoTicket() {
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { profile, user } = useAuth();
+  const preselectedApplied = useRef(false);
 
-  const [
-    searchParams,
-  ] =
-    useSearchParams();
+  const author = profile?.nombre || profile?.name || user?.email || "Sistema";
 
-  const {
-    profile,
-    user,
-  } =
-    useAuth();
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [form, setForm] = useState(createEmptyForm);
+  const [clientQuery, setClientQuery] = useState("");
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState(EMPTY_NEW_CLIENT);
+  const [savingNewClient, setSavingNewClient] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
-  const author =
-    profile?.nombre ||
-    profile?.name ||
-    user?.email ||
-    "Sistema";
-
-  /* =======================================
-     DATOS FIREBASE
-  ======================================= */
-
-  const [
-    clients,
-    setClients,
-  ] =
-    useState([]);
-
-  const [
-    tickets,
-    setTickets,
-  ] =
-    useState([]);
-
-  const [
-    loadingClients,
-    setLoadingClients,
-  ] =
-    useState(true);
-
-  const [
-    defaultWarrantyDays,
-    setDefaultWarrantyDays,
-  ] =
-    useState(30);
-
-  /* =======================================
-     FORMULARIO
-  ======================================= */
-
-  const [
-    form,
-    setForm,
-  ] =
-    useState(
-      () =>
-        createEmptyForm(
-          30
-        )
-    );
-
-  const [
-    clientQuery,
-    setClientQuery,
-  ] =
-    useState("");
-
-  const [
-    selectedClient,
-    setSelectedClient,
-  ] =
-    useState(null);
-
-  const [
-    clientSearchOpen,
-    setClientSearchOpen,
-  ] =
-    useState(false);
-
-  const [
-    newClientOpen,
-    setNewClientOpen,
-  ] =
-    useState(false);
-
-  const [
-    newClientForm,
-    setNewClientForm,
-  ] =
-    useState(EMPTY_NEW_CLIENT);
-
-  const [
-    savingNewClient,
-    setSavingNewClient,
-  ] =
-    useState(false);
-
-  const [
-    saving,
-    setSaving,
-  ] =
-    useState(false);
-
-  const [
-    dirty,
-    setDirty,
-  ] =
-    useState(false);
-
-  const preselectedApplied =
-    useRef(false);
-
-  /* =======================================
-     SUSCRIPCIONES
-  ======================================= */
-
-  useEffect(
-    () => {
-      const unsubscribe =
-        subscribeToClients(
-          (
-            data
-          ) => {
-            setClients(
-              data
-            );
-
-            setLoadingClients(
-              false
-            );
-          },
-
-          (
-            error
-          ) => {
-            console.error(
-              error
-            );
-
-            setLoadingClients(
-              false
-            );
-
-            notify.error(
-              "Clientes",
-              "No se pudo cargar la base de clientes."
-            );
-          }
-        );
-
-      return () => {
-        unsubscribe();
-      };
-    },
-    []
-  );
-
-  useEffect(
-    () => {
-      const unsubscribe =
-        subscribeToTickets(
-          (
-            data
-          ) => {
-            setTickets(
-              data
-            );
-          },
-
-          (
-            error
-          ) => {
-            console.error(
-              error
-            );
-          }
-        );
-
-      return () => {
-        unsubscribe();
-      };
-    },
-    []
-  );
-
-  useEffect(
-    () => {
-      const unsubscribe =
-        subscribeToBusinessConfig(
-          (
-            config
-          ) => {
-            const days =
-              Number(
-                config
-                  ?.garantiaDias
-              );
-
-            if (
-              Number.isFinite(
-                days
-              ) &&
-              days >= 0
-            ) {
-              const normalized =
-                Math.trunc(
-                  days
-                );
-
-              setDefaultWarrantyDays(
-                normalized
-              );
-
-              setForm(
-                (
-                  current
-                ) => {
-                  if (
-                    current
-                      .warrantyDays !==
-                      "30"
-                  ) {
-                    return current;
-                  }
-
-                  return {
-                    ...current,
-
-                    warrantyDays:
-                      String(
-                        normalized
-                      ),
-                  };
-                }
-              );
-            }
-          },
-
-          (
-            error
-          ) => {
-            console.error(
-              error
-            );
-          }
-        );
-
-      return () => {
-        unsubscribe();
-      };
-    },
-    []
-  );
-
-  /* =======================================
-     CLIENTE PRESELECCIONADO POR URL
-     /tickets/nuevo?cliente=ID
-  ======================================= */
-
-  useEffect(
-    () => {
-      if (
-        preselectedApplied
-          .current ||
-        !clients.length
-      ) {
-        return;
-      }
-
-      const clientId =
-        searchParams.get(
-          "cliente"
-        );
-
-      if (!clientId) {
-        preselectedApplied.current =
-          true;
-
-        return;
-      }
-
-      const client =
-        clients.find(
-          (
-            item
-          ) =>
-            item.id ===
-            clientId
-        );
-
-      if (client) {
-        setSelectedClient(
-          client
-        );
-
-        setClientQuery(
-          getClientDisplayName(
-            client
-          )
-        );
-      }
-
-      preselectedApplied.current =
-        true;
-    },
-    [
-      clients,
-      searchParams,
-    ]
-  );
-
-  /* =======================================
-     SUGERENCIAS CLIENTE
-  ======================================= */
-
-  const clientSuggestions =
-    useMemo(
-      () => {
-        const query =
-          normalizeText(
-            clientQuery
-          );
-
-        if (
-          !query
-        ) {
-          return clients
-            .slice(
-              0,
-              8
-            );
-        }
-
-        return clients
-          .filter(
-            (
-              client
-            ) => {
-              const source =
-                [
-                  getClientDisplayName(
-                    client
-                  ),
-
-                  client.dni,
-
-                  client.cuit,
-
-                  client.tel,
-
-                  client.email,
-
-                  client.localidad,
-                ]
-                  .filter(
-                    Boolean
-                  )
-                  .join(
-                    " "
-                  )
-                  .toLowerCase();
-
-              return source.includes(
-                query
-              );
-            }
-          )
-          .slice(
-            0,
-            8
-          );
+  useEffect(() => {
+    const unsubscribe = subscribeToClients(
+      (data) => {
+        setClients(data);
+        setLoadingClients(false);
       },
-      [
-        clients,
-        clientQuery,
-      ]
+      (error) => {
+        console.error(error);
+        setLoadingClients(false);
+        notify.error("Clientes", "No se pudo cargar la base de clientes.");
+      }
     );
 
-  /* =======================================
-     GARANTÍAS VIGENTES
-  ======================================= */
+    return () => unsubscribe();
+  }, []);
 
-  const activeWarranties =
-    useMemo(
-      () => {
-        if (
-          !selectedClient
-        ) {
-          return [];
-        }
+  useEffect(() => {
+    if (preselectedApplied.current || !clients.length) return;
 
-        const today =
-          new Date()
-            .toISOString()
-            .split(
-              "T"
-            )[0];
+    const clientId = searchParams.get("cliente");
+    if (!clientId) {
+      preselectedApplied.current = true;
+      return;
+    }
 
-        const clientName =
-          normalizeText(
-            getClientDisplayName(
-              selectedClient
-            )
-          );
+    const client = clients.find((item) => item.id === clientId);
+    if (client) {
+      setSelectedClient(client);
+      setClientQuery(getClientDisplayName(client));
+    }
 
-        return tickets.filter(
-          (
-            ticket
-          ) => {
-            const sameClient =
-              ticket.clienteId
-                ? ticket.clienteId ===
-                  selectedClient.id
-                : normalizeText(
-                    ticket.cliente
-                  ) ===
-                  clientName;
+    preselectedApplied.current = true;
+  }, [clients, searchParams]);
 
-            return (
-              sameClient &&
-              ticket
-                .garantiaVencimiento &&
-              ticket
-                .garantiaVencimiento >=
-                today
-            );
-          }
-        );
+  const clientSuggestions = useMemo(() => {
+    const query = normalizeText(clientQuery);
+
+    const source = query
+      ? clients.filter((client) => {
+          const haystack = [
+            getClientDisplayName(client),
+            client.dni,
+            client.cuit,
+            client.tel,
+            client.email,
+            client.localidad,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return haystack.includes(query);
+        })
+      : clients;
+
+    return source.slice(0, 8);
+  }, [clients, clientQuery]);
+
+  const selectedClientName = selectedClient
+    ? getClientDisplayName(selectedClient)
+    : clientQuery.trim() || "Sin seleccionar";
+
+  const priorityLabel = form.priority === "P1" ? "Alta" : form.priority === "P3" ? "Baja" : "Media";
+  const initialStage = form.arrivalStatus === "pending" ? "pendiente_ingreso" : "pendiente";
+
+  const updateField = (field, value) => {
+    setDirty(true);
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateNestedField = (group, field, value) => {
+    setDirty(true);
+    setForm((current) => ({
+      ...current,
+      [group]: {
+        ...current[group],
+        [field]: value,
       },
-      [
-        selectedClient,
-        tickets,
-      ]
-    );
+    }));
+  };
 
-  /* =======================================
-     HELPERS FORM
-  ======================================= */
+  const toggleObjectField = (group, field) => {
+    setDirty(true);
+    setForm((current) => ({
+      ...current,
+      [group]: {
+        ...current[group],
+        [field]: !current[group][field],
+      },
+    }));
+  };
 
-  const updateField =
-    (
-      field,
-      value
-    ) => {
-      setDirty(
-        true
-      );
+  const selectClient = (client) => {
+    if (client.archivado === true) {
+      notify.warning("Cliente archivado", "Restauralo desde Clientes antes de generar un nuevo ticket.");
+      return;
+    }
 
-      setForm(
-        (
-          current
-        ) => ({
-          ...current,
+    setSelectedClient(client);
+    setClientQuery(getClientDisplayName(client));
+    setClientSearchOpen(false);
+    setDirty(true);
+  };
 
-          [field]:
-            value,
-        })
-      );
-    };
+  const clearClient = () => {
+    setSelectedClient(null);
+    setClientQuery("");
+    setClientSearchOpen(false);
+    setDirty(true);
+  };
 
-  const updateNestedField =
-    (
-      group,
-      field,
-      value
-    ) => {
-      setDirty(
-        true
-      );
+  const handleClientInput = (value) => {
+    setClientQuery(value);
+    setClientSearchOpen(true);
+    setDirty(true);
 
-      setForm(
-        (
-          current
-        ) => ({
-          ...current,
+    if (
+      selectedClient &&
+      normalizeText(value) !== normalizeText(getClientDisplayName(selectedClient))
+    ) {
+      setSelectedClient(null);
+    }
+  };
 
-          [group]: {
-            ...current[
-              group
-            ],
+  const openNewClient = () => {
+    setNewClientForm({ ...EMPTY_NEW_CLIENT, nombre: clientQuery.trim() });
+    setClientSearchOpen(false);
+    setNewClientOpen(true);
+  };
 
-            [field]:
-              value,
-          },
-        })
-      );
-    };
+  const closeNewClient = () => {
+    if (savingNewClient) return;
+    setNewClientOpen(false);
+    setNewClientForm(EMPTY_NEW_CLIENT);
+  };
 
-  const togglePhysical =
-    (
-      field
-    ) => {
-      setDirty(
-        true
-      );
+  const updateNewClientField = (field, value) => {
+    setNewClientForm((current) => ({ ...current, [field]: value }));
+  };
 
-      setForm(
-        (
-          current
-        ) => ({
-          ...current,
+  const handleCreateClient = async () => {
+    const name = newClientForm.nombre.trim();
 
-          physicalState: {
-            ...current
-              .physicalState,
+    if (!name) {
+      notify.warning("Nombre requerido", "Ingresá al menos el nombre del cliente.");
+      return;
+    }
 
-            [field]:
-              !current
-                .physicalState[
-                  field
-                ],
-          },
-        })
-      );
-    };
-
-  const toggleAccessory =
-    (
-      field
-    ) => {
-      setDirty(
-        true
-      );
-
-      setForm(
-        (
-          current
-        ) => ({
-          ...current,
-
-          accessories: {
-            ...current
-              .accessories,
-
-            [field]:
-              !current
-                .accessories[
-                  field
-                ],
-          },
-        })
-      );
-    };
-
-  /* =======================================
-     SELECCIONAR CLIENTE
-  ======================================= */
-
-  const selectClient =
-    (
-      client
-    ) => {
-      if (
-        client.archivado ===
-        true
-      ) {
-        notify.warning(
-          "Cliente archivado",
-          "Restauralo desde Clientes antes de generar un nuevo ticket."
-        );
-
-        return;
-      }
-
-      setSelectedClient(
-        client
-      );
-
-      setClientQuery(
-        getClientDisplayName(
-          client
-        )
-      );
-
-      setClientSearchOpen(
-        false
-      );
-
-      setDirty(
-        true
-      );
-    };
-
-  const clearClient =
-    () => {
-      setSelectedClient(
-        null
-      );
-
-      setClientQuery(
-        ""
-      );
-
-      setClientSearchOpen(
-        false
-      );
-
-      setDirty(
-        true
-      );
-    };
-
-  const handleClientInput =
-    (
-      value
-    ) => {
-      setClientQuery(
-        value
-      );
-
-      setClientSearchOpen(
-        true
-      );
-
-      setDirty(
-        true
-      );
-
-      if (
-        selectedClient &&
-        normalizeText(
-          value
-        ) !==
-          normalizeText(
-            getClientDisplayName(
-              selectedClient
-            )
-          )
-      ) {
-        setSelectedClient(
-          null
-        );
-      }
-    };
-
-  const openNewClient =
-    () => {
-      setNewClientForm({
-        ...EMPTY_NEW_CLIENT,
-        nombre:
-          clientQuery.trim(),
-      });
-
-      setClientSearchOpen(false);
-      setNewClientOpen(true);
-    };
-
-  const closeNewClient =
-    () => {
-      if (savingNewClient) {
-        return;
-      }
-
+    try {
+      setSavingNewClient(true);
+      const created = await createClient({ ...newClientForm, author });
+      setSelectedClient(created);
+      setClientQuery(getClientDisplayName(created));
       setNewClientOpen(false);
       setNewClientForm(EMPTY_NEW_CLIENT);
-    };
-
-  const updateNewClientField =
-    (field, value) => {
-      setNewClientForm((current) => ({
-        ...current,
-        [field]: value,
-      }));
-    };
-
-  const handleCreateClient =
-    async () => {
-      const name =
-        newClientForm.nombre.trim();
-
-      if (!name) {
-        notify.warning(
-          "Nombre requerido",
-          "Ingresá al menos el nombre del cliente."
-        );
-        return;
+      setDirty(true);
+      notify.success("Cliente creado", `${getClientDisplayName(created)} quedó seleccionado para este ticket.`);
+    } catch (error) {
+      console.error(error);
+      if (error?.message === "CLIENT_DUPLICATE") {
+        notify.warning("Cliente ya registrado", "Ya existe un cliente con el mismo DNI, CUIT, teléfono o email.");
+      } else {
+        notify.error("No se pudo crear el cliente", error?.message || "Revisá los datos e intentá nuevamente.");
       }
+    } finally {
+      setSavingNewClient(false);
+    }
+  };
 
-      try {
-        setSavingNewClient(true);
+  const handleBack = () => {
+    if (dirty && !saving) {
+      const confirmed = window.confirm("Hay datos sin guardar. ¿Descartar el nuevo ticket?");
+      if (!confirmed) return;
+    }
 
-        const created =
-          await createClient({
-            ...newClientForm,
-            author,
-          });
+    navigate("/tickets");
+  };
 
-        setSelectedClient(created);
-        setClientQuery(
-          getClientDisplayName(created)
-        );
-        setClientSearchOpen(false);
-        setNewClientOpen(false);
-        setNewClientForm(EMPTY_NEW_CLIENT);
-        setDirty(true);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (saving) return;
 
-        notify.success(
-          "Cliente creado",
-          `${getClientDisplayName(created)} quedó seleccionado para este ticket.`
-        );
-      } catch (error) {
-        console.error(error);
+    if (selectedClient?.archivado === true) {
+      notify.warning("Cliente archivado", "Restauralo antes de crear una nueva operación.");
+      return;
+    }
 
-        if (error?.message === "CLIENT_DUPLICATE") {
-          notify.warning(
-            "Cliente ya registrado",
-            "Ya existe un cliente con el mismo DNI, CUIT, teléfono o email."
-          );
-        } else {
-          notify.error(
-            "No se pudo crear el cliente",
-            error?.message || "Revisá los datos e intentá nuevamente."
-          );
-        }
-      } finally {
-        setSavingNewClient(false);
-      }
-    };
+    if (form.serviceType === "Domicilio" && !form.homeService.direccion.trim()) {
+      notify.warning("Falta la dirección", "Ingresá dónde se realizará el servicio.");
+      return;
+    }
 
-  /* =======================================
-     VOLVER
-  ======================================= */
+    if (form.serviceType === "Remoto" && !form.remoteService.idConexion.trim()) {
+      notify.warning("Falta el ID remoto", "Ingresá el ID o código para la conexión.");
+      return;
+    }
 
-  const handleBack =
-    () => {
-      if (
-        dirty &&
-        !saving
-      ) {
-        const confirmed =
-          window.confirm(
-            "Hay datos sin guardar. ¿Descartar el nuevo ticket?"
-          );
+    try {
+      setSaving(true);
 
-        if (
-          !confirmed
-        ) {
-          return;
-        }
-      }
+      const created = await createTicket({
+        client: selectedClient,
+        clientName: clientQuery.trim() || "Mostrador",
+        serviceType: form.serviceType,
+        jobType: form.jobType,
+        initialStage,
+        equipment: form.equipment,
+        brand: form.brand,
+        model: form.model,
+        serial: form.serial,
+        pin: form.pin,
+        specs: form.specs,
+        physicalState: form.physicalState,
+        accessories: form.accessories,
+        condition: form.condition,
+        issue: form.issue,
+        visibleObservations: form.visibleObservations,
+        initialDiagnosis: "",
+        priority: form.priority,
+        technician: form.technician,
+        estimatedDate: form.estimatedDate,
+        estimatedBudget: form.estimatedBudget,
+        advance: form.advance,
+        paymentMethod: form.paymentMethod,
+        internalNotes: form.internalNotes,
+        consents: {},
+        homeService: form.homeService,
+        remoteService: form.remoteService,
+        warrantyDays: Number(form.warrantyDays || 90),
+        author,
+      });
 
-      navigate(
-        "/tickets"
+      setDirty(false);
+      notify.success(
+        "Ticket creado",
+        form.arrivalStatus === "pending"
+          ? `${created.id} quedó abierto como Pendiente de ingreso.`
+          : `${created.id} fue registrado en Recepción.`
       );
-    };
 
-  /* =======================================
-     CREAR TICKET
-  ======================================= */
+      navigate(`/tickets/${encodeURIComponent(created.id)}`, {
+        replace: true,
+        state: { returnTo: "/tickets" },
+      });
+    } catch (error) {
+      console.error(error);
+      notify.error("No se pudo crear el ticket", errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const handleSubmit =
-    async (
-      event
-    ) => {
-      event.preventDefault();
+  const handleSaveDraft = () => {
+    try {
+      localStorage.setItem(
+        "servix-ticket-draft",
+        JSON.stringify({
+          form,
+          clientQuery,
+          selectedClientId: selectedClient?.id || null,
+        })
+      );
+      notify.success("Borrador guardado", "El formulario quedó guardado en este navegador.");
+    } catch (draftError) {
+      console.error(draftError);
+      notify.error("No se pudo guardar", "El navegador no permitió guardar el borrador local.");
+    }
+  };
 
-      if (
-        saving
-      ) {
-        return;
-      }
+  const handleClearForm = () => {
+    if (saving) return;
+    const confirmed = window.confirm("¿Limpiar todos los datos cargados del nuevo ticket?");
+    if (!confirmed) return;
 
-      if (
-        selectedClient
-          ?.archivado ===
-        true
-      ) {
-        notify.warning(
-          "Cliente archivado",
-          "Restauralo antes de crear una nueva operación."
-        );
-
-        return;
-      }
-
-      if (
-        form.serviceType ===
-          "Domicilio" &&
-        !form
-          .homeService
-          .direccion
-          .trim()
-      ) {
-        notify.warning(
-          "Falta la dirección",
-          "Ingresá dónde se realizará el servicio."
-        );
-
-        return;
-      }
-
-      if (
-        form.serviceType ===
-          "Remoto" &&
-        !form
-          .remoteService
-          .idConexion
-          .trim()
-      ) {
-        notify.warning(
-          "Falta el ID remoto",
-          "Ingresá el ID o código para la conexión."
-        );
-
-        return;
-      }
-
-      try {
-        setSaving(
-          true
-        );
-
-        const created =
-          await createTicket({
-            client:
-              selectedClient,
-
-            clientName:
-              clientQuery.trim() ||
-              "Mostrador",
-
-            serviceType:
-              form.serviceType,
-
-            equipment:
-              form.equipment,
-
-            brand:
-              form.brand,
-
-            model:
-              form.model,
-
-            serial:
-              form.serial,
-
-            pin:
-              form.pin,
-
-            specs:
-              form.specs,
-
-            physicalState:
-              form.physicalState,
-
-            accessories:
-              form.accessories,
-
-            condition:
-              form.condition,
-
-            homeService:
-              form.homeService,
-
-            remoteService:
-              form.remoteService,
-
-            warrantyDays:
-              Number(
-                form
-                  .warrantyDays ||
-                  defaultWarrantyDays
-              ),
-
-            author,
-          });
-
-        setDirty(
-          false
-        );
-
-        notify.success(
-          "Ticket creado",
-          `${created.id} fue registrado correctamente.`
-        );
-
-        navigate(
-          `/tickets/${encodeURIComponent(
-            created.id
-          )}`,
-
-          {
-            replace:
-              true,
-
-            state: {
-              returnTo:
-                "/tickets",
-            },
-          }
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          error
-        );
-
-        notify.error(
-          "No se pudo crear el ticket",
-          errorMessage(
-            error
-          )
-        );
-      } finally {
-        setSaving(
-          false
-        );
-      }
-    };
-
-  /* =========================================
-     ESTADO VISUAL DEL ALTA
-  ========================================= */
-
-  const serviceReady =
-    form.serviceType ===
-    "Domicilio"
-      ? Boolean(
-          form
-            .homeService
-            .direccion
-            .trim()
-        )
-      : form.serviceType ===
-          "Remoto"
-        ? Boolean(
-            form
-              .remoteService
-              .idConexion
-              .trim()
-          )
-        : true;
-
-  const clientReady =
-    Boolean(
-      clientQuery.trim()
-    );
-
-  const equipmentReady =
-    Boolean(
-      form.equipment &&
-        (
-          form.brand.trim() ||
-          form.model.trim()
-        )
-    );
-
-  /* =========================================
-     RENDER
-  ========================================= */
+    setForm(createEmptyForm());
+    setClientQuery("");
+    setSelectedClient(null);
+    setClientSearchOpen(false);
+    setDirty(false);
+  };
 
   return (
     <main className="new-ticket-page">
-      <form
-        className="new-ticket-shell"
-        onSubmit={
-          handleSubmit
-        }
-      >
-        {/* =================================
-            HEADER
-        ================================= */}
+      <div className="new-ticket-shell">
+        <motion.header
+          className="new-ticket-hero new-ticket-hero-dom"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <button type="button" className="new-ticket-back-pill" onClick={handleBack}>
+            <ArrowLeft size={17} />
+            Volver a Tickets
+          </button>
 
-        <header className="new-ticket-header">
-          <div className="new-ticket-header-left">
-            <button
-              type="button"
-              className="new-ticket-back"
-              onClick={
-                handleBack
-              }
-              disabled={
-                saving
-              }
-              title="Volver a Tickets"
+          <div className="new-ticket-hero-copy">
+            <motion.div
+              className="new-ticket-hero-mark"
+              animate={{ y: [0, -4, 0], rotate: [0, -2, 2, 0] }}
+              transition={{ duration: 4, repeat: Infinity }}
             >
-              <ArrowLeft
-                size={
-                  19
-                }
-              />
-            </button>
-
-            <div className="new-ticket-header-icon">
-              <Wrench
-                size={
-                  20
-                }
-              />
-            </div>
-
-            <div className="new-ticket-header-copy">
-              <strong>
-                Nuevo ticket
-              </strong>
-
-              <span>
-                SERVIX · Ingreso de servicio técnico
-              </span>
-            </div>
-          </div>
-
-          <div className="new-ticket-header-actions">
-            <button
-              type="button"
-              className="new-ticket-discard"
-              onClick={
-                handleBack
-              }
-              disabled={
-                saving
-              }
-            >
-              Descartar
-            </button>
-
-            <motion.button
-              type="submit"
-              className="new-ticket-save"
-              disabled={
-                saving
-              }
-              whileHover={
-                saving
-                  ? undefined
-                  : {
-                      y: -2,
-                    }
-              }
-              whileTap={
-                saving
-                  ? undefined
-                  : {
-                      scale:
-                        0.98,
-                    }
-              }
-            >
-              {saving ? (
-                <>
-                  <span className="new-ticket-spinner" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Save
-                    size={
-                      17
-                    }
-                  />
-                  Crear ticket
-                </>
-              )}
-            </motion.button>
-          </div>
-        </header>
-
-        {/* =================================
-            INTRO
-        ================================= */}
-
-        <section className="new-ticket-intro">
-          <div>
-            <span className="new-ticket-eyebrow">
-              <Wrench
-                size={
-                  14
-                }
-              />
-              Operación técnica
-            </span>
-
-            <h1>
-              Ingreso de nuevo servicio
-            </h1>
-
-            <p>
-              Registrá modalidad, cliente y equipo en una sola pantalla sin perder trazabilidad técnica.
-            </p>
-          </div>
-
-          <div className="new-ticket-draft-state">
-            <span />
+              <Plus size={24} />
+              <FileText size={30} />
+            </motion.div>
             <div>
-              <strong>
-                {dirty
-                  ? "Cambios sin guardar"
-                  : "Formulario listo"}
-              </strong>
-              <small>
-                {saving
-                  ? "Guardando en Firebase..."
-                  : "Se registrará al crear el ticket"}
-              </small>
+              <h1>Nuevo Ticket</h1>
+              <p>Registra un ingreso técnico completo</p>
             </div>
+          </div>
+
+          <div className="new-ticket-hero-live" aria-label="Cabecera editable">
+            <motion.span className="new-ticket-float-icon phone" animate={{ y: [0, -7, 0] }} transition={{ duration: 3.1, repeat: Infinity }}>
+              <Monitor size={24} />
+            </motion.span>
+            <motion.span className="new-ticket-float-icon gear" animate={{ rotate: [0, 12, 0], y: [0, 5, 0] }} transition={{ duration: 4, repeat: Infinity }}>
+              <Settings size={25} />
+            </motion.span>
+            <motion.span className="new-ticket-float-icon chat" animate={{ y: [0, -6, 0], scale: [1, 1.05, 1] }} transition={{ duration: 3.4, repeat: Infinity }}>
+              <MessageCircle size={24} />
+            </motion.span>
+
+            <img className="new-ticket-technician" src={technicianCharacter} alt="Técnico de soporte" />
+
+            <div className="new-ticket-hero-quote">
+              <Sparkles size={15} />
+              <span>“Cada reparación</span>
+              <strong>empieza con un buen ingreso”</strong>
+            </div>
+          </div>
+        </motion.header>
+
+        <section className="new-ticket-summary-strip">
+          <motion.article whileHover={{ y: -3 }} className="new-ticket-summary-card tone-client">
+            <span className="new-ticket-summary-icon"><UserRound size={23} /></span>
+            <div><small>Cliente seleccionado</small><strong>{selectedClientName}</strong><span>{selectedClient?.id || "Elegí o creá un cliente"}</span></div>
+            {selectedClient && <Check className="new-ticket-summary-check" size={18} />}
+          </motion.article>
+
+          <motion.article whileHover={{ y: -3 }} className="new-ticket-summary-card tone-service">
+            <span className="new-ticket-summary-icon"><Laptop size={23} /></span>
+            <div><small>Tipo de trabajo</small><strong>{form.jobType}</strong><span>{form.serviceType}</span></div>
+          </motion.article>
+
+          <motion.article whileHover={{ y: -3 }} className="new-ticket-summary-card tone-priority">
+            <span className="new-ticket-summary-icon"><ArrowUp size={23} /></span>
+            <div><small>Prioridad</small><strong>{priorityLabel}</strong><span>{form.priority === "P1" ? "Atención preferencial" : "Prioridad de trabajo"}</span></div>
+          </motion.article>
+
+          <motion.article whileHover={{ y: -3 }} className="new-ticket-summary-card tone-warranty">
+            <span className="new-ticket-summary-icon"><ShieldCheck size={23} /></span>
+            <div><small>Garantía del servicio</small><strong>{Number(form.warrantyDays || 0) > 0 ? `${form.warrantyDays} días` : "Sin garantía"}</strong><span>Predeterminado: 90 días</span></div>
+          </motion.article>
+        </section>
+
+        <section className="new-ticket-arrival-toggle-card">
+          <div className="new-ticket-arrival-copy">
+            <span className="new-ticket-arrival-icon"><Clock3 size={20} /></span>
+            <div>
+              <strong>Ingreso del equipo</strong>
+              <span>Este estado es opcional: usalo solo cuando el cliente avisó pero todavía no trajo el equipo.</span>
+            </div>
+          </div>
+
+          <div className="new-ticket-arrival-toggle" role="group" aria-label="Estado inicial del ticket">
+            <button
+              type="button"
+              className={form.arrivalStatus === "received" ? "active" : ""}
+              onClick={() => updateField("arrivalStatus", "received")}
+            >
+              {form.arrivalStatus === "received" && <motion.span layoutId="arrival-active" className="new-ticket-toggle-bg" />}
+              <Check size={16} />
+              <span>Ya ingresó</span>
+              <small>Recepción</small>
+            </button>
+
+            <button
+              type="button"
+              className={form.arrivalStatus === "pending" ? "active pending" : ""}
+              onClick={() => updateField("arrivalStatus", "pending")}
+            >
+              {form.arrivalStatus === "pending" && <motion.span layoutId="arrival-active" className="new-ticket-toggle-bg" />}
+              <Clock3 size={16} />
+              <span>Pendiente de ingreso</span>
+              <small>Aún no llegó</small>
+            </button>
           </div>
         </section>
 
-        {/* =================================
-            GARANTÍA VIGENTE
-        ================================= */}
-
-        {activeWarranties.length >
-          0 && (
-          <section className="new-ticket-warranty-alert">
-            <div className="new-ticket-warranty-icon">
-              <ShieldCheck
-                size={
-                  21
-                }
-              />
-            </div>
-
-            <div>
-              <strong>
-                El cliente tiene garantía vigente
-              </strong>
-
-              <p>
-                Revisá si este ingreso corresponde a una reparación anterior antes de crear una nueva operación.
-              </p>
-
-              <div className="new-ticket-warranty-list">
-                {activeWarranties.map(
-                  (
-                    ticket
-                  ) => (
-                    <span
-                      key={
-                        ticket.id
-                      }
-                    >
-                      <b>
-                        {ticket.id}
-                      </b>
-                      {" · "}
-                      {ticket.equipo ||
-                        "Equipo"}
-                      {" · vence "}
-                      {formatDate(
-                        ticket
-                          .garantiaVencimiento
-                      )}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* =================================
-            LAYOUT PRINCIPAL
-        ================================= */}
-
-        <div className="new-ticket-layout">
+        <form className="new-ticket-layout" onSubmit={handleSubmit}>
           <div className="new-ticket-main-column">
-            {/* ===============================
-                1. MODALIDAD
-            =============================== */}
-
-            <section className="new-ticket-card">
-              <div className="new-ticket-card-head">
-                <div className="new-ticket-card-title">
-                  <div className="new-ticket-card-icon service">
-                    <Wrench
-                      size={
-                        19
-                      }
-                    />
+            <div className="new-ticket-top-grid">
+              <section className="new-ticket-card">
+                <div className="new-ticket-card-head">
+                  <div className="new-ticket-card-title">
+                    <span className="new-ticket-card-icon client"><UserRound size={19} /></span>
+                    <div><strong>Datos del cliente</strong><span>Buscá uno existente o crealo sin salir del ticket.</span></div>
                   </div>
-
-                  <div>
-                    <strong>
-                      1. Modalidad del servicio
-                    </strong>
-                    <span>
-                      Definí cómo se va a realizar el trabajo
-                    </span>
-                  </div>
+                  <button type="button" className="new-ticket-outline-action" onClick={() => setClientSearchOpen(true)}>
+                    <Search size={15} /> Buscar / seleccionar
+                  </button>
                 </div>
 
-                <span className="new-ticket-badge violet">
-                  Paso inicial
-                </span>
-              </div>
+                <div className="new-ticket-card-body">
+                  <label className="new-ticket-field new-ticket-client-field">
+                    <span>Cliente <b>*</b></span>
+                    <div className="new-ticket-input-with-icon">
+                      <UserRound size={15} />
+                      <input
+                        value={clientQuery}
+                        onFocus={() => setClientSearchOpen(true)}
+                        onChange={(event) => handleClientInput(event.target.value)}
+                        placeholder={loadingClients ? "Cargando clientes..." : "Nombre, DNI, teléfono o email"}
+                        disabled={saving}
+                        autoComplete="off"
+                      />
+                      {clientQuery && <button type="button" onClick={clearClient}><X size={14} /></button>}
+                    </div>
 
-              <div className="new-ticket-card-body">
-                <div className="new-ticket-progress-rail">
-                  <div className={`new-ticket-progress-step ${serviceReady ? "done" : "active"}`}>
-                    <Wrench size={17} />
-                    Modalidad
-                  </div>
-
-                  <div className={`new-ticket-progress-step ${clientReady ? "done" : serviceReady ? "active" : ""}`}>
-                    <UserRound size={17} />
-                    Cliente
-                  </div>
-
-                  <div className={`new-ticket-progress-step ${equipmentReady ? "done" : clientReady ? "active" : ""}`}>
-                    <Cpu size={17} />
-                    Equipo
-                  </div>
-
-                </div>
-
-                <div className="new-ticket-service-grid">
-                  {SERVICE_TYPES.map(
-                    (
-                      service
-                    ) => {
-                      const Icon =
-                        service.icon;
-
-                      const active =
-                        form.serviceType ===
-                        service.id;
-
-                      return (
-                        <button
-                          key={
-                            service.id
-                          }
-                          type="button"
-                          className={
-                            active
-                              ? "active"
-                              : ""
-                          }
-                          disabled={
-                            saving
-                          }
-                          onClick={() =>
-                            updateField(
-                              "serviceType",
-                              service.id
-                            )
-                          }
+                    <AnimatePresence>
+                      {clientSearchOpen && (
+                        <motion.div
+                          className="new-ticket-client-results"
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
                         >
-                          {active && (
-                            <span className="new-ticket-choice-check">
-                              <Check size={13} />
-                            </span>
+                          {clientSuggestions.length ? (
+                            clientSuggestions.map((client) => (
+                              <button key={client.id} type="button" onClick={() => selectClient(client)}>
+                                <span>{String(getClientDisplayName(client)).slice(0, 2).toUpperCase()}</span>
+                                <div><strong>{getClientDisplayName(client)}</strong><small>{[client.dni || client.cuit, client.tel, client.email].filter(Boolean).join(" · ") || client.id}</small></div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="new-ticket-client-empty">No encontramos coincidencias.</div>
                           )}
 
-                          <span className="new-ticket-choice-icon">
-                            <Icon
-                              size={
-                                20
-                              }
-                            />
-                          </span>
+                          <button type="button" className="new-ticket-create-client" onClick={openNewClient}>
+                            <UserPlus size={15} /> Crear cliente nuevo
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </label>
 
-                          <strong>
-                            {service.label}
-                          </strong>
-
-                          <span>
-                            {service.description}
-                          </span>
-                        </button>
-                      );
-                    }
-                  )}
+                  <div className="new-ticket-grid-2">
+                    <label className="new-ticket-field">
+                      <span>Documento</span>
+                      <input value={selectedClient?.dni || selectedClient?.cuit || ""} readOnly placeholder="—" />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Teléfono</span>
+                      <input value={selectedClient?.tel || ""} readOnly placeholder="—" />
+                    </label>
+                    <label className="new-ticket-field new-ticket-span-2">
+                      <span>Email</span>
+                      <input value={selectedClient?.email || ""} readOnly placeholder="—" />
+                    </label>
+                  </div>
                 </div>
+              </section>
 
-                {form.serviceType ===
-                  "Domicilio" && (
-                  <div className="new-ticket-service-panel home">
-                    <div className="new-ticket-service-panel-title">
-                      <MapPin
-                        size={
-                          17
-                        }
-                      />
-                      <strong>
-                        Datos del servicio a domicilio
-                      </strong>
-                    </div>
-
-                    <div className="new-ticket-four-columns">
-                      <label className="new-ticket-field">
-                        <span>
-                          Dirección *
-                        </span>
-                        <input
-                          type="text"
-                          value={
-                            form
-                              .homeService
-                              .direccion
-                          }
-                          placeholder="Calle, número, localidad"
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "homeService",
-                                "direccion",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        />
-                      </label>
-
-                      <label className="new-ticket-field">
-                        <span>
-                          Fecha
-                        </span>
-                        <input
-                          type="date"
-                          value={
-                            form
-                              .homeService
-                              .fecha
-                          }
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "homeService",
-                                "fecha",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        />
-                      </label>
-
-                      <label className="new-ticket-field">
-                        <span>
-                          Hora
-                        </span>
-                        <div className="new-ticket-icon-input">
-                          <Clock3 size={15} />
-                          <input
-                            type="time"
-                            value={
-                              form
-                                .homeService
-                                .hora
-                            }
-                            disabled={
-                              saving
-                            }
-                            onChange={
-                              (
-                                event
-                              ) =>
-                                updateNestedField(
-                                  "homeService",
-                                  "hora",
-                                  event
-                                    .target
-                                    .value
-                                )
-                            }
-                          />
-                        </div>
-                      </label>
-
-                      <label className="new-ticket-field">
-                        <span>
-                          Contacto
-                        </span>
-                        <input
-                          type="text"
-                          value={
-                            form
-                              .homeService
-                              .contacto
-                          }
-                          placeholder="Persona de contacto"
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "homeService",
-                                "contacto",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {form.serviceType ===
-                  "Remoto" && (
-                  <div className="new-ticket-service-panel remote">
-                    <div className="new-ticket-service-panel-title">
-                      <Wifi
-                        size={
-                          17
-                        }
-                      />
-                      <strong>
-                        Datos de acceso remoto
-                      </strong>
-                    </div>
-
-                    <div className="new-ticket-three-columns">
-                      <label className="new-ticket-field">
-                        <span>
-                          Plataforma
-                        </span>
-                        <select
-                          value={
-                            form
-                              .remoteService
-                              .plataforma
-                          }
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "remoteService",
-                                "plataforma",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        >
-                          <option value="AnyDesk">
-                            AnyDesk
-                          </option>
-                          <option value="TeamViewer">
-                            TeamViewer
-                          </option>
-                          <option value="RustDesk">
-                            RustDesk
-                          </option>
-                          <option value="Otra">
-                            Otra
-                          </option>
-                        </select>
-                      </label>
-
-                      <label className="new-ticket-field">
-                        <span>
-                          ID / código *
-                        </span>
-                        <input
-                          type="text"
-                          className="new-ticket-mono"
-                          value={
-                            form
-                              .remoteService
-                              .idConexion
-                          }
-                          placeholder="123 456 789"
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "remoteService",
-                                "idConexion",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        />
-                      </label>
-
-                      <label className="new-ticket-field">
-                        <span>
-                          Clave temporal
-                        </span>
-                        <input
-                          type="text"
-                          className="new-ticket-mono"
-                          value={
-                            form
-                              .remoteService
-                              .clave
-                          }
-                          placeholder="Opcional"
-                          disabled={
-                            saving
-                          }
-                          onChange={
-                            (
-                              event
-                            ) =>
-                              updateNestedField(
-                                "remoteService",
-                                "clave",
-                                event
-                                  .target
-                                  .value
-                              )
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* ===============================
-                2. CLIENTE
-            =============================== */}
-
-            <section className={`new-ticket-card new-ticket-client-card ${clientSearchOpen ? "search-open" : ""}`}>
-              <div className="new-ticket-card-head">
-                <div className="new-ticket-card-title">
-                  <div className="new-ticket-card-icon client">
-                    <UserRound
-                      size={
-                        19
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <strong>
-                      2. Cliente
-                    </strong>
-                    <span>
-                      Buscá un cliente existente o escribí un nombre de mostrador
-                    </span>
+              <section className="new-ticket-card">
+                <div className="new-ticket-card-head">
+                  <div className="new-ticket-card-title">
+                    <span className="new-ticket-card-icon equipment"><Cpu size={19} /></span>
+                    <div><strong>Datos del equipo</strong><span>Identificación y recepción física del equipo.</span></div>
                   </div>
                 </div>
 
-                <div className="new-ticket-client-head-actions">
-                  {selectedClient && (
-                    <span className="new-ticket-badge green">
-                      Cliente seleccionado
-                    </span>
-                  )}
+                <div className="new-ticket-card-body">
+                  <div className="new-ticket-grid-3">
+                    <label className="new-ticket-field">
+                      <span>Tipo de equipo <b>*</b></span>
+                      <select value={form.equipment} onChange={(event) => updateField("equipment", event.target.value)} disabled={saving}>
+                        {EQUIPMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Marca</span>
+                      <input value={form.brand} onChange={(event) => updateField("brand", event.target.value)} placeholder="Lenovo, HP, Samsung..." disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Modelo</span>
+                      <input value={form.model} onChange={(event) => updateField("model", event.target.value)} placeholder="Modelo del equipo" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Número de serie</span>
+                      <input value={form.serial} onChange={(event) => updateField("serial", event.target.value)} placeholder="Serie / S/N" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Contraseña / PIN</span>
+                      <input value={form.pin} onChange={(event) => updateField("pin", event.target.value)} placeholder="Opcional" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Estado general</span>
+                      <input value={form.condition} onChange={(event) => updateField("condition", event.target.value)} placeholder="Buen estado general" disabled={saving} />
+                    </label>
+                  </div>
 
-                  {!selectedClient && (
-                    <button
-                      type="button"
-                      className="new-ticket-inline-create-client"
-                      onClick={openNewClient}
-                      disabled={saving || savingNewClient}
-                    >
-                      <UserPlus size={16} />
-                      Dar de alta
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="new-ticket-card-body">
-                <label className="new-ticket-field">
-                  <span>
-                    Cliente
-                  </span>
-
-                  <div className="new-ticket-client-search">
-                    <Search
-                      size={
-                        18
-                      }
-                    />
-
-                    <input
-                      type="text"
-                      value={
-                        clientQuery
-                      }
-                      placeholder="Buscar por nombre, DNI, CUIT o teléfono..."
-                      autoComplete="off"
-                      disabled={
-                        saving
-                      }
-                      onFocus={() =>
-                        setClientSearchOpen(
-                          true
-                        )
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          handleClientInput(
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-
-                    {clientQuery && (
-                      <button
-                        type="button"
-                        onClick={
-                          clearClient
-                        }
-                        title="Limpiar cliente"
-                      >
-                        <X
-                          size={
-                            15
-                          }
-                        />
-                      </button>
-                    )}
-
-                    {clientSearchOpen && (
-                      <div className="new-ticket-client-results">
-                        {loadingClients ? (
-                          <div className="new-ticket-client-empty">
-                            Cargando clientes...
-                          </div>
-                        ) : clientSuggestions.length ===
-                          0 ? (
-                          <div className="new-ticket-client-empty new-ticket-client-empty-create">
-                            <div>
-                              <strong>
-                                No encontramos ese cliente
-                              </strong>
-                              <span>
-                                Podés registrarlo ahora y SERVIX lo seleccionará automáticamente para este ticket.
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={openNewClient}
-                              disabled={saving || savingNewClient}
-                            >
-                              <UserPlus size={16} />
-                              Dar de alta cliente
-                            </button>
-                          </div>
-                        ) : (
-                          clientSuggestions.map(
-                            (
-                              client
-                            ) => (
-                              <button
-                                key={
-                                  client.id
-                                }
-                                type="button"
-                                className={
-                                  client.archivado ===
-                                  true
-                                    ? "archived"
-                                    : ""
-                                }
-                                disabled={
-                                  client.archivado ===
-                                  true
-                                }
-                                onClick={() =>
-                                  selectClient(
-                                    client
-                                  )
-                                }
-                              >
-                                <div className="new-ticket-client-result-avatar">
-                                  {getClientDisplayName(
-                                    client
-                                  )
-                                    .split(
-                                      " "
-                                    )
-                                    .slice(
-                                      0,
-                                      2
-                                    )
-                                    .map(
-                                      (
-                                        part
-                                      ) =>
-                                        part[0] ||
-                                        ""
-                                    )
-                                    .join(
-                                      ""
-                                    )
-                                    .toUpperCase()}
-                                </div>
-
-                                <div>
-                                  <strong>
-                                    {getClientDisplayName(
-                                      client
-                                    )}
-                                  </strong>
-                                  <span>
-                                    {client.tel &&
-                                    client.tel !==
-                                      "—"
-                                      ? client.tel
-                                      : "Sin teléfono"}
-                                    {client.dni
-                                      ? ` · DNI ${client.dni}`
-                                      : client.cuit
-                                        ? ` · CUIT ${client.cuit}`
-                                        : ""}
-                                  </span>
-                                </div>
-
-                                {client.archivado ===
-                                true ? (
-                                  <small>
-                                    Archivado
-                                  </small>
-                                ) : (
-                                  <Check
-                                    size={
-                                      15
-                                    }
-                                  />
-                                )}
-                              </button>
-                            )
-                          )
-                        )}
+                  <div className="new-ticket-equipment-flags">
+                    <div>
+                      <span className="new-ticket-sub-label">Detalles físicos</span>
+                      <div className="new-ticket-chip-toggle-row">
+                        {PHYSICAL_ITEMS.map(([key, label]) => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            whileTap={{ scale: 0.96 }}
+                            className={form.physicalState[key] ? "active warning" : ""}
+                            onClick={() => toggleObjectField("physicalState", key)}
+                          >
+                            <AlertTriangle size={13} /> {label}
+                          </motion.button>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                </label>
-
-                {selectedClient && (
-                  <div className="new-ticket-selected-client">
-                    <div className="new-ticket-selected-avatar">
-                      {getClientDisplayName(
-                        selectedClient
-                      )
-                        .split(
-                          " "
-                        )
-                        .slice(
-                          0,
-                          2
-                        )
-                        .map(
-                          (
-                            part
-                          ) =>
-                            part[0] ||
-                            ""
-                        )
-                        .join(
-                          ""
-                        )
-                        .toUpperCase()}
                     </div>
 
                     <div>
-                      <span>
-                        Cliente seleccionado
-                      </span>
-                      <strong>
-                        {getClientDisplayName(
-                          selectedClient
-                        )}
-                      </strong>
+                      <span className="new-ticket-sub-label">Accesorios recibidos</span>
+                      <div className="new-ticket-chip-toggle-row accessories">
+                        {ACCESSORY_ITEMS.map(([key, label]) => (
+                          <motion.button
+                            key={key}
+                            type="button"
+                            whileTap={{ scale: 0.96 }}
+                            className={form.accessories[key] ? "active" : ""}
+                            onClick={() => toggleObjectField("accessories", key)}
+                          >
+                            <Package size={13} /> {label}
+                          </motion.button>
+                        ))}
+                      </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={
-                        clearClient
-                      }
-                      disabled={
-                        saving
-                      }
-                    >
-                      Cambiar
-                    </button>
                   </div>
-                )}
-              </div>
-            </section>
+                </div>
+              </section>
+            </div>
 
-            {/* ===============================
-                3. EQUIPO
-            =============================== */}
+            <div className="new-ticket-bottom-grid">
+              <section className="new-ticket-card">
+                <div className="new-ticket-card-head">
+                  <div className="new-ticket-card-title">
+                    <span className="new-ticket-card-icon fault"><Wrench size={19} /></span>
+                    <div><strong>Falla reportada</strong><span>Lo que informa el cliente al momento de abrir la orden.</span></div>
+                  </div>
+                </div>
 
-            <section className="new-ticket-card">
+                <div className="new-ticket-card-body">
+                  <label className="new-ticket-field">
+                    <span>Problema informado por el cliente <b>*</b></span>
+                    <textarea
+                      value={form.issue}
+                      onChange={(event) => updateField("issue", event.target.value)}
+                      placeholder="Ej: La notebook no enciende desde esta mañana..."
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <label className="new-ticket-field">
+                    <span>Observaciones visibles</span>
+                    <textarea
+                      value={form.visibleObservations}
+                      onChange={(event) => updateField("visibleObservations", event.target.value)}
+                      placeholder="Estado exterior, marcas, faltantes u observaciones de recepción."
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <div className="new-ticket-diagnosis-hint">
+                    <Search size={17} />
+                    <div>
+                      <strong>El diagnóstico no se carga acá.</strong>
+                      <span>Se registra una sola vez desde Detalle del Ticket. Después, cada avance se guarda como nota de bitácora con fecha y hora.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="new-ticket-card">
+                <div className="new-ticket-card-head">
+                  <div className="new-ticket-card-title">
+                    <span className="new-ticket-card-icon service"><Settings size={19} /></span>
+                    <div><strong>Servicio y presupuesto</strong><span>Organización inicial de la orden.</span></div>
+                  </div>
+                </div>
+
+                <div className="new-ticket-card-body">
+                  <div className="new-ticket-grid-2">
+                    <label className="new-ticket-field">
+                      <span>Tipo de trabajo</span>
+                      <select value={form.jobType} onChange={(event) => updateField("jobType", event.target.value)} disabled={saving}>
+                        {JOB_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Modalidad</span>
+                      <select value={form.serviceType} onChange={(event) => updateField("serviceType", event.target.value)} disabled={saving}>
+                        {SERVICE_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Técnico asignado</span>
+                      <input value={form.technician} onChange={(event) => updateField("technician", event.target.value)} placeholder="Técnico" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Prioridad</span>
+                      <select value={form.priority} onChange={(event) => updateField("priority", event.target.value)} disabled={saving}>
+                        <option value="P1">Alta</option>
+                        <option value="P2">Media</option>
+                        <option value="P3">Baja</option>
+                      </select>
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Fecha estimada</span>
+                      <input type="date" value={form.estimatedDate} onChange={(event) => updateField("estimatedDate", event.target.value)} disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Garantía del servicio</span>
+                      <select value={form.warrantyDays} onChange={(event) => updateField("warrantyDays", event.target.value)} disabled={saving}>
+                        <option value="0">Sin garantía</option>
+                        <option value="30">30 días</option>
+                        <option value="60">60 días</option>
+                        <option value="90">90 días / 3 meses</option>
+                        <option value="180">180 días</option>
+                      </select>
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Presupuesto estimado</span>
+                      <input type="number" min="0" value={form.estimatedBudget} onChange={(event) => updateField("estimatedBudget", event.target.value)} placeholder="0" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field">
+                      <span>Adelanto</span>
+                      <input type="number" min="0" value={form.advance} onChange={(event) => updateField("advance", event.target.value)} placeholder="0" disabled={saving} />
+                    </label>
+                    <label className="new-ticket-field new-ticket-span-2">
+                      <span>Forma de pago</span>
+                      <select value={form.paymentMethod} onChange={(event) => updateField("paymentMethod", event.target.value)} disabled={saving}>
+                        <option value="A definir">A definir</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Cuenta corriente">Cuenta corriente</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {form.serviceType === "Domicilio" && (
+                    <motion.div className="new-ticket-conditional-box" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+                      <div className="new-ticket-grid-2">
+                        <label className="new-ticket-field new-ticket-span-2">
+                          <span>Dirección del servicio <b>*</b></span>
+                          <input value={form.homeService.direccion} onChange={(event) => updateNestedField("homeService", "direccion", event.target.value)} placeholder="Dirección" />
+                        </label>
+                        <label className="new-ticket-field"><span>Fecha</span><input type="date" value={form.homeService.fecha} onChange={(event) => updateNestedField("homeService", "fecha", event.target.value)} /></label>
+                        <label className="new-ticket-field"><span>Hora</span><input type="time" value={form.homeService.hora} onChange={(event) => updateNestedField("homeService", "hora", event.target.value)} /></label>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {form.serviceType === "Remoto" && (
+                    <motion.div className="new-ticket-conditional-box" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+                      <div className="new-ticket-grid-2">
+                        <label className="new-ticket-field"><span>Plataforma</span><input value={form.remoteService.plataforma} onChange={(event) => updateNestedField("remoteService", "plataforma", event.target.value)} /></label>
+                        <label className="new-ticket-field"><span>ID de conexión <b>*</b></span><input value={form.remoteService.idConexion} onChange={(event) => updateNestedField("remoteService", "idConexion", event.target.value)} /></label>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <section className="new-ticket-card new-ticket-notes-card">
               <div className="new-ticket-card-head">
                 <div className="new-ticket-card-title">
-                  <div className="new-ticket-card-icon equipment">
-                    <Cpu
-                      size={
-                        19
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <strong>
-                      3. Equipo
-                    </strong>
-                    <span>
-                      Identificación técnica y condición de ingreso
-                    </span>
-                  </div>
+                  <span className="new-ticket-card-icon note"><FileText size={19} /></span>
+                  <div><strong>Nota interna inicial</strong><span>Opcional. Queda registrada en la bitácora con fecha, hora y autor.</span></div>
                 </div>
+              </div>
+              <div className="new-ticket-card-body">
+                <label className="new-ticket-field">
+                  <textarea
+                    value={form.internalNotes}
+                    onChange={(event) => updateField("internalNotes", event.target.value)}
+                    placeholder="Ej: Cliente avisa que necesita el equipo para el viernes. Se coordinó revisión prioritaria."
+                    disabled={saving}
+                  />
+                </label>
+              </div>
+            </section>
+          </div>
 
-                <span className="new-ticket-badge blue">
-                  Datos del dispositivo
-                </span>
+          <aside className="new-ticket-side-column">
+            <section className="new-ticket-side-card new-ticket-live-summary">
+              <div className="new-ticket-side-head">
+                <div><Eye size={18} /><strong>Resumen en vivo</strong></div>
+                <span>Borrador</span>
               </div>
 
-              <div className="new-ticket-card-body">
-                <div className="new-ticket-four-columns">
-                  <label className="new-ticket-field">
-                    <span>
-                      Tipo de equipo
-                    </span>
-                    <select
-                      value={
-                        form.equipment
-                      }
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "equipment",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    >
-                      {EQUIPMENT_TYPES.map(
-                        (
-                          type
-                        ) => (
-                          <option
-                            key={
-                              type
-                            }
-                            value={
-                              type
-                            }
-                          >
-                            {type}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
+              <div className="new-ticket-preview-code">
+                <motion.span animate={{ rotate: [0, -5, 5, 0] }} transition={{ duration: 3, repeat: Infinity }}><FileText size={22} /></motion.span>
+                <strong>TK-00XXX</strong>
+              </div>
 
-                  <label className="new-ticket-field">
-                    <span>
-                      Marca
-                    </span>
-                    <input
-                      type="text"
-                      value={
-                        form.brand
-                      }
-                      placeholder="Lenovo"
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "brand",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-                  </label>
+              <dl>
+                <div><dt><UserRound size={15} /> Cliente</dt><dd>{selectedClientName}</dd></div>
+                <div><dt><Cpu size={15} /> Equipo</dt><dd>{[form.equipment, form.brand, form.model].filter(Boolean).join(" · ")}</dd></div>
+                <div><dt><Clock3 size={15} /> Estado inicial</dt><dd>{initialStage === "pendiente_ingreso" ? "Pendiente de ingreso" : "Recepción"}</dd></div>
+                <div><dt><Wrench size={15} /> Trabajo</dt><dd>{form.jobType}</dd></div>
+                <div><dt><AlertTriangle size={15} /> Prioridad</dt><dd>{priorityLabel}</dd></div>
+                <div><dt><CircleDollarSign size={15} /> Costo estimado</dt><dd>{formatMoney(form.estimatedBudget)}</dd></div>
+              </dl>
+            </section>
 
-                  <label className="new-ticket-field">
-                    <span>
-                      Modelo
-                    </span>
-                    <input
-                      type="text"
-                      value={
-                        form.model
-                      }
-                      placeholder="IdeaPad 3"
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "model",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-                  </label>
-
-                  <label className="new-ticket-field">
-                    <span>
-                      Nº de serie / IMEI
-                    </span>
-                    <input
-                      type="text"
-                      className="new-ticket-mono"
-                      value={
-                        form.serial
-                      }
-                      placeholder="PF3A8ZQ"
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "serial",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-                  </label>
-                </div>
-
-                <div className="new-ticket-three-columns new-ticket-equipment-extra">
-                  <label className="new-ticket-field">
-                    <span>
-                      PIN / clave del equipo
-                    </span>
-                    <input
-                      type="text"
-                      className="new-ticket-mono"
-                      value={
-                        form.pin
-                      }
-                      placeholder="Opcional"
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "pin",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-                    <small>
-                      Solo si es necesario para el servicio.
-                    </small>
-                  </label>
-
-                  <label className="new-ticket-field">
-                    <span>
-                      Especificaciones rápidas
-                    </span>
-                    <input
-                      type="text"
-                      value={
-                        form.specs
-                      }
-                      placeholder="Ryzen 5 · 8 GB · SSD 256 GB"
-                      disabled={
-                        saving
-                      }
-                      onChange={
-                        (
-                          event
-                        ) =>
-                          updateField(
-                            "specs",
-                            event
-                              .target
-                              .value
-                          )
-                      }
-                    />
-                  </label>
-
-                  <label className="new-ticket-field">
-                    <span>
-                      Garantía sugerida
-                    </span>
-                    <div className="new-ticket-warranty-input">
-                      <input
-                        type="number"
-                        min="0"
-                        max="3650"
-                        value={
-                          form.warrantyDays
-                        }
-                        disabled={
-                          saving
-                        }
-                        onChange={
-                          (
-                            event
-                          ) =>
-                            updateField(
-                              "warrantyDays",
-                              event
-                                .target
-                                .value
-                            )
-                        }
-                      />
-                      <span>
-                        días
-                      </span>
-                    </div>
-                    <small>
-                      Se activa al entregar el ticket.
-                    </small>
-                  </label>
-                </div>
-
-                {form.serviceType ===
-                  "Taller" && (
-                  <>
-                    <div className="new-ticket-field new-ticket-check-section">
-                      <span>
-                        Estado físico OK
-                      </span>
-                      <small>
-                        Marcá los componentes que ingresan sin daños visibles.
-                      </small>
-
-                      <div className="new-ticket-check-grid">
-                        {PHYSICAL_ITEMS.map(
-                          (
-                            [
-                              key,
-                              label,
-                            ]
-                          ) => (
-                            <button
-                              key={
-                                key
-                              }
-                              type="button"
-                              className={
-                                form
-                                  .physicalState[
-                                  key
-                                ]
-                                  ? "active"
-                                  : ""
-                              }
-                              disabled={
-                                saving
-                              }
-                              onClick={() =>
-                                togglePhysical(
-                                  key
-                                )
-                              }
-                            >
-                              <span className="new-ticket-check-box">
-                                {form
-                                  .physicalState[
-                                  key
-                                ] && (
-                                  <Check size={13} />
-                                )}
-                              </span>
-                              {label}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="new-ticket-field new-ticket-check-section">
-                      <span>
-                        Accesorios entregados
-                      </span>
-
-                      <div className="new-ticket-check-grid accessories">
-                        {ACCESSORY_ITEMS.map(
-                          (
-                            [
-                              key,
-                              label,
-                            ]
-                          ) => (
-                            <button
-                              key={
-                                key
-                              }
-                              type="button"
-                              className={
-                                form
-                                  .accessories[
-                                  key
-                                ]
-                                  ? "active"
-                                  : ""
-                              }
-                              disabled={
-                                saving
-                              }
-                              onClick={() =>
-                                toggleAccessory(
-                                  key
-                                )
-                              }
-                            >
-                              <span className="new-ticket-check-box">
-                                {form
-                                  .accessories[
-                                  key
-                                ] && (
-                                  <Check size={13} />
-                                )}
-                              </span>
-                              {label}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    <label className="new-ticket-field">
-                      <span>
-                        Observaciones físicas
-                      </span>
-                      <input
-                        type="text"
-                        value={
-                          form.condition
-                        }
-                        placeholder="Rayones, golpes, tornillos faltantes..."
-                        disabled={
-                          saving
-                        }
-                        onChange={
-                          (
-                            event
-                          ) =>
-                            updateField(
-                              "condition",
-                              event
-                                .target
-                                .value
-                            )
-                        }
-                      />
-                    </label>
-                  </>
-                )}
+            <section className="new-ticket-side-card new-ticket-side-info">
+              <div className="new-ticket-side-head"><div><ShieldCheck size={18} /><strong>Reglas del ingreso</strong></div></div>
+              <div className="new-ticket-rule-list">
+                <span><Check size={14} /> El número de ticket se genera automáticamente.</span>
+                <span><Check size={14} /> Pendiente de ingreso es opcional.</span>
+                <span><Check size={14} /> El diagnóstico se registra una sola vez después.</span>
+                <span><Check size={14} /> Las notas posteriores forman la bitácora cronológica.</span>
               </div>
             </section>
 
-          </div>
-
-        </div>
-      </form>
+            <section className="new-ticket-side-card new-ticket-side-actions">
+              <div className="new-ticket-side-head"><div><Save size={18} /><strong>Acciones</strong></div></div>
+              <button type="button" onClick={handleSaveDraft}><Save size={15} /> Guardar borrador</button>
+              <motion.button type="submit" className="primary" disabled={saving} whileTap={{ scale: 0.98 }}>
+                <Plus size={15} /> {saving ? "Creando..." : "Crear ticket"}
+              </motion.button>
+              <button type="button" className="danger" disabled={saving} onClick={handleClearForm}><Trash2 size={15} /> Limpiar formulario</button>
+            </section>
+          </aside>
+        </form>
+      </div>
 
       {newClientOpen && (
         <div className="new-ticket-client-modal-backdrop" onMouseDown={closeNewClient}>
@@ -2494,64 +932,31 @@ export default function NuevoTicket() {
             className="new-ticket-client-modal"
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.2 }}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="new-ticket-client-modal-head">
               <div>
-                <span className="new-ticket-client-modal-icon">
-                  <UserPlus size={20} />
-                </span>
-                <div>
-                  <strong>Dar de alta cliente</strong>
-                  <span>Crealo sin salir del nuevo ticket.</span>
-                </div>
+                <span className="new-ticket-client-modal-icon"><UserPlus size={20} /></span>
+                <div><strong>Dar de alta cliente</strong><span>Crealo sin salir del nuevo ticket.</span></div>
               </div>
-
-              <button type="button" onClick={closeNewClient} disabled={savingNewClient} title="Cerrar">
-                <X size={18} />
-              </button>
+              <button type="button" onClick={closeNewClient} disabled={savingNewClient}><X size={18} /></button>
             </div>
 
             <div className="new-ticket-client-modal-body">
               <div className="new-ticket-grid-2">
-                <label className="new-ticket-field">
-                  <span>Nombre <b>*</b></span>
-                  <input value={newClientForm.nombre} onChange={(event) => updateNewClientField("nombre", event.target.value)} placeholder="Nombre" autoFocus disabled={savingNewClient} />
-                </label>
-                <label className="new-ticket-field">
-                  <span>Apellido</span>
-                  <input value={newClientForm.apellido} onChange={(event) => updateNewClientField("apellido", event.target.value)} placeholder="Apellido" disabled={savingNewClient} />
-                </label>
-                <label className="new-ticket-field">
-                  <span>DNI</span>
-                  <input value={newClientForm.dni} onChange={(event) => updateNewClientField("dni", event.target.value)} placeholder="Documento" inputMode="numeric" disabled={savingNewClient} />
-                </label>
-                <label className="new-ticket-field">
-                  <span>CUIT</span>
-                  <input value={newClientForm.cuit} onChange={(event) => updateNewClientField("cuit", event.target.value)} placeholder="CUIT" inputMode="numeric" disabled={savingNewClient} />
-                </label>
-                <label className="new-ticket-field">
-                  <span>Teléfono</span>
-                  <input value={newClientForm.tel} onChange={(event) => updateNewClientField("tel", event.target.value)} placeholder="+54 9 ..." disabled={savingNewClient} />
-                </label>
-                <label className="new-ticket-field">
-                  <span>Email</span>
-                  <input type="email" value={newClientForm.email} onChange={(event) => updateNewClientField("email", event.target.value)} placeholder="cliente@email.com" disabled={savingNewClient} />
-                </label>
-              </div>
-
-              <div className="new-ticket-client-modal-note">
-                <CircleAlert size={17} />
-                <span>DNI, CUIT, teléfono o email ayudan a evitar clientes duplicados.</span>
+                <label className="new-ticket-field"><span>Nombre <b>*</b></span><input value={newClientForm.nombre} onChange={(event) => updateNewClientField("nombre", event.target.value)} autoFocus disabled={savingNewClient} /></label>
+                <label className="new-ticket-field"><span>Apellido</span><input value={newClientForm.apellido} onChange={(event) => updateNewClientField("apellido", event.target.value)} disabled={savingNewClient} /></label>
+                <label className="new-ticket-field"><span>DNI</span><input value={newClientForm.dni} onChange={(event) => updateNewClientField("dni", event.target.value)} disabled={savingNewClient} /></label>
+                <label className="new-ticket-field"><span>CUIT</span><input value={newClientForm.cuit} onChange={(event) => updateNewClientField("cuit", event.target.value)} disabled={savingNewClient} /></label>
+                <label className="new-ticket-field"><span>Teléfono</span><input value={newClientForm.tel} onChange={(event) => updateNewClientField("tel", event.target.value)} disabled={savingNewClient} /></label>
+                <label className="new-ticket-field"><span>Email</span><input type="email" value={newClientForm.email} onChange={(event) => updateNewClientField("email", event.target.value)} disabled={savingNewClient} /></label>
               </div>
             </div>
 
             <div className="new-ticket-client-modal-actions">
               <button type="button" className="secondary" onClick={closeNewClient} disabled={savingNewClient}>Cancelar</button>
               <button type="button" className="primary" onClick={handleCreateClient} disabled={savingNewClient}>
-                <UserPlus size={17} />
-                {savingNewClient ? "Creando..." : "Crear y seleccionar"}
+                <UserPlus size={17} /> {savingNewClient ? "Creando..." : "Crear y seleccionar"}
               </button>
             </div>
           </motion.div>

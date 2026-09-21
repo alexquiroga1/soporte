@@ -419,17 +419,6 @@ export default function Creditos() {
     [credits, selectedCreditId]
   );
 
-  useEffect(() => {
-    if (selectedCreditId || !credits.length) return;
-
-    const preferred = credits.find((credit) => {
-      const status = getCreditStatus(credit, settings);
-      return !["saldado", "refinanciado", "cancelado", "anulado"].includes(status.key);
-    }) || credits[0];
-
-    setSelectedCreditId(preferred?.id || null);
-  }, [credits, selectedCreditId, settings]);
-
   const selectedClient = useMemo(() => {
     if (!selectedCredit) return null;
 
@@ -1349,7 +1338,7 @@ export default function Creditos() {
             )}
           </section>
 
-          <aside className="credits-pro-detail-card">
+          <aside className={`credits-pro-detail-card ${!selectedCredit ? "is-empty" : ""}`}> 
             {!selectedCredit ? (
               <div className="credits-empty compact">
                 <UserRound size={30} />

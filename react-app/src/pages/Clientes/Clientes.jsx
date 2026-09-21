@@ -16,36 +16,47 @@ import {
 } from "motion/react";
 
 import {
-  createPortal,
-} from "react-dom";
-
-import {
   AlertTriangle,
   Archive,
   ArchiveRestore,
+  ArrowDownRight,
   ArrowLeft,
+  ArrowUpRight,
   BadgeDollarSign,
+  Building2,
+  CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  CircleDollarSign,
+  Clock3,
   CreditCard,
+  Download,
   ExternalLink,
+  Eye,
   FileClock,
   FileText,
+  Filter,
+  History,
+  Mail,
+  MapPin,
   MonitorSmartphone,
+  MoreVertical,
   NotebookPen,
   Pencil,
+  Phone,
   Plus,
   ReceiptText,
   RotateCcw,
   Search,
+  ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
+  Tag,
   Ticket,
   Trash2,
   UserRound,
+  UsersRound,
   WalletCards,
-  ShieldCheck,
-  ShieldAlert,
-  History,
-  CircleDollarSign,
   X,
 } from "lucide-react";
 
@@ -112,7 +123,8 @@ const EMPTY_CREDIT = {
 };
 
 const STAGES = {
-  pendiente: "Recibido",
+  pendiente_ingreso: "Pendiente de ingreso",
+  pendiente: "Recepción",
   diagnostico: "Diagnóstico",
   presupuesto: "Presupuesto",
   presupuesto_rechazado: "Presupuesto rechazado",
@@ -207,6 +219,146 @@ function recordDate(record) {
     record?.createdAt ||
     ""
   );
+}
+
+function safeDate(value) {
+  if (!value) return null;
+
+  const raw = String(value);
+  const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function clientKind(client) {
+  const explicit = String(
+    client?.tipoCliente || client?.tipo || client?.categoria || ""
+  ).toLowerCase();
+
+  if (explicit.includes("empresa") || explicit.includes("juríd") || explicit.includes("jurid")) {
+    return "Empresa";
+  }
+
+  if (explicit.includes("particular") || explicit.includes("persona")) {
+    return "Particular";
+  }
+
+  const displayName = String(
+    client?.razonSocial || client?.nombre || ""
+  ).toLowerCase();
+
+  if (
+    client?.esEmpresa === true ||
+    client?.razonSocial ||
+    (client?.cuit && !client?.dni) ||
+    /\b(s\.?a\.?s?|s\.?r\.?l\.?|empresa|sociedad)\b/i.test(displayName)
+  ) {
+    return "Empresa";
+  }
+
+  return "Particular";
+}
+
+function clientCode(client, clients = []) {
+  const explicit = client?.codigoCliente || client?.codigo || client?.numeroCliente;
+  if (explicit) return String(explicit);
+
+  const index = clients.findIndex((item) => item.id === client?.id);
+  const number = index >= 0 ? index + 1 : 1;
+  return `CL-${String(number).padStart(3, "0")}`;
+}
+
+function latestByDate(records = []) {
+  return [...records].sort((a, b) => {
+    const dateA = safeDate(recordDate(a))?.getTime() || 0;
+    const dateB = safeDate(recordDate(b))?.getTime() || 0;
+    return dateB - dateA;
+  })[0] || null;
+}
+
+function daysAgoLabel(value) {
+  const date = safeDate(value);
+  if (!date) return "Sin fecha";
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diff = Math.max(0, Math.round((today - target) / 86400000));
+
+  if (diff === 0) return "Hoy";
+  if (diff === 1) return "Hace 1 día";
+  return `Hace ${diff} días`;
+}
+
+function directoryStatus(client, activity) {
+  if (client?.archivado === true) {
+    return { key: "archived", label: "Archivado" };
+  }
+
+  const limit = Number(client?.limiteCredito || 0);
+  const debt = Number(activity?.debt || 0);
+
+  if (limit > 0 && debt > limit) {
+    return { key: "critical", label: "Límite excedido" };
+  }
+
+  if (debt > 0) {
+    return { key: "debt", label: "Con deuda" };
+  }
+
+  if ((activity?.activeCredits || []).length > 0) {
+    return { key: "credit", label: "Crédito activo" };
+  }
+
+  if (!(activity?.tickets || []).length && !(activity?.sales || []).length) {
+    return { key: "new", label: "Nuevo" };
+  }
+
+  return { key: "ok", label: "Al día" };
+}
+
+function invoiceStatus(invoice) {
+  const raw = String(invoice?.estadoPago || invoice?.estado || "").toLowerCase();
+  if (raw.includes("venc") || raw.includes("pend")) return { key: "overdue", label: invoice?.estadoPago || invoice?.estado || "Pendiente" };
+  if (raw.includes("pag") || raw.includes("cob")) return { key: "paid", label: invoice?.estadoPago || invoice?.estado || "Pagada" };
+  return { key: "issued", label: invoice?.estadoPago || invoice?.estado || "Emitida" };
+}
+
+function buildBillingSeries(invoices = []) {
+  const now = new Date();
+  const months = [];
+
+  for (let offset = 5; offset >= 0; offset -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    months.push({
+      year: date.getFullYear(),
+      month: date.getMonth(),
+      label: new Intl.DateTimeFormat("es-AR", { month: "short" })
+        .format(date)
+        .replace(".", "")
+        .replace(/^./, (char) => char.toUpperCase()),
+      total: 0,
+    });
+  }
+
+  invoices.forEach((invoice) => {
+    const date = safeDate(recordDate(invoice));
+    if (!date) return;
+
+    const bucket = months.find(
+      (item) => item.year === date.getFullYear() && item.month === date.getMonth()
+    );
+
+    if (bucket) {
+      bucket.total += Number(invoice?.total || invoice?.importe || invoice?.monto || 0);
+    }
+  });
+
+  return months;
+}
+
+function csvValue(value) {
+  const stringValue = String(value ?? "");
+  return `"${stringValue.replaceAll('"', '""')}"`;
 }
 
 function errorMessage(error) {
@@ -348,6 +500,7 @@ export default function Clientes() {
   const availableTabs = useMemo(
     () => [
       "summary",
+      "history",
       ...(canTickets ? ["tickets", "devices"] : []),
       ...(canSales || canInvoices ? ["sales"] : []),
       ...(canCredits ? ["credits"] : []),
@@ -377,7 +530,13 @@ export default function Clientes() {
   });
 
   const [search, setSearch] = useState("");
-  const [clientFilter, setClientFilter] = useState("active");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [zoneFilter, setZoneFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showNoteComposer, setShowNoteComposer] = useState(false);
+  const [editingLimit, setEditingLimit] = useState(false);
 
   const [selectedClientId, setSelectedClientId] = useState(
     () => searchParams.get("cliente") || null
@@ -705,27 +864,51 @@ export default function Clientes() {
     }
   }, [selectedClient]);
 
+  const zones = useMemo(() => {
+    return Array.from(
+      new Set(
+        clients
+          .map((client) => client.localidad || client.provincia || "")
+          .filter(Boolean)
+      )
+    ).sort((a, b) => String(a).localeCompare(String(b), "es"));
+  }, [clients]);
+
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return clients.filter((client) => {
-      const archived =
-        client.archivado ===
-        true;
+      const activity = getClientActivity(client, index);
+      const kind = clientKind(client);
+      const status = directoryStatus(client, activity);
+      const zone = client.localidad || client.provincia || "";
 
-      const matchesFilter =
+      const matchesQuickFilter =
         clientFilter === "all" ||
-        (clientFilter === "archived"
-          ? archived
-          : !archived);
+        (clientFilter === "active" && client.archivado !== true) ||
+        (clientFilter === "archived" && client.archivado === true) ||
+        (clientFilter === "debt" && Number(activity.debt || 0) > 0) ||
+        (clientFilter === "credit" && (activity.activeCredits || []).length > 0) ||
+        (clientFilter === "company" && kind === "Empresa") ||
+        (clientFilter === "individual" && kind === "Particular");
 
-      if (!matchesFilter) {
+      const matchesZone = zoneFilter === "all" || zone === zoneFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "ok" && status.key === "ok") ||
+        (statusFilter === "debt" && ["debt", "critical"].includes(status.key)) ||
+        (statusFilter === "credit" && (activity.activeCredits || []).length > 0) ||
+        (statusFilter === "archived" && status.key === "archived");
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "company" && kind === "Empresa") ||
+        (typeFilter === "individual" && kind === "Particular");
+
+      if (!matchesQuickFilter || !matchesZone || !matchesStatus || !matchesType) {
         return false;
       }
 
-      if (!query) {
-        return true;
-      }
+      if (!query) return true;
 
       return [
         getClientDisplayName(client),
@@ -733,6 +916,8 @@ export default function Clientes() {
         client.tel,
         client.email,
         client.localidad,
+        client.provincia,
+        kind,
       ]
         .filter(Boolean)
         .join(" ")
@@ -741,40 +926,176 @@ export default function Clientes() {
     });
   }, [
     clients,
+    index,
     search,
     clientFilter,
+    zoneFilter,
+    statusFilter,
+    typeFilter,
   ]);
 
   const metrics = useMemo(() => {
     let debt = 0;
     let purchases = 0;
+    let debtClients = 0;
+    let creditActive = 0;
+    let companies = 0;
+    let particulars = 0;
 
     clients.forEach((client) => {
       const activity = getClientActivity(client, index);
       debt += activity.debt;
       purchases += activity.purchases;
+
+      if (Number(activity.debt || 0) > 0) debtClients += 1;
+      if ((activity.activeCredits || []).length > 0) creditActive += 1;
+
+      if (clientKind(client) === "Empresa") companies += 1;
+      else particulars += 1;
     });
+
+    const active = clients.filter((client) => client.archivado !== true).length;
+    const archived = clients.length - active;
 
     return {
       total: clients.length,
-      active: clients.filter(
-        (client) =>
-          client.archivado !==
-          true
-      ).length,
-      archived: clients.filter(
-        (client) =>
-          client.archivado ===
-          true
-      ).length,
+      active,
+      archived,
       debt,
       purchases,
+      debtClients,
+      creditActive,
+      companies,
+      particulars,
       creditBalance: clients.reduce(
         (sum, client) => sum + Number(client.saldoAFavor || 0),
         0
       ),
     };
   }, [clients, index]);
+
+  const selectedLatestTicket = useMemo(
+    () => latestByDate(selectedActivity?.tickets || []),
+    [selectedActivity]
+  );
+
+  const selectedRecentTickets = useMemo(() => {
+    return [...(selectedActivity?.tickets || [])]
+      .sort((a, b) => {
+        const dateA = safeDate(recordDate(a))?.getTime() || 0;
+        const dateB = safeDate(recordDate(b))?.getTime() || 0;
+        return dateB - dateA;
+      })
+      .slice(0, 4);
+  }, [selectedActivity]);
+
+  const selectedBillingSeries = useMemo(
+    () => buildBillingSeries(selectedActivity?.invoices || []),
+    [selectedActivity]
+  );
+
+  const selectedBillingMax = useMemo(
+    () => Math.max(1, ...selectedBillingSeries.map((item) => item.total)),
+    [selectedBillingSeries]
+  );
+
+  const selectedDocuments = useMemo(() => {
+    return [...(selectedActivity?.invoices || [])]
+      .sort((a, b) => {
+        const dateA = safeDate(recordDate(a))?.getTime() || 0;
+        const dateB = safeDate(recordDate(b))?.getTime() || 0;
+        return dateB - dateA;
+      })
+      .slice(0, 4);
+  }, [selectedActivity]);
+
+  const selectedMovements = useMemo(() => {
+    return [...(selectedActivity?.account || [])]
+      .sort((a, b) => {
+        const dateA = safeDate(recordDate(a))?.getTime() || 0;
+        const dateB = safeDate(recordDate(b))?.getTime() || 0;
+        return dateB - dateA;
+      })
+      .slice(0, 4);
+  }, [selectedActivity]);
+
+  const historyRows = useMemo(() => {
+    if (!selectedActivity) return [];
+
+    const rows = [
+      ...(selectedActivity.tickets || []).map((item) => ({
+        key: `ticket-${item.id}`,
+        type: "ticket",
+        title: `Ticket #${item.id}`,
+        description: item.equipo || item.falla || "Servicio técnico",
+        date: recordDate(item),
+        payload: item,
+      })),
+      ...(selectedActivity.sales || []).map((item) => ({
+        key: `sale-${item.id}`,
+        type: "sale",
+        title: item.folio || `Venta ${item.id}`,
+        description: item.articulos || item.concepto || "Venta registrada",
+        date: recordDate(item),
+        amount: item.total,
+        payload: item,
+      })),
+      ...(selectedActivity.invoices || []).map((item) => ({
+        key: `invoice-${item.id}`,
+        type: "invoice",
+        title: item.numero || item.folio || `Factura ${item.id}`,
+        description: item.concepto || "Factura emitida",
+        date: recordDate(item),
+        amount: item.total,
+        payload: item,
+      })),
+      ...(selectedActivity.credits || []).map((item) => ({
+        key: `credit-${item.id}`,
+        type: "credit",
+        title: item.id,
+        description: item.concepto || "Crédito",
+        date: item.fechaOrigen || recordDate(item),
+        amount: item.saldo,
+        payload: item,
+      })),
+      ...(selectedActivity.budgets || []).map((item) => ({
+        key: `budget-${item.id}`,
+        type: "budget",
+        title: item.numero || item.folio || `Presupuesto ${item.id}`,
+        description: item.titulo || item.concepto || "Presupuesto",
+        date: recordDate(item),
+        amount: item.total,
+        payload: item,
+      })),
+    ];
+
+    return rows
+      .sort((a, b) => {
+        const dateA = safeDate(a.date)?.getTime() || 0;
+        const dateB = safeDate(b.date)?.getTime() || 0;
+        return dateB - dateA;
+      })
+      .slice(0, 30);
+  }, [selectedActivity]);
+
+  const selectedLimit = Number(selectedClient?.limiteCredito || 0);
+  const selectedDebt = Number(selectedActivity?.debt || 0);
+  const selectedAvailable = Math.max(0, selectedLimit - selectedDebt);
+  const selectedCreditUsage = selectedLimit > 0
+    ? Math.min(100, Math.round((selectedDebt / selectedLimit) * 100))
+    : 0;
+  const selectedKind = selectedClient ? clientKind(selectedClient) : "";
+  const selectedClientCode = selectedClient ? clientCode(selectedClient, clients) : "";
+  const selectedLatestNote = selectedClient
+    ? [...(selectedClient.notas || [])].reverse()[0] || null
+    : null;
+  const currentBilling = Number(selectedBillingSeries.at(-1)?.total || 0);
+  const previousBilling = Number(selectedBillingSeries.at(-2)?.total || 0);
+  const billingDelta = previousBilling > 0
+    ? Math.round(((currentBilling - previousBilling) / previousBilling) * 100)
+    : currentBilling > 0
+      ? 100
+      : 0;
 
   const openClient = (client) => {
     setClientContext(
@@ -789,22 +1110,26 @@ export default function Clientes() {
     setClientModal(true);
   };
 
-  const openEditClient = () => {
-    if (!selectedClient) return;
+  const openEditClient = (client = selectedClient) => {
+    if (!client) return;
+
+    if (client.id !== selectedClientId) {
+      setClientContext(client.id, "summary");
+    }
 
     setEditingClient(true);
     setClientForm({
-      nombre: selectedClient.nombre || selectedClient.razonSocial || "",
-      apellido: selectedClient.apellido || "",
-      dni: selectedClient.dni || "",
-      cuit: selectedClient.cuit || "",
-      direccion: selectedClient.direccion === "—" ? "" : selectedClient.direccion || "",
-      provincia: selectedClient.provincia || "",
-      localidad: selectedClient.localidad || "",
-      barrio: selectedClient.barrio || "",
-      tel: selectedClient.tel === "—" ? "" : selectedClient.tel || "",
-      email: selectedClient.email === "—" ? "" : selectedClient.email || "",
-      limiteCredito: selectedClient.limiteCredito || 0,
+      nombre: client.nombre || client.razonSocial || "",
+      apellido: client.apellido || "",
+      dni: client.dni || "",
+      cuit: client.cuit || "",
+      direccion: client.direccion === "—" ? "" : client.direccion || "",
+      provincia: client.provincia || "",
+      localidad: client.localidad || "",
+      barrio: client.barrio || "",
+      tel: client.tel === "—" ? "" : client.tel || "",
+      email: client.email === "—" ? "" : client.email || "",
+      limiteCredito: client.limiteCredito || 0,
     });
     setClientModal(true);
   };
@@ -848,6 +1173,58 @@ export default function Clientes() {
     } finally {
       setSavingClient(false);
     }
+  };
+
+  const handleExportClients = () => {
+    const headers = [
+      "Código",
+      "Cliente",
+      "Documento",
+      "Tipo",
+      "Teléfono",
+      "Email",
+      "Zona",
+      "Estado",
+      "Deuda",
+      "Límite de crédito",
+      "Tickets",
+      "Último servicio",
+    ];
+
+    const csvRows = rows.map((client) => {
+      const activity = getClientActivity(client, index);
+      const latest = latestByDate(activity.tickets);
+      const status = directoryStatus(client, activity);
+
+      return [
+        clientCode(client, clients),
+        getClientDisplayName(client),
+        getClientDocument(client),
+        clientKind(client),
+        client.tel || "",
+        client.email || "",
+        client.localidad || client.provincia || "",
+        status.label,
+        Number(activity.debt || 0),
+        Number(client.limiteCredito || 0),
+        activity.tickets.length,
+        latest ? formatDate(recordDate(latest)) : "",
+      ];
+    });
+
+    const csv = [headers, ...csvRows]
+      .map((row) => row.map(csvValue).join(","))
+      .join("\n");
+
+    const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
   const openAuditAction = (type, payload = null) => {
@@ -1369,187 +1746,222 @@ export default function Clientes() {
   };
 
   return (
-    <main className="clients-page">
+    <main className="clients-page clients-reference-ui">
       <div className="clients-shell">
-        {typeof document !== "undefined" &&
-          createPortal(
-            <header className={`clients-topbar${selectedClient ? " profile" : ""}`}>
-              {!selectedClient ? (
-                <>
-                  <div className="clients-brand">
-                    <button
-                      type="button"
-                      className="clients-icon-button"
-                      onClick={() => navigate("/dashboard")}
-                      title="Volver al Dashboard"
-                    >
-                      <ArrowLeft size={18} />
-                    </button>
-            
-                    <div className="clients-brand-mark">
-                      <UserRound size={20} />
-                    </div>
-            
-                    <div>
-                      <strong>ALEX SOPORTE TECNICO</strong>
-                      <span>Clientes</span>
-                    </div>
-                  </div>
-            
-                  <button
-                    type="button"
-                    className="clients-action primary"
-                    onClick={openNewClient}
-                  >
-                    <Plus size={17} />
-                    Nuevo cliente
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="clients-brand">
-                    <button
-                      type="button"
-                      className="clients-icon-button"
-                      onClick={() => setClientContext(null)}
-                      title="Volver a Clientes"
-                    >
-                      <ArrowLeft size={18} />
-                    </button>
-            
-                    <div className="clients-brand-mark profile">
-                      {initials(getClientDisplayName(selectedClient))}
-                    </div>
-            
-                    <div>
-                      <strong>{getClientDisplayName(selectedClient)}</strong>
-                      <span>Perfil de cliente</span>
-                    </div>
-                  </div>
-            
-                  <div className="clients-profile-top-actions">
-                    <button
-                      type="button"
-                      className="clients-action"
-                      onClick={openEditClient}
-                    >
-                      <Pencil size={16} />
-                      Editar
-                    </button>
-            
-                    {canManageClientLifecycle && (
-                      <button
-                        type="button"
-                        className={`clients-action ${
-                          selectedClient.archivado === true
-                            ? "restore"
-                            : "archive"
-                        }`}
-                        disabled={archivingClient}
-                        onClick={handleArchiveClient}
-                      >
-                        {selectedClient.archivado === true ? (
-                          <ArchiveRestore size={16} />
-                        ) : (
-                          <Archive size={16} />
-                        )}
-                        {selectedClient.archivado === true ? "Restaurar" : "Archivar"}
-                      </button>
-                    )}
-            
-                  </div>
-                </>
-              )}
-            </header>
-            ,
-            document.body
-          )}
-
-
         <AnimatePresence mode="wait">
           {!selectedClient ? (
             <motion.section
               key="directory"
-              className="clients-directory-view"
+              className="clients-directory-view clients-reference-directory"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
             >
+              <section className="clients-directory-visual-hero">
+                <button
+                  type="button"
+                  className="clients-reference-back clients-reference-back-dashboard"
+                  onClick={() => navigate("/dashboard")}
+                  title="Volver al Dashboard"
+                >
+                  <ArrowLeft size={16} />
+                </button>
 
-
-              <div className="clients-directory-title">
-                <div>
-                  <span className="clients-eyebrow">Directorio comercial</span>
-                  <h1>Clientes</h1>
-                  <p>
-                    {metrics.active} activos · {metrics.archived} archivados · {metrics.total} registrados
-                  </p>
+                <div className="clients-directory-heading">
+                  <div className="clients-directory-heading-icon" aria-hidden="true" />
+                  <div>
+                    <h1>Clientes</h1>
+                    <p>Gestiona tus clientes, historial, deuda y servicios.</p>
+                  </div>
                 </div>
-              </div>
+                <div className="clients-directory-hero-art" aria-hidden="true" />
+              </section>
 
-              <div className="clients-alert-criteria" aria-label="Criterio de alertas">
-                <strong>Criterio</strong>
-                <span className="ok"><i />Al día</span>
-                <span className="warning"><i />Deuda activa</span>
-                <span className="critical"><i />Mora / vencimiento</span>
-                <span className="info"><i />Informativo</span>
-              </div>
+              <section className="clients-kpi-grid" aria-label="Resumen de clientes">
+                <article className="clients-kpi-card blue">
+                  <div className="clients-kpi-icon"><UsersRound size={27} /></div>
+                  <div>
+                    <span>Total de Clientes</span>
+                    <strong>{metrics.total}</strong>
+                    <small className="positive"><ArrowUpRight size={13} />Base registrada</small>
+                  </div>
+                </article>
 
-              <section className="clients-directory-panel">
-                <div className="clients-directory-toolbar">
-                  <label className="clients-search">
+                <article className="clients-kpi-card green">
+                  <div className="clients-kpi-icon"><CheckCircle2 size={27} /></div>
+                  <div>
+                    <span>Clientes Activos</span>
+                    <strong>{metrics.active}</strong>
+                    <small><i className="dot green" />{metrics.total ? Math.round((metrics.active / metrics.total) * 100) : 0}% del total</small>
+                  </div>
+                </article>
+
+                <article className="clients-kpi-card orange">
+                  <div className="clients-kpi-icon"><AlertTriangle size={27} /></div>
+                  <div>
+                    <span>Con Deuda</span>
+                    <strong>{metrics.debtClients}</strong>
+                    <small><i className="dot orange" />{metrics.total ? Math.round((metrics.debtClients / metrics.total) * 100) : 0}% del total</small>
+                  </div>
+                </article>
+
+                <article className="clients-kpi-card purple">
+                  <div className="clients-kpi-icon"><CreditCard size={27} /></div>
+                  <div>
+                    <span>Crédito Activo</span>
+                    <strong>{metrics.creditActive}</strong>
+                    <small><i className="dot purple" />{metrics.total ? Math.round((metrics.creditActive / metrics.total) * 100) : 0}% del total</small>
+                  </div>
+                </article>
+
+                <article className="clients-kpi-card cyan">
+                  <div className="clients-kpi-icon"><Building2 size={27} /></div>
+                  <div>
+                    <span>Empresas</span>
+                    <strong>{metrics.companies}</strong>
+                    <small><i className="dot blue" />{metrics.total ? Math.round((metrics.companies / metrics.total) * 100) : 0}% del total</small>
+                  </div>
+                </article>
+
+                <article className="clients-kpi-card pink">
+                  <div className="clients-kpi-icon"><UserRound size={27} /></div>
+                  <div>
+                    <span>Particulares</span>
+                    <strong>{metrics.particulars}</strong>
+                    <small><i className="dot pink" />{metrics.total ? Math.round((metrics.particulars / metrics.total) * 100) : 0}% del total</small>
+                  </div>
+                </article>
+              </section>
+
+              <section className="clients-directory-controls">
+                <div className="clients-reference-filter-row">
+                  <label className="clients-reference-search">
                     <Search size={18} />
                     <input
                       value={search}
-                      placeholder="Buscar por nombre, DNI, CUIT, teléfono o correo..."
+                      placeholder="Buscar por nombre, documento, teléfono o email..."
                       onChange={(event) => setSearch(event.target.value)}
                     />
                   </label>
 
-                  <div className="clients-directory-filters">
-                    {[
-                      ["active", "Activos"],
-                      ["archived", "Archivados"],
-                      ["all", "Todos"],
-                    ].map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={clientFilter === id ? "active" : ""}
-                        onClick={() => setClientFilter(id)}
-                      >
-                        {label}
+                  <label className="clients-reference-select">
+                    <MapPin size={17} />
+                    <select value={zoneFilter} onChange={(event) => setZoneFilter(event.target.value)}>
+                      <option value="all">Todas las zonas</option>
+                      {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                    </select>
+                    <ChevronDown size={15} />
+                  </label>
+
+                  <label className="clients-reference-select">
+                    <Tag size={17} />
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                      <option value="all">Todos los estados</option>
+                      <option value="ok">Al día</option>
+                      <option value="debt">Con deuda</option>
+                      <option value="credit">Crédito activo</option>
+                      <option value="archived">Archivados</option>
+                    </select>
+                    <ChevronDown size={15} />
+                  </label>
+
+                  <label className="clients-reference-select type">
+                    <UsersRound size={17} />
+                    <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                      <option value="all">Todos los tipos</option>
+                      <option value="company">Empresas</option>
+                      <option value="individual">Particulares</option>
+                    </select>
+                    <ChevronDown size={15} />
+                  </label>
+
+                  <button
+                    type="button"
+                    className={`clients-more-filters${showAdvancedFilters ? " active" : ""}`}
+                    onClick={() => setShowAdvancedFilters((current) => !current)}
+                  >
+                    <Filter size={17} />
+                    Más filtros
+                  </button>
+                </div>
+
+                {showAdvancedFilters && (
+                  <div className="clients-advanced-filter-panel">
+                    <button type="button" className={clientFilter === "archived" ? "active" : ""} onClick={() => setClientFilter(clientFilter === "archived" ? "all" : "archived")}>
+                      <Archive size={15} /> Archivados
+                    </button>
+                    <button type="button" onClick={() => { setSearch(""); setZoneFilter("all"); setStatusFilter("all"); setTypeFilter("all"); setClientFilter("all"); }}>
+                      <RotateCcw size={15} /> Limpiar filtros
+                    </button>
+                  </div>
+                )}
+
+                <div className="clients-reference-action-row">
+                  <div className="clients-reference-quick-filters">
+                    <button type="button" className={clientFilter === "all" ? "active all" : ""} onClick={() => setClientFilter("all")}>
+                      <UsersRound size={17} /> Todos <span>{metrics.total}</span>
+                    </button>
+                    <button type="button" className={clientFilter === "debt" ? "active" : ""} onClick={() => setClientFilter("debt")}>
+                      <AlertTriangle size={17} /> Con deuda <span>{metrics.debtClients}</span>
+                    </button>
+                    <button type="button" className={clientFilter === "active" ? "active" : ""} onClick={() => setClientFilter("active")}>
+                      <UserRound size={17} /> Activos <span>{metrics.active}</span>
+                    </button>
+                    <button type="button" className={clientFilter === "credit" ? "active" : ""} onClick={() => setClientFilter("credit")}>
+                      <CreditCard size={17} /> Crédito activo <span>{metrics.creditActive}</span>
+                    </button>
+                    <button type="button" className={clientFilter === "company" ? "active" : ""} onClick={() => setClientFilter("company")}>
+                      <Building2 size={17} /> Empresas <span>{metrics.companies}</span>
+                    </button>
+                    <button type="button" className={clientFilter === "individual" ? "active" : ""} onClick={() => setClientFilter("individual")}>
+                      <UserRound size={17} /> Particulares <span>{metrics.particulars}</span>
+                    </button>
+                  </div>
+
+                  <div className="clients-reference-main-actions">
+                    <button type="button" className="secondary" onClick={handleExportClients}>
+                      <Download size={17} /> Exportar
+                    </button>
+                    {canSales && (
+                      <button type="button" className="payment" onClick={() => navigate("/caja")}>
+                        <WalletCards size={17} /> Registrar pago
                       </button>
-                    ))}
+                    )}
+                    <button type="button" className="new" onClick={openNewClient}>
+                      <Plus size={19} /> Nuevo cliente
+                    </button>
                   </div>
                 </div>
+              </section>
 
-                <div className="clients-list-head">
+              <section className="clients-reference-table-card">
+                <div className="clients-reference-table-head">
+                  <span>#</span>
                   <span>Cliente</span>
-                  <span>Contacto</span>
-                  <span>Actividad</span>
-                  <span>Finanzas</span>
-                  <span />
+                  <span>Tipo</span>
+                  <span>Estado</span>
+                  <span>Deuda Actual</span>
+                  <span>Límite de Crédito</span>
+                  <span>Tickets</span>
+                  <span>Último servicio</span>
+                  <span>Acciones</span>
                 </div>
 
-                <div className="clients-list">
+                <div className="clients-reference-table-body">
                   <AnimatePresence initial={false}>
                     {rows.map((client, rowIndex) => {
                       const activity = getClientActivity(client, index);
                       const name = getClientDisplayName(client);
-                      const alert = getDebtAlert(activity);
+                      const kind = clientKind(client);
+                      const status = directoryStatus(client, activity);
+                      const latest = latestByDate(activity.tickets);
 
                       return (
-                        <motion.div
+                        <motion.article
                           layout
                           key={client.id}
-                          className={[
-                            "clients-list-row",
-                            client.archivado === true ? "archived" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
+                          className="clients-reference-table-row"
                           role="button"
                           tabIndex={0}
                           onClick={() => openClient(client)}
@@ -1559,107 +1971,59 @@ export default function Clientes() {
                               openClient(client);
                             }
                           }}
-                          initial={{ opacity: 0, y: 8 }}
+                          initial={{ opacity: 0, y: 7 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{
-                            duration: 0.2,
-                            delay: Math.min(rowIndex * 0.025, 0.18),
-                          }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.18, delay: Math.min(rowIndex * 0.02, 0.16) }}
                         >
-                          <div className="clients-person">
-                            <div className="clients-avatar">
-                              {initials(name)}
-                            </div>
-                            <section>
+                          <span className="clients-code">{clientCode(client, clients)}</span>
+
+                          <div className="clients-table-person">
+                            <div className={`clients-table-avatar avatar-${rowIndex % 6}`}>{initials(name)}</div>
+                            <div>
                               <strong>{name}</strong>
-                              <span>
-                                {getClientDocument(client)}
-                                {client.archivado === true && (
-                                  <em className="clients-inline-status archived">
-                                    Archivado
-                                  </em>
-                                )}
-                                {client.archivado !== true && (
-                                  <em className="clients-inline-status active">
-                                    Activo
-                                  </em>
-                                )}
-                              </span>
-                            </section>
+                              <span>{client.tel || "Sin teléfono"}{client.email && client.email !== "—" ? `  |  ${client.email}` : ""}</span>
+                            </div>
                           </div>
 
-                          <div className="clients-contact-cell">
-                            <strong>{client.tel || "Sin teléfono"}</strong>
-                            <span>{client.email || client.localidad || "Sin contacto adicional"}</span>
+                          <span className={`clients-type-pill ${kind === "Empresa" ? "company" : "individual"}`}>
+                            {kind === "Empresa" ? <Building2 size={14} /> : <UserRound size={14} />}
+                            {kind}
+                          </span>
+
+                          <span className={`clients-status-pill ${status.key}`}>
+                            <i /> {status.label}
+                          </span>
+
+                          <strong className={`clients-table-money ${Number(activity.debt || 0) > 0 ? "negative" : ""}`}>
+                            {formatMoney(activity.debt)}
+                          </strong>
+
+                          <span className="clients-table-limit">{formatMoney(client.limiteCredito)}</span>
+
+                          <span className="clients-ticket-count"><Ticket size={14} /> {activity.tickets.length}</span>
+
+                          <div className="clients-table-last-service">
+                            <strong>{latest ? formatDate(recordDate(latest)) : "—"}</strong>
+                            <span>{latest ? (latest.equipo || latest.falla || STAGES[latest.stage] || "Servicio técnico") : "Sin servicios"}</span>
                           </div>
 
-                          <div className="clients-activity-cell">
-                            <strong>
-                              {canTickets ? `${activity.tickets.length} tickets` : "Historial"}
-                              {canSales ? ` · ${activity.sales.length} ventas` : ""}
-                            </strong>
-                            <span>
-                              {canBudgets
-                                ? `${activity.budgets.length} presupuestos`
-                                : "Consultar perfil"}
-                            </span>
+                          <div className="clients-table-actions" onClick={(event) => event.stopPropagation()}>
+                            <button type="button" className="detail" onClick={() => openClient(client)}>Ver detalle</button>
+                            <button type="button" title="Ver cliente" onClick={() => openClient(client)}><Eye size={16} /></button>
+                            <button type="button" title="Editar" onClick={() => openEditClient(client)}><Pencil size={15} /></button>
+                            <button type="button" title="Más opciones" onClick={() => openClient(client)}><MoreVertical size={16} /></button>
                           </div>
-
-                          <div className="clients-finance-cell">
-                            {canSeeFinancials ? (
-                              <>
-                                <div>
-                                  <span>Deuda</span>
-                                  <strong className={activity.debt > 0 ? "negative" : ""}>
-                                    {formatMoney(activity.debt)}
-                                  </strong>
-                                  {canCredits && (
-                                    <em className={`clients-debt-alert ${alert.tone}`}>
-                                      <i />
-                                      {alert.label}
-                                    </em>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <span>A favor</span>
-                                  <strong className={Number(client.saldoAFavor || 0) > 0 ? "positive" : ""}>
-                                    {formatMoney(client.saldoAFavor)}
-                                  </strong>
-                                </div>
-                              </>
-                            ) : (
-                              <div>
-                                <span>Estado</span>
-                                <strong>{client.archivado === true ? "Archivado" : "Activo"}</strong>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="clients-row-actions">
-                            <button
-                              type="button"
-                              className="clients-record-button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openClient(client);
-                              }}
-                            >
-                              <UserRound size={15} />
-                              Ver cliente
-                            </button>
-                          </div>
-                        </motion.div>
+                        </motion.article>
                       );
                     })}
                   </AnimatePresence>
 
                   {!rows.length && (
-                    <div className="clients-empty clients-empty-directory">
-                      <UserRound size={28} />
+                    <div className="clients-empty clients-reference-empty">
+                      <UsersRound size={29} />
                       <strong>Sin resultados</strong>
-                      <span>No encontramos clientes con ese filtro.</span>
+                      <span>No encontramos clientes con los filtros seleccionados.</span>
                     </div>
                   )}
                 </div>
@@ -1668,106 +2032,40 @@ export default function Clientes() {
           ) : (
             <motion.section
               key={`profile-${selectedClient.id}`}
-              className="clients-profile-view"
+              className="clients-profile-view clients-reference-profile"
               initial={{ opacity: 0, x: 18 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -12 }}
               transition={{ duration: 0.24 }}
             >
+              <section className="clients-reference-profile-hero">
+                <button type="button" className="clients-reference-back" onClick={() => setClientContext(null)}>
+                  <ArrowLeft size={16} /> Volver a Clientes
+                </button>
 
-
-              <section className="clients-profile-hero">
-                <div className="clients-profile-identity">
-                  <div className="clients-profile-avatar">
+                <div className="clients-reference-profile-identity">
+                  <div className="clients-reference-profile-avatar">
                     {initials(getClientDisplayName(selectedClient))}
+                    <i />
+                  </div>
+                  <div className="clients-reference-profile-name">
+                    <h1>{getClientDisplayName(selectedClient)}</h1>
+                    <div>
+                      <span>Cliente {selectedKind}</span>
+                      <em>{selectedClientCode}</em>
+                    </div>
                   </div>
 
-                  <div>
-                    <h1>{getClientDisplayName(selectedClient)}</h1>
-                    <p>
-                      {getClientDocument(selectedClient)}
-                      {selectedClient.tel ? ` · ${selectedClient.tel}` : ""}
-                      {selectedClient.email ? ` · ${selectedClient.email}` : ""}
-                    </p>
-
-                    <div className="clients-profile-chips">
-                      <span className={selectedClient.archivado === true ? "archived" : "active"}>
-                        {selectedClient.archivado === true ? "Archivado" : "Activo"}
-                      </span>
-
-                      {canCredits && selectedDebtAlert.overdue && (
-                        <span className="critical">
-                          <AlertTriangle size={13} />
-                          {selectedDebtAlert.label}
-                        </span>
-                      )}
-
-                      {canCredits && !selectedDebtAlert.overdue && selectedActivity?.debt > 0 && (
-                        <span className="warning">
-                          <AlertTriangle size={13} />
-                          Deuda activa
-                        </span>
-                      )}
-
-                      {canCredits && selectedActivity?.debt <= 0 && (
-                        <span className="success">
-                          <CheckCircle2 size={13} />
-                          Al día
-                        </span>
-                      )}
+                  <div className={`clients-reference-debt-badge ${selectedDebt > 0 ? "debt" : "ok"}`}>
+                    {selectedDebt > 0 ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
+                    <div>
+                      <strong>{selectedDebt > 0 ? "Con deuda" : "Al día"}</strong>
+                      <span>{selectedDebt > 0 ? "Tiene pagos pendientes" : "Sin pagos pendientes"}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="clients-profile-main-actions">
-                  {canTickets && (
-                    <button
-                      type="button"
-                      className="clients-action soft-blue"
-                      disabled={selectedClient.archivado === true}
-                      onClick={() => openNewTicketForClient()}
-                    >
-                      <Ticket size={16} />
-                      Nuevo ticket
-                    </button>
-                  )}
-
-                  {canSales && (
-                    <button
-                      type="button"
-                      className="clients-action soft-green"
-                      disabled={selectedClient.archivado === true}
-                      onClick={() =>
-                        navigate(
-                          "/caja",
-                          {
-                            state: {
-                              clienteId:
-                                selectedClient.id,
-                              returnTo:
-                                `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=sales`,
-                            },
-                          }
-                        )
-                      }
-                    >
-                      <ShoppingBag size={16} />
-                      Nueva venta
-                    </button>
-                  )}
-
-                  {canCredits && (
-                    <button
-                      type="button"
-                      className="clients-action soft-purple"
-                      disabled={selectedClient.archivado === true}
-                      onClick={() => openCredit("new")}
-                    >
-                      <BadgeDollarSign size={16} />
-                      Nuevo crédito
-                    </button>
-                  )}
-                </div>
+                <div className="clients-profile-hero-art" aria-hidden="true" />
               </section>
 
               {selectedClient.archivado === true && (
@@ -1775,219 +2073,275 @@ export default function Clientes() {
                   <Archive size={17} />
                   <div>
                     <strong>Cliente archivado</strong>
-                    <span>
-                      El historial continúa disponible, pero las nuevas operaciones
-                      permanecen bloqueadas hasta restaurarlo.
-                    </span>
+                    <span>El historial continúa disponible, pero las nuevas operaciones permanecen bloqueadas hasta restaurarlo.</span>
                   </div>
                 </div>
               )}
 
-              <section className="clients-summary-strip">
+              <nav className="clients-reference-tabs">
+                <button type="button" className={activeTab === "summary" ? "active" : ""} onClick={() => setClientContext(selectedClient.id, "summary")}>
+                  <UserRound size={17} /> Resumen
+                </button>
+                <button type="button" className={activeTab === "history" ? "active" : ""} onClick={() => setClientContext(selectedClient.id, "history")}>
+                  <Clock3 size={17} /> Historial
+                </button>
                 {canTickets && (
-                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: -1.2 }}>
-                    <div className="icon blue"><Ticket size={19} /></div>
-                    <span>Tickets</span>
-                    <strong>{selectedActivity?.tickets.length || 0}</strong>
-                    <small>Servicios vinculados</small>
-                  </motion.article>
-                )}
-
-                {canSales && (
-                  <motion.article whileHover={{ y: -4, rotateX: 1.2, rotateY: 1.2 }}>
-                    <div className="icon green"><ReceiptText size={19} /></div>
-                    <span>Compras acumuladas</span>
-                    <strong>{formatMoney(selectedActivity?.purchases)}</strong>
-                    <small>{selectedActivity?.sales.length || 0} ventas registradas</small>
-                  </motion.article>
-                )}
-
-                {canCredits && (
-                  <motion.article
-                    className={selectedActivity?.debt > 0 ? "has-alert" : ""}
-                    whileHover={{ y: -4, rotateX: -1.2, rotateY: 1.2 }}
-                  >
-                    <div className="icon pink"><CreditCard size={19} /></div>
-                    <span>Deuda actual</span>
-                    <strong>{formatMoney(selectedActivity?.debt)}</strong>
-                    <small>{selectedActivity?.activeCredits.length || 0} carpetas con saldo</small>
-                    {selectedActivity?.debt > 0 && (
-                      <em className={`clients-summary-alert ${selectedDebtAlert.overdue ? "critical" : "warning"}`}>
-                        <i />
-                        {selectedDebtAlert.label}
-                      </em>
-                    )}
-                  </motion.article>
-                )}
-
-                {canSeeFinancials && (
-                  <motion.article whileHover={{ y: -4, rotateX: -1.2, rotateY: -1.2 }}>
-                    <div className="icon purple"><WalletCards size={19} /></div>
-                    <span>Saldo a favor</span>
-                    <strong>{formatMoney(selectedClient.saldoAFavor)}</strong>
-                    <small>Disponible para aplicar</small>
-                  </motion.article>
-                )}
-              </section>
-
-              <nav className="clients-module-tabs">
-                {[
-                  ["summary", "Resumen", UserRound],
-                  ...(canTickets
-                    ? [
-                        ["tickets", `Tickets ${selectedActivity?.tickets.length || 0}`, Ticket],
-                        ["devices", `Equipos ${selectedDevices.length}`, MonitorSmartphone],
-                      ]
-                    : []),
-                  ...(canSales || canInvoices
-                    ? [["sales", "Ventas / Facturas", ReceiptText]]
-                    : []),
-                  ...(canCredits
-                    ? [["credits", `Créditos ${selectedActivity?.credits.length || 0}`, CreditCard]]
-                    : []),
-                  ...(canBudgets
-                    ? [["budgets", `Presupuestos ${selectedActivity?.budgets.length || 0}`, FileText]]
-                    : []),
-                  ...(canAccount
-                    ? [["account", "Cuenta corriente", WalletCards]]
-                    : []),
-                  ...(canAudit
-                    ? [["audit", "Auditoría interna", ShieldCheck]]
-                    : []),
-                ].map(([id, label, Icon]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={activeTab === id ? "active" : ""}
-                    onClick={() => setClientContext(selectedClient.id, id)}
-                  >
-                    <Icon size={16} />
-                    {label}
+                  <button type="button" className={activeTab === "tickets" ? "active" : ""} onClick={() => setClientContext(selectedClient.id, "tickets")}>
+                    <Ticket size={17} /> Tickets
                   </button>
-                ))}
+                )}
+                {(canSales || canInvoices) && (
+                  <button type="button" className={activeTab === "sales" ? "active" : ""} onClick={() => setClientContext(selectedClient.id, "sales")}>
+                    <ReceiptText size={17} /> Facturación
+                  </button>
+                )}
+                {canAccount && (
+                  <button type="button" className={activeTab === "account" ? "active" : ""} onClick={() => setClientContext(selectedClient.id, "account")}>
+                    <WalletCards size={17} /> Cuenta Corriente
+                  </button>
+                )}
               </nav>
 
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
-                  className="clients-module-content"
+                  className="clients-module-content clients-reference-module-content"
                   initial={{ opacity: 0, y: 9 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
                 >
                   {activeTab === "summary" && (
-                    <div className="clients-overview-grid">
-                      <section className="clients-module-card">
-                        <header>
+                    <div className="clients-reference-summary">
+                      <section className="clients-profile-kpi-grid">
+                        <article className="pink">
+                          <div className="clients-profile-kpi-icon"><CircleDollarSign size={27} /></div>
                           <div>
-                            <span>Información</span>
-                            <h3>Datos del cliente</h3>
+                            <span>Deuda Actual</span>
+                            <strong>{formatMoney(selectedDebt)}</strong>
+                            <small className={selectedDebt > 0 ? "negative" : "positive"}>
+                              {selectedDebt > 0 ? <ArrowUpRight size={13} /> : <CheckCircle2 size={13} />}
+                              {selectedDebt > 0 ? `${selectedActivity?.activeCredits.length || 0} créditos con saldo` : "Sin deuda pendiente"}
+                            </small>
                           </div>
-                          <UserRound size={19} />
-                        </header>
+                        </article>
 
-                        <div className="clients-info-grid">
+                        <article className="blue">
+                          <div className="clients-profile-kpi-icon"><WalletCards size={27} /></div>
                           <div>
-                            <span>Documento</span>
-                            <strong>{getClientDocument(selectedClient)}</strong>
+                            <span>Límite de Crédito</span>
+                            <strong>{formatMoney(selectedLimit)}</strong>
+                            <small>Disponible {formatMoney(selectedAvailable)}</small>
                           </div>
-                          <div>
-                            <span>Teléfono</span>
-                            <strong>{selectedClient.tel || "—"}</strong>
-                          </div>
-                          <div>
-                            <span>Correo</span>
-                            <strong>{selectedClient.email || "—"}</strong>
-                          </div>
-                          <div>
-                            <span>Dirección</span>
-                            <strong>
-                              {[selectedClient.direccion, selectedClient.localidad, selectedClient.provincia]
-                                .filter((value) => value && value !== "—")
-                                .join(", ") || "—"}
-                            </strong>
-                          </div>
-                        </div>
+                        </article>
 
-                        {canCredits && (
-                          <div className="clients-credit-limit">
-                            <div>
-                              <span>Límite de crédito</span>
-                              <strong>{formatMoney(limitValue)}</strong>
-                            </div>
-                            <div className="clients-limit-row">
-                              <input
-                                type="number"
-                                min="0"
-                                value={limitValue}
-                                disabled={selectedClient.archivado === true}
-                                onChange={(event) => setLimitValue(event.target.value)}
-                              />
-                              <button
-                                type="button"
-                                disabled={savingLimit || selectedClient.archivado === true}
-                                onClick={handleSaveLimit}
-                              >
-                                {savingLimit ? "Guardando..." : "Actualizar"}
-                              </button>
-                            </div>
+                        <article className="purple">
+                          <div className="clients-profile-kpi-icon"><FileText size={27} /></div>
+                          <div>
+                            <span>Tickets Totales</span>
+                            <strong>{selectedActivity?.tickets.length || 0}</strong>
+                            <small className="positive"><ArrowUpRight size={13} />Servicios vinculados</small>
                           </div>
-                        )}
+                        </article>
+
+                        <article className="green">
+                          <div className="clients-profile-kpi-icon"><CalendarDays size={27} /></div>
+                          <div>
+                            <span>Último Servicio</span>
+                            <strong>{selectedLatestTicket ? formatDate(recordDate(selectedLatestTicket)) : "—"}</strong>
+                            <small><CalendarDays size={13} />{selectedLatestTicket ? daysAgoLabel(recordDate(selectedLatestTicket)) : "Sin servicios"}</small>
+                          </div>
+                        </article>
                       </section>
 
-                      <section className="clients-module-card notes">
-                        <header>
-                          <div>
-                            <span>Bitácora</span>
-                            <h3>Notas del cliente</h3>
+                      <section className="clients-reference-dashboard-grid">
+                        <article className="clients-reference-card clients-contact-card">
+                          <header>
+                            <h3>Información de Contacto</h3>
+                            <button type="button" onClick={() => openEditClient()}><Pencil size={14} /> Editar</button>
+                          </header>
+                          <div className="clients-contact-list">
+                            <div><span className="orange"><Phone size={18} /></span><p><strong>{selectedClient.tel || "—"}</strong><small>Celular</small></p></div>
+                            <div><span className="blue"><Mail size={18} /></span><p><strong>{selectedClient.email || "—"}</strong><small>Email</small></p></div>
+                            <div><span className="orange"><MapPin size={18} /></span><p><strong>{[selectedClient.localidad, selectedClient.provincia].filter(Boolean).join(", ") || selectedClient.direccion || "—"}</strong><small>Zona</small></p></div>
+                            <div><span className="green"><UserRound size={18} /></span><p><strong>{getClientDocument(selectedClient)}</strong><small>Documento</small></p></div>
+                            <div><span className="purple"><CalendarDays size={18} /></span><p><strong>Cliente desde {formatDate(selectedClient.creadoEn)}</strong><small>Fecha de alta</small></p></div>
+                            <div><span className="cyan"><Tag size={18} /></span><p><strong>{selectedKind}</strong><small>Tipo de cliente</small></p></div>
                           </div>
-                          <NotebookPen size={19} />
-                        </header>
+                        </article>
 
-                        <textarea
-                          rows="3"
-                          value={note}
-                          placeholder="Ej: Prefiere contacto telefónico por la tarde..."
-                          onChange={(event) => setNote(event.target.value)}
-                        />
+                        <div className="clients-reference-middle-stack">
+                          <article className="clients-reference-card clients-credit-card">
+                            <header>
+                              <h3>Límite de Crédito</h3>
+                              <button type="button" onClick={() => setEditingLimit((current) => !current)}>Configurar</button>
+                            </header>
+                            <div className="clients-credit-main"><strong>{formatMoney(selectedDebt)}</strong><span>de {formatMoney(selectedLimit)}</span><em>{selectedCreditUsage}%</em></div>
+                            <div className="clients-credit-progress"><i style={{ width: `${selectedCreditUsage}%` }} /></div>
+                            <div className="clients-credit-breakdown">
+                              <span><i className="available" />Disponible <strong>{formatMoney(selectedAvailable)}</strong></span>
+                              <span><i className="used" />Utilizado <strong>{formatMoney(selectedDebt)}</strong></span>
+                            </div>
+                            {editingLimit && (
+                              <div className="clients-reference-limit-editor">
+                                <input type="number" min="0" value={limitValue} disabled={selectedClient.archivado === true} onChange={(event) => setLimitValue(event.target.value)} />
+                                <button type="button" disabled={savingLimit || selectedClient.archivado === true} onClick={async () => { await handleSaveLimit(); setEditingLimit(false); }}>
+                                  {savingLimit ? "Guardando..." : "Guardar"}
+                                </button>
+                              </div>
+                            )}
+                          </article>
 
-                        <button
-                          type="button"
-                          className="clients-note-save"
-                          disabled={savingNote || !note.trim()}
-                          onClick={handleAddNote}
-                        >
-                          {savingNote ? "Guardando..." : "Agregar nota"}
-                        </button>
+                          <article className="clients-reference-card clients-reference-notes-card">
+                            <header>
+                              <h3>Notas</h3>
+                              <button type="button" onClick={() => setShowNoteComposer((current) => !current)}>{showNoteComposer ? "Cerrar" : "Agregar nota"}</button>
+                            </header>
+                            {showNoteComposer && (
+                              <div className="clients-reference-note-composer">
+                                <textarea rows="2" value={note} placeholder="Escribí una nota..." onChange={(event) => setNote(event.target.value)} />
+                                <button type="button" disabled={savingNote || !note.trim()} onClick={async () => { await handleAddNote(); setShowNoteComposer(false); }}>{savingNote ? "Guardando..." : "Guardar"}</button>
+                              </div>
+                            )}
+                            {!showNoteComposer && (
+                              <div className="clients-reference-note-preview">
+                                <span><NotebookPen size={19} /></span>
+                                <p>
+                                  <strong>{typeof selectedLatestNote === "string" ? selectedLatestNote : selectedLatestNote?.texto || selectedLatestNote?.detalle || "Sin notas registradas."}</strong>
+                                  <small>{typeof selectedLatestNote === "object" && selectedLatestNote ? `${selectedLatestNote.fecha ? formatDate(selectedLatestNote.fecha) : ""}${selectedLatestNote.autor ? ` · ${selectedLatestNote.autor}` : ""}` : "Podés agregar una nota desde este panel."}</small>
+                                </p>
+                                <MoreVertical size={17} />
+                              </div>
+                            )}
+                          </article>
+                        </div>
 
-                        <div className="clients-notes-list">
-                          {(selectedClient.notas || [])
-                            .slice()
-                            .reverse()
-                            .map((item, indexNote) => {
-                              const data =
-                                typeof item === "string"
-                                  ? { texto: item }
-                                  : item;
+                        <article className="clients-reference-card clients-latest-services-card">
+                          <header>
+                            <h3>Últimos Servicios</h3>
+                            <button type="button" onClick={() => setClientContext(selectedClient.id, "tickets")}>Ver todos</button>
+                          </header>
+                          <div className="clients-latest-services-list">
+                            {selectedRecentTickets.map((ticket, ticketIndex) => (
+                              <button type="button" key={ticket.id} onClick={() => openTicketFromClient(ticket)}>
+                                <span className={`service-icon service-${ticketIndex % 4}`}><MonitorSmartphone size={18} /></span>
+                                <p><strong>#{ticket.id}</strong><small>{ticket.equipo || ticket.falla || "Servicio técnico"}<br />{formatDate(recordDate(ticket))}</small></p>
+                                <em>{STAGES[ticket.stage] === "Entregado" || ticket.stage === "entregado" ? "Finalizado" : STAGES[ticket.stage] || "Activo"}</em>
+                              </button>
+                            ))}
+                            {!selectedRecentTickets.length && <div className="clients-reference-inline-empty">Sin servicios registrados.</div>}
+                          </div>
+                        </article>
 
+                        <article className="clients-reference-card clients-billing-chart-card">
+                          <header>
+                            <h3>Gráfico de Facturación</h3>
+                            <span>Últimos 6 meses <ChevronDown size={14} /></span>
+                          </header>
+                          <div className="clients-reference-chart">
+                            <div className="clients-chart-y-axis"><span>{formatMoney(selectedBillingMax)}</span><span>{formatMoney(selectedBillingMax * 0.66)}</span><span>{formatMoney(selectedBillingMax * 0.33)}</span><span>$ 0</span></div>
+                            <div className="clients-chart-bars">
+                              {selectedBillingSeries.map((item, chartIndex) => (
+                                <div className="clients-chart-column" key={`${item.year}-${item.month}`}>
+                                  <div className="bar-shell"><i className={`bar bar-${chartIndex}`} style={{ height: `${Math.max(8, Math.round((item.total / selectedBillingMax) * 100))}%` }} title={formatMoney(item.total)} /></div>
+                                  <span>{item.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="clients-chart-insight">
+                            <span><ArrowUpRight size={19} /></span>
+                            <p><strong>{billingDelta >= 0 ? "+" : ""}{billingDelta}%</strong><small>vs. período anterior</small></p>
+                            <em>Crecimiento en facturación del cliente</em>
+                          </div>
+                        </article>
+
+                        <article className="clients-reference-card clients-financial-card">
+                          <header>
+                            <h3>Cuenta Corriente / Estado Financiero</h3>
+                            <button type="button" onClick={() => setClientContext(selectedClient.id, "account")}>Ver cuenta completa</button>
+                          </header>
+                          <div className="clients-financial-content">
+                            <div className="clients-financial-balance">
+                              <span className="coin-icon"><CircleDollarSign size={30} /></span>
+                              <div><small>Saldo Actual</small><strong>{formatMoney(selectedDebt)}</strong><em className={selectedDebt > 0 ? "debt" : "ok"}>{selectedDebt > 0 ? "Con deuda" : "Al día"}</em>
+                                <p><i className="red" />{selectedActivity?.activeCredits.length || 0} créditos con saldo</p>
+                                <p><i className="orange" />Saldo a favor {formatMoney(selectedClient.saldoAFavor)}</p>
+                              </div>
+                            </div>
+                            <div className="clients-financial-movements">
+                              <strong>Últimos movimientos</strong>
+                              {selectedMovements.map((movement) => {
+                                const isCredit = String(movement.tipo || "").toLowerCase().includes("crédito");
+                                return <div key={movement.id}><span className={isCredit ? "up" : "down"}>{isCredit ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}</span><p><strong>{movement.concepto || movement.refId || "Movimiento"}</strong></p><b>{formatMoney(movement.importe)}</b><small>{formatDate(recordDate(movement))}</small></div>;
+                              })}
+                              {!selectedMovements.length && <div className="clients-reference-inline-empty">Sin movimientos registrados.</div>}
+                            </div>
+                          </div>
+                        </article>
+
+                        <article className="clients-reference-card clients-documents-card">
+                          <header>
+                            <h3>Documentos / Facturación</h3>
+                            <button type="button" onClick={() => setClientContext(selectedClient.id, "sales")}>Ver todos</button>
+                          </header>
+                          <div className="clients-documents-list">
+                            {selectedDocuments.map((invoice, invoiceIndex) => {
+                              const status = invoiceStatus(invoice);
                               return (
-                                <article key={`${data.fecha || "nota"}-${indexNote}`}>
-                                  <strong>{data.texto || data.detalle || "Nota"}</strong>
-                                  <span>
-                                    {data.autor || "Sistema"}
-                                    {data.fecha ? ` · ${formatDate(data.fecha)}` : ""}
-                                  </span>
-                                </article>
+                                <div key={invoice.id}>
+                                  <span className={`document-icon doc-${invoiceIndex % 3}`}><FileText size={17} /></span>
+                                  <strong>{invoice.numero || invoice.folio || invoice.id}</strong>
+                                  <span>{invoice.tipoComprobante || "Factura"}</span>
+                                  <b>{formatMoney(invoice.total)}</b>
+                                  <small>{formatDate(recordDate(invoice))}</small>
+                                  <em className={status.key}><i />{status.label}</em>
+                                  <button type="button" onClick={() => openInvoiceFromClient(invoice)} title="Abrir documento"><Eye size={15} /></button>
+                                  <button type="button" onClick={() => openInvoiceFromClient(invoice)} title="Más opciones"><MoreVertical size={15} /></button>
+                                </div>
                               );
                             })}
-
-                          {!(selectedClient.notas || []).length && (
-                            <small>Sin notas registradas.</small>
-                          )}
-                        </div>
+                            {!selectedDocuments.length && <div className="clients-reference-inline-empty">Sin documentos emitidos.</div>}
+                          </div>
+                        </article>
                       </section>
                     </div>
+                  )}
+
+                  {activeTab === "history" && (
+                    <section className="clients-reference-history-view">
+                      <div className="clients-reference-history-shortcuts">
+                        {canTickets && <button type="button" disabled={selectedClient.archivado === true} onClick={() => openNewTicketForClient()}><Plus size={16} /> Nuevo ticket</button>}
+                        {canSales && <button type="button" disabled={selectedClient.archivado === true} onClick={() => navigate("/caja", { state: { clienteId: selectedClient.id, returnTo: `/clientes?cliente=${encodeURIComponent(selectedClient.id)}&tab=history` } })}><ShoppingBag size={16} /> Nueva venta</button>}
+                        {canCredits && <button type="button" disabled={selectedClient.archivado === true} onClick={() => openCredit("new")}><BadgeDollarSign size={16} /> Nuevo crédito</button>}
+                        {canCredits && <button type="button" onClick={() => setClientContext(selectedClient.id, "credits")}><CreditCard size={16} /> Créditos</button>}
+                        {canBudgets && <button type="button" onClick={() => setClientContext(selectedClient.id, "budgets")}><FileText size={16} /> Presupuestos</button>}
+                        {canTickets && <button type="button" onClick={() => setClientContext(selectedClient.id, "devices")}><MonitorSmartphone size={16} /> Equipos</button>}
+                        {canAudit && <button type="button" onClick={() => setClientContext(selectedClient.id, "audit")}><ShieldCheck size={16} /> Auditoría</button>}
+                        {canManageClientLifecycle && <button type="button" disabled={archivingClient} onClick={handleArchiveClient}>{selectedClient.archivado === true ? <ArchiveRestore size={16} /> : <Archive size={16} />}{selectedClient.archivado === true ? "Restaurar cliente" : "Archivar cliente"}</button>}
+                      </div>
+                      <section className="clients-module-card data clients-reference-history-card">
+                        <header><div><span>Actividad consolidada</span><h3>Historial del cliente</h3></div><History size={20} /></header>
+                        <div className="clients-reference-history-list">
+                          {historyRows.map((row) => (
+                            <article key={row.key}>
+                              <span className={`history-icon ${row.type}`}>{row.type === "ticket" ? <Ticket size={17} /> : row.type === "invoice" ? <ReceiptText size={17} /> : row.type === "sale" ? <ShoppingBag size={17} /> : row.type === "credit" ? <CreditCard size={17} /> : <FileText size={17} />}</span>
+                              <div><strong>{row.title}</strong><span>{row.description}</span></div>
+                              {row.amount !== undefined && <b>{formatMoney(row.amount)}</b>}
+                              <small>{formatDate(row.date)}</small>
+                              <button type="button" onClick={() => {
+                                if (row.type === "ticket") openTicketFromClient(row.payload);
+                                if (row.type === "sale") openSaleFromClient(row.payload);
+                                if (row.type === "invoice") openInvoiceFromClient(row.payload);
+                                if (row.type === "credit") openCreditFromClient(row.payload);
+                                if (row.type === "budget") openBudgetFromClient(row.payload);
+                              }}><ExternalLink size={14} /> Ver</button>
+                            </article>
+                          ))}
+                          {!historyRows.length && <div className="clients-empty compact"><History size={23} /><strong>Sin actividad registrada</strong></div>}
+                        </div>
+                      </section>
+                    </section>
                   )}
 
                   {activeTab === "tickets" && (
@@ -2558,6 +2912,7 @@ export default function Clientes() {
                       </section>
                     </div>
                   )}
+
                 </motion.div>
               </AnimatePresence>
             </motion.section>

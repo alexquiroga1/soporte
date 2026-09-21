@@ -17,6 +17,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   History,
+  Eye,
   Info,
   Package,
   Pencil,
@@ -42,6 +43,8 @@ import {
 } from "../../services/productos.service.js";
 
 import "./Productos.css";
+import "./ProductosTicketsTheme.css";
+import technicianCharacter from "../Tickets/assets/technician-character.png";
 
 const EMPTY_PRODUCT = {
   tipo: "Producto",
@@ -197,7 +200,7 @@ function movementQuantity(value) {
 
 function AuroraToast({ toast, onClose }) {
   const timerRef = useRef(null);
-  const startedRef = useRef(Date.now());
+  const startedRef = useRef(0);
   const remainingRef = useRef(4200);
 
   const startTimer = useCallback(() => {
@@ -279,6 +282,7 @@ export default function Productos() {
   const [loadingMovements, setLoadingMovements] = useState(true);
   const [activeTab, setActiveTab] = useState("catalog");
 
+  const [selectedProductId, setSelectedProductId] = useState(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -696,58 +700,23 @@ export default function Productos() {
     [products]
   );
 
+  const selectedProduct = filteredProducts.find((product) => (product.id || product.sku) === selectedProductId) || filteredProducts[0] || null;
+
   return (
     <main className="products-page">
       <div className="products-shell">
-        <header className="products-topbar">
-          <div className="products-brand">
-            <button
-              type="button"
-              className="products-back"
-              onClick={() => navigate("/dashboard")}
-              title="Volver al Dashboard"
-            >
-              <ArrowLeft size={18} />
-            </button>
-
-            <div className="products-brand-icon">
-              <Boxes size={21} />
-            </div>
-
-            <div>
-              <strong>Catálogo y Stock</strong>
-              <span>SERVIX · Productos, servicios e inventario</span>
-            </div>
+        <header className="products-hero">
+          <button type="button" className="products-back" onClick={() => navigate("/dashboard")}><ArrowLeft size={17} /> Volver al Menú</button>
+          <div className="products-hero-copy">
+            <div className="products-brand-icon"><Boxes size={34} /></div>
+            <div><h1>Catálogo y Stock</h1><p>Gestioná productos, servicios, existencias y movimientos.</p></div>
           </div>
-
-          <div className="products-live-status">
-            <i />
-            Inventario sincronizado
+          <div className="products-hero-art" aria-hidden="true">
+            <div className="products-hero-note">Cada producto en su lugar.<strong>Tu inventario, bajo control.</strong></div>
+            <img src={technicianCharacter} alt="" />
+            <span className="products-hero-float"><Package size={30} /></span>
           </div>
         </header>
-
-        <section className="products-page-head">
-          <div>
-            <span className="products-eyebrow">
-              <Package size={15} /> Inventario
-            </span>
-            <h1>Catálogo y stock</h1>
-            <p>
-              Controlá productos, servicios, costos, precios, existencias y cada movimiento del inventario.
-            </p>
-          </div>
-
-          <div className="products-head-actions">
-            <button type="button" className="secondary" onClick={() => openStockEntry()}>
-              <Truck size={17} />
-              Ingreso de stock
-            </button>
-            <button type="button" className="primary" onClick={openNewProduct}>
-              <Plus size={17} />
-              Nuevo producto / servicio
-            </button>
-          </div>
-        </section>
 
         <section className="products-metrics">
           <MetricCard
@@ -789,16 +758,6 @@ export default function Productos() {
 
         <section className="products-workspace">
           <div className="products-workspace-head">
-            <div className="products-workspace-title">
-              <div>
-                <Package size={18} />
-              </div>
-              <span>
-                <strong>Centro de inventario</strong>
-                <small>Catálogo, disponibilidad y trazabilidad</small>
-              </span>
-            </div>
-
             <div className="products-tabs">
               <TabButton
                 active={activeTab === "catalog"}
@@ -819,6 +778,10 @@ export default function Productos() {
                 onClick={() => setActiveTab("movements")}
               />
             </div>
+            <div className="products-head-actions">
+              <button type="button" className="secondary" onClick={() => openStockEntry()}><Truck size={17} /> Ingreso de stock</button>
+              <button type="button" className="primary" onClick={openNewProduct}><Plus size={17} /> Nuevo producto / servicio</button>
+            </div>
           </div>
 
           {activeTab === "catalog" && (
@@ -828,6 +791,7 @@ export default function Productos() {
                   <Search size={17} />
                   <input
                     type="search"
+                    aria-label="Buscar productos"
                     value={search}
                     placeholder="Buscar por nombre, SKU, código, proveedor..."
                     onChange={(event) => setSearch(event.target.value)}
@@ -839,20 +803,20 @@ export default function Productos() {
                   )}
                 </label>
 
-                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                <select aria-label="Tipo de artículo" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
                   <option value="">Producto y servicio</option>
                   <option value="Producto">Producto</option>
                   <option value="Servicio">Servicio</option>
                 </select>
 
-                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                <select aria-label="Categoría" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
                   <option value="">Todas las categorías</option>
                   {activeProductCategories.map((categoryName) => (
                     <option key={categoryName} value={categoryName}>{categoryName}</option>
                   ))}
                 </select>
 
-                <select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)}>
+                <select aria-label="Disponibilidad" value={stockFilter} onChange={(event) => setStockFilter(event.target.value)}>
                   <option value="">Todo el stock</option>
                   <option value="Disponible">Disponible</option>
                   <option value="Stock bajo">Stock bajo</option>
@@ -883,7 +847,7 @@ export default function Productos() {
                         <th>Stock</th>
                         <th>Reservado</th>
                         <th>Estado</th>
-                        <th />
+                        <th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -895,6 +859,7 @@ export default function Productos() {
                         return (
                           <motion.tr
                             key={product.id || product.sku}
+                            className={selectedProduct === product ? "selected" : ""}
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.18, delay: Math.min(index * 0.012, 0.12) }}
@@ -906,7 +871,7 @@ export default function Productos() {
                               </span>
                             </td>
                             <td>
-                              <strong>{product.nombre || "Sin nombre"}</strong>
+                              <div className="products-name-cell"><span className={`products-item-icon ${service ? "service" : ""}`}><Package size={20} /></span><strong>{product.nombre || "Sin nombre"}</strong></div>
                               <span className="products-row-muted">
                                 {[product.categoria, product.proveedor].filter(Boolean).join(" · ") || "—"}
                               </span>
@@ -928,6 +893,7 @@ export default function Productos() {
                             </td>
                             <td>
                               <div className="products-row-actions">
+                                <button type="button" title="Ver resumen" aria-label={`Ver resumen de ${product.nombre}`} onClick={() => setSelectedProductId(product.id || product.sku)}><Eye size={15} /></button>
                                 <button type="button" title="Editar ficha" onClick={() => openEditProduct(product)}>
                                   <Pencil size={15} />
                                 </button>
@@ -948,6 +914,16 @@ export default function Productos() {
                   </table>
                 </div>
               )}
+              {!loadingProducts && selectedProduct && <section className="products-selection" aria-label="Resumen del artículo seleccionado">
+                <div className="products-selection-heading"><h2>Resumen del artículo seleccionado</h2><button type="button" onClick={() => openEditProduct(selectedProduct)}>Editar ficha <Pencil size={14} /></button></div>
+                <div className="products-selection-grid">
+                  <div className="products-selection-identity"><span className="products-item-icon"><Boxes size={30} /></span><div><strong>{selectedProduct.nombre}</strong><small>{selectedProduct.sku || selectedProduct.id}</small><span className={`products-status ${getProductStatus(selectedProduct).className}`}>{getProductStatus(selectedProduct).label}</span></div></div>
+                  <article><span className="products-summary-icon blue"><Package size={22} /></span><div><span>Disponible</span><strong>{isService(selectedProduct) ? "Servicio" : getAvailable(selectedProduct) + " unidades"}</strong><small>{isService(selectedProduct) ? "Sin inventario físico" : getReserved(selectedProduct) + " reservadas"}</small></div></article>
+                  <article><span className="products-summary-icon mint"><CircleDollarSign size={22} /></span><div><span>Precio de venta</span><strong>{formatMoney(selectedProduct.precio)}</strong><small>Costo: {formatMoney(selectedProduct.costo)}</small></div></article>
+                  <article><span className="products-summary-icon violet"><Truck size={22} /></span><div><span>Proveedor</span><strong>{selectedProduct.proveedor || "Sin asignar"}</strong><small>{selectedProduct.ubicacion || "Sin ubicación registrada"}</small></div></article>
+                  <article><span className="products-summary-icon amber"><ClipboardList size={22} /></span><div><span>Stock mínimo</span><strong>{isService(selectedProduct) ? "No aplica" : getMinimum(selectedProduct) + " unidades"}</strong><small>{selectedProduct.categoria}</small></div></article>
+                </div>
+              </section>}
             </div>
           )}
 
@@ -1023,18 +999,18 @@ export default function Productos() {
                   <Search size={17} />
                   <input
                     type="search"
-                    value={movementSearch}
+                    aria-label="Buscar movimientos" value={movementSearch}
                     placeholder="Buscar SKU, producto, referencia, usuario..."
                     onChange={(event) => setMovementSearch(event.target.value)}
                   />
                 </label>
 
-                <select value={movementType} onChange={(event) => setMovementType(event.target.value)}>
+                <select aria-label="Tipo de movimiento" value={movementType} onChange={(event) => setMovementType(event.target.value)}>
                   <option value="">Todos los movimientos</option>
                   {movementTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
 
-                <select value={movementOrigin} onChange={(event) => setMovementOrigin(event.target.value)}>
+                <select aria-label="Origen del movimiento" value={movementOrigin} onChange={(event) => setMovementOrigin(event.target.value)}>
                   <option value="">Todos los orígenes</option>
                   {movementOrigins.map((origin) => <option key={origin} value={origin}>{origin}</option>)}
                 </select>
@@ -1474,7 +1450,7 @@ export default function Productos() {
 
 function MetricCard({ label, value, detail, icon, tone }) {
   return (
-    <article className="products-metric-card">
+    <article className={`products-metric-card ${tone}`}>
       <div className="products-metric-top">
         <span>{label}</span>
         <div className={`products-metric-icon ${tone}`}>{icon}</div>
@@ -1487,7 +1463,7 @@ function MetricCard({ label, value, detail, icon, tone }) {
 
 function TabButton({ active, icon, label, onClick }) {
   return (
-    <button type="button" className={active ? "active" : ""} onClick={onClick}>
+    <button type="button" className={active ? "active" : ""} aria-pressed={active} onClick={onClick}>
       {icon}
       {label}
     </button>

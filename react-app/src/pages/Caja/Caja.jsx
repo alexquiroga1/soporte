@@ -747,8 +747,8 @@ export default function Caja() {
             </div>
 
             <div className="cash-brand-copy">
-              <strong>Caja</strong>
-              <span>SERVIX · Cobros y movimientos</span>
+              <strong>SERVIX · Caja</strong>
+              <span>Operación y cobranzas</span>
             </div>
           </div>
 
@@ -767,34 +767,50 @@ export default function Caja() {
 
         <motion.section
           className="cash-page-head"
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <div>
             <span className="cash-eyebrow">
               <CircleDollarSign size={15} />
-              Caja
+              Caja operativa
             </span>
-            <h1>Cobros</h1>
+            <h1>Movimientos de caja</h1>
             <p>
-              Gestioná pendientes, confirmá pagos y consultá movimientos con trazabilidad completa.
+              Pendientes, cobros y actividad separados para que la pantalla principal
+              conserve todo el ancho útil.
             </p>
           </div>
 
           <div className="cash-page-actions">
             <button
               type="button"
-              className="cash-button soft"
+              className={`cash-section-tab ${activeTab === "pendings" ? "active" : ""}`}
+              onClick={() => setActiveTab("pendings")}
+            >
+              <WalletCards size={16} />
+              Operaciones
+              <b>{pendings.length}</b>
+            </button>
+
+            <button
+              type="button"
+              className={`cash-section-tab ${activeTab === "movements" ? "active" : ""}`}
               onClick={() => setActiveTab("movements")}
             >
               <History size={16} />
-              Movimientos
+              Actividad
             </button>
 
             <button
               type="button"
               className="cash-button mint"
-              onClick={() => notify.success("Caja actualizada", "La información se sincroniza en tiempo real.")}
+              onClick={() =>
+                notify.success(
+                  "Caja actualizada",
+                  "La información se sincroniza en tiempo real."
+                )
+              }
             >
               <RefreshCw size={16} />
               Actualizar
@@ -803,646 +819,982 @@ export default function Caja() {
         </motion.section>
 
         <section className="cash-metrics">
-          <article>
+          <article className="cash-metric-card cash-metric-blue">
             <div className="cash-metric-top">
               <span>Pendientes de cobro</span>
-              <div className="cash-metric-icon"><WalletCards size={18} /></div>
+              <div className="cash-metric-icon">
+                <WalletCards size={18} />
+              </div>
             </div>
             <strong>{pendings.length}</strong>
             <small>{formatMoney(pendingAmount)} por cobrar</small>
           </article>
 
-          <article>
+          <article className="cash-metric-card cash-metric-green">
             <div className="cash-metric-top">
               <span>Cobrado hoy</span>
-              <div className="cash-metric-icon"><Banknote size={18} /></div>
+              <div className="cash-metric-icon">
+                <Banknote size={18} />
+              </div>
             </div>
             <strong>{formatMoney(todayStats.collected)}</strong>
             <small>Ingresos reales confirmados</small>
           </article>
 
-          <article>
+          <article className="cash-metric-card cash-metric-violet">
             <div className="cash-metric-top">
               <span>Saldo a favor utilizado</span>
-              <div className="cash-metric-icon"><WalletCards size={18} /></div>
+              <div className="cash-metric-icon">
+                <WalletCards size={18} />
+              </div>
             </div>
             <strong>{formatMoney(todayStats.balanceUsed)}</strong>
             <small>Aplicado hoy en cobros</small>
           </article>
 
-          <article>
+          <article className="cash-metric-card cash-metric-orange">
             <div className="cash-metric-top">
               <span>Financiado hoy</span>
-              <div className="cash-metric-icon"><CalendarClock size={18} /></div>
+              <div className="cash-metric-icon">
+                <CalendarClock size={18} />
+              </div>
             </div>
             <strong>{formatMoney(todayStats.financed)}</strong>
             <small>Créditos generados desde Caja</small>
           </article>
         </section>
 
-        <section className="cash-layout">
-          <div className="cash-main-column">
-            <section className="cash-card cash-center-card">
-              <div className="cash-card-head cash-center-head">
-                <div className="cash-card-title">
-                  <div className="cash-card-title-icon"><CircleDollarSign size={18} /></div>
-                  <div>
-                    <strong>Centro de Caja</strong>
-                    <span>Pendientes y movimientos en un mismo módulo</span>
-                  </div>
+        {activeTab === "pendings" && (
+          <motion.section
+            className="cash-section-view"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <section className="cash-session-strip">
+              <div className="cash-session-main">
+                <div className="cash-session-icon">
+                  <CircleDollarSign size={21} />
                 </div>
-
-                <div className="cash-tabs">
-                  <button
-                    type="button"
-                    className={activeTab === "pendings" ? "active" : ""}
-                    onClick={() => setActiveTab("pendings")}
-                  >
-                    <WalletCards size={15} />
-                    Pendientes
-                    <b>{pendings.length}</b>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={activeTab === "movements" ? "active" : ""}
-                    onClick={() => setActiveTab("movements")}
-                  >
-                    <ReceiptText size={15} />
-                    Movimientos
-                  </button>
+                <div>
+                  <span>Sesión de caja</span>
+                  <strong>Operativa</strong>
+                  <small>Los datos se actualizan desde Firestore en tiempo real.</small>
                 </div>
               </div>
 
-              {activeTab === "pendings" && (
-                <div className="cash-card-body">
-                  <div className="cash-toolbar">
-                    <div className="cash-search">
-                      <Search size={17} />
-                      <input
-                        type="search"
-                        value={search}
-                        placeholder="Buscar cliente, ticket, presupuesto..."
-                        onChange={(event) => setSearch(event.target.value)}
-                      />
-                      {search && (
-                        <button type="button" onClick={() => setSearch("")}>
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
+              <div className="cash-session-stat">
+                <span>Fondo actual</span>
+                <strong>{formatMoney(summary.fund)}</strong>
+              </div>
 
-                    <select
-                      value={originFilter}
-                      onChange={(event) => setOriginFilter(event.target.value)}
-                    >
-                      <option value="">Todos los orígenes</option>
-                      <option value="POS">POS</option>
-                      <option value="Ticket">Ticket</option>
-                      <option value="Presupuesto">Presupuesto</option>
-                    </select>
+              <div className="cash-session-stat">
+                <span>Ingresos</span>
+                <strong>{formatMoney(summary.income)}</strong>
+              </div>
+
+              <div className="cash-session-stat">
+                <span>Egresos</span>
+                <strong>{formatMoney(summary.expenses)}</strong>
+              </div>
+
+              <div className="cash-session-stat emphasis">
+                <span>Efectivo esperado</span>
+                <strong>{formatMoney(summary.cashExpected)}</strong>
+              </div>
+            </section>
+
+            <section className="cash-card cash-pendings-card">
+              <div className="cash-card-head">
+                <div className="cash-card-title">
+                  <div className="cash-card-title-icon">
+                    <WalletCards size={18} />
+                  </div>
+                  <div>
+                    <strong>Operaciones pendientes</strong>
+                    <span>Tickets, presupuestos y ventas listos para cobrar</span>
+                  </div>
+                </div>
+
+                <span className="cash-state-badge pending">
+                  Pendientes · {pendings.length}
+                </span>
+              </div>
+
+              <div className="cash-card-body">
+                <div className="cash-toolbar">
+                  <div className="cash-search">
+                    <Search size={17} />
+                    <input
+                      type="search"
+                      value={search}
+                      placeholder="Buscar cliente, ticket, presupuesto..."
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                    {search && (
+                      <button type="button" onClick={() => setSearch("")}>
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
 
-                  {loading ? (
-                    <div className="cash-empty">
-                      <div className="cash-loader" />
-                      <strong>Cargando Caja</strong>
-                      <span>Sincronizando operaciones...</span>
+                  <select
+                    value={originFilter}
+                    onChange={(event) => setOriginFilter(event.target.value)}
+                  >
+                    <option value="">Todos los orígenes</option>
+                    <option value="POS">POS</option>
+                    <option value="Ticket">Ticket</option>
+                    <option value="Presupuesto">Presupuesto</option>
+                    <option value="Crédito">Crédito</option>
+                  </select>
+                </div>
+
+                {loading ? (
+                  <div className="cash-empty">
+                    <div className="cash-loader" />
+                    <strong>Cargando Caja</strong>
+                    <span>Sincronizando operaciones...</span>
+                  </div>
+                ) : filteredPendings.length === 0 ? (
+                  <div className="cash-empty">
+                    <CheckCircle2 size={30} />
+                    <strong>No hay cobros pendientes</strong>
+                    <span>
+                      Los envíos desde POS, Tickets, Presupuestos y Créditos
+                      aparecerán automáticamente.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="cash-pending-table-wrap">
+                    <div className="cash-pending-head">
+                      <span>Referencia</span>
+                      <span>Cliente / concepto</span>
+                      <span>Origen</span>
+                      <span>Estado</span>
+                      <span>Total</span>
+                      <span>Acciones</span>
                     </div>
-                  ) : filteredPendings.length === 0 ? (
-                    <div className="cash-empty">
-                      <CheckCircle2 size={30} />
-                      <strong>No hay cobros pendientes</strong>
-                      <span>Los envíos desde POS, Tickets y Presupuestos aparecerán automáticamente.</span>
-                    </div>
-                  ) : (
+
                     <div className="cash-pending-list">
-                      {filteredPendings.map((item) => {
-                        const selected = paymentItem?.id === item.id;
-
-                        return (
-                          <motion.article
-                            layout
-                            key={item.id}
-                            className={`cash-pending-row ${selected ? "selected" : ""}`}
-                            onClick={() => openPayment(item)}
-                          >
-                            <div className="cash-pending-code">
-                              <strong>#{item.ref || item.id}</strong>
-                              <span>{item.creadoEn ? formatDateTime(item.creadoEn) : "Pendiente"}</span>
-                            </div>
-
-                            <div className="cash-pending-client">
-                              <strong>{item.cliente || "Consumidor Final"}</strong>
-                              <span>{item.concepto || "Sin detalle"}</span>
-                            </div>
-
-                            <span className={`cash-badge ${item.origen === "Ticket" ? "violet" : item.origen === "Presupuesto" ? "amber" : "blue"}`}>
-                              {item.origen || "Operación"}
+                      {filteredPendings.map((item) => (
+                        <motion.article
+                          layout
+                          key={item.id}
+                          className="cash-pending-row"
+                        >
+                          <div className="cash-pending-code">
+                            <strong>#{item.ref || item.id}</strong>
+                            <span>
+                              {item.creadoEn
+                                ? formatDateTime(item.creadoEn)
+                                : "Sin fecha"}
                             </span>
+                          </div>
 
-                            <span className="cash-badge green">Listo</span>
+                          <div className="cash-pending-client">
+                            <strong>{item.cliente || "Consumidor Final"}</strong>
+                            <span>{item.concepto || "Sin detalle"}</span>
+                          </div>
 
-                            <strong className="cash-pending-amount">{formatMoney(item.total)}</strong>
+                          <span
+                            className={`cash-origin-badge ${
+                              item.origen === "Ticket"
+                                ? "violet"
+                                : item.origen === "Presupuesto"
+                                  ? "orange"
+                                  : item.origen === "Crédito"
+                                    ? "pink"
+                                    : "blue"
+                            }`}
+                          >
+                            {item.origen || "Operación"}
+                          </span>
 
-                            <div className="cash-pending-row-actions">
-                              {canCancelPending && (
-                                <button
-                                  type="button"
-                                  className="cash-row-action danger"
-                                  title="Cancelar pendiente"
-                                  disabled={cancellingPendingId === item.id || processingPayment}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setCancelItem(item);
-                                  }}
-                                >
-                                  <XCircle size={16} />
-                                </button>
-                              )}
+                          <span className="cash-state-badge pending compact">
+                            Pendiente
+                          </span>
 
+                          <strong className="cash-pending-amount">
+                            {formatMoney(item.total)}
+                          </strong>
+
+                          <div className="cash-pending-row-actions">
+                            {canCancelPending && (
                               <button
                                 type="button"
-                                className="cash-row-action"
-                                title="Seleccionar"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openPayment(item);
-                                }}
+                                className="cash-row-action danger"
+                                title="Cancelar pendiente"
+                                disabled={
+                                  cancellingPendingId === item.id ||
+                                  processingPayment
+                                }
+                                onClick={() => setCancelItem(item)}
                               >
-                                <ChevronRight size={17} />
+                                <XCircle size={16} />
                               </button>
+                            )}
+
+                            <button
+                              type="button"
+                              className="cash-pay-button"
+                              onClick={() => openPayment(item)}
+                            >
+                              <Banknote size={16} />
+                              Cobrar
+                            </button>
+                          </div>
+                        </motion.article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </motion.section>
+        )}
+
+        {activeTab === "movements" && (
+          <motion.section
+            className="cash-section-view cash-activity-view"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <section className="cash-card">
+              <div className="cash-card-head">
+                <div className="cash-card-title">
+                  <div className="cash-card-title-icon blue">
+                    <ReceiptText size={18} />
+                  </div>
+                  <div>
+                    <strong>Movimientos del día e historial</strong>
+                    <span>Consulta, impresión y trazabilidad de Caja</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="cash-button soft compact"
+                  disabled={!canManageCash}
+                  title={
+                    canManageCash
+                      ? "Registrar movimiento manual"
+                      : "Requiere permiso de administración de Caja"
+                  }
+                  onClick={() => setMovementModalOpen(true)}
+                >
+                  <Plus size={15} />
+                  Registrar movimiento
+                </button>
+              </div>
+
+              <div className="cash-card-body">
+                <div className="cash-toolbar movements">
+                  <div className="cash-search">
+                    <Search size={17} />
+                    <input
+                      type="search"
+                      value={movementSearch}
+                      placeholder="Buscar movimiento, cliente, referencia..."
+                      onChange={(event) =>
+                        setMovementSearch(event.target.value)
+                      }
+                    />
+                    {movementSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setMovementSearch("")}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <select
+                    value={movementMethod}
+                    onChange={(event) =>
+                      setMovementMethod(event.target.value)
+                    }
+                  >
+                    <option value="">Todos los medios</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Mercado Pago">Mercado Pago</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Saldo a Favor">Saldo a favor</option>
+                    <option value="Préstamo personal">Financiado</option>
+                  </select>
+                </div>
+
+                {filteredMovements.length === 0 ? (
+                  <div className="cash-empty">
+                    <ReceiptText size={28} />
+                    <strong>Sin movimientos</strong>
+                    <span>No encontramos movimientos con estos filtros.</span>
+                  </div>
+                ) : (
+                  <div className="cash-movements-table-wrap">
+                    <div className="cash-movements-head">
+                      <span>Movimiento</span>
+                      <span>Fecha</span>
+                      <span>Cliente / concepto</span>
+                      <span>Medio</span>
+                      <span>Estado</span>
+                      <span>Importe</span>
+                      <span>Acciones</span>
+                    </div>
+
+                    {filteredMovements.map((movement) => {
+                      const context = movementContext(movement);
+                      const isExpense = movement.tipo === "egreso";
+                      const isInfo = movement.tipo === "informativo";
+                      const status =
+                        movement.medioPago === "Préstamo personal"
+                          ? "Financiado"
+                          : movement.medioPago === "Saldo a Favor"
+                            ? "Saldo aplicado"
+                            : isExpense
+                              ? "Egreso"
+                              : movement.clase === "manual"
+                                ? "Manual"
+                                : "Confirmado";
+
+                      const stateClass =
+                        movement.medioPago === "Préstamo personal"
+                          ? "financed"
+                          : movement.medioPago === "Saldo a Favor"
+                            ? "credit"
+                            : isExpense
+                              ? "expense"
+                              : isInfo
+                                ? "info"
+                                : "paid";
+
+                      return (
+                        <article
+                          key={movement._rowKey}
+                          className={`cash-movement-row ${
+                            selectedMovement?._rowKey === movement._rowKey
+                              ? "selected"
+                              : ""
+                          }`}
+                          onClick={() => openMovement(movement)}
+                        >
+                          <div className="cash-movement-ref">
+                            <strong>{movement.id || "MOV-LEGACY"}</strong>
+                            <span>{context.ref}</span>
+                          </div>
+
+                          <div className="cash-movement-date">
+                            <strong>{movement.fecha || "—"}</strong>
+                            <span>{movement.hora || "—"}</span>
+                          </div>
+
+                          <div className="cash-movement-client">
+                            <strong>
+                              {context.client !== "—"
+                                ? context.client
+                                : context.origin}
+                            </strong>
+                            <span>{context.concept}</span>
+                          </div>
+
+                          <span className="cash-movement-method">
+                            {movement.medioPago || "Manual"}
+                          </span>
+
+                          <span
+                            className={`cash-state-badge ${stateClass} compact`}
+                          >
+                            {status}
+                          </span>
+
+                          <strong
+                            className={`cash-movement-amount ${
+                              isExpense
+                                ? "negative"
+                                : isInfo
+                                  ? "neutral"
+                                  : "positive"
+                            }`}
+                          >
+                            {isExpense ? "− " : isInfo ? "" : "+ "}
+                            {formatMoney(movement.monto)}
+                          </strong>
+
+                          <div className="cash-movement-actions">
+                            <button
+                              type="button"
+                              className="cash-row-action"
+                              title="Consultar movimiento"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openMovement(movement);
+                              }}
+                            >
+                              <Eye size={16} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="cash-row-action"
+                              title="Imprimir movimiento"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                printMovement(movement);
+                              }}
+                            >
+                              <Printer size={16} />
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="cash-activity-bottom">
+              <section className="cash-card cash-bitacora-card">
+                <div className="cash-card-head">
+                  <div className="cash-card-title">
+                    <div className="cash-card-title-icon violet">
+                      <History size={18} />
+                    </div>
+                    <div>
+                      <strong>Bitácora de sesión</strong>
+                      <span>Últimos eventos registrados en Caja</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cash-card-body">
+                  {allMovements.length === 0 ? (
+                    <div className="cash-side-empty compact">
+                      <History size={28} />
+                      <strong>Sin actividad todavía</strong>
+                      <span>Los movimientos aparecerán acá.</span>
+                    </div>
+                  ) : (
+                    <div className="cash-bitacora-grid">
+                      {allMovements.slice(0, 8).map((movement) => {
+                        const context = movementContext(movement);
+
+                        return (
+                          <button
+                            type="button"
+                            key={`bit-${movement._rowKey}`}
+                            className="cash-bitacora-item"
+                            onClick={() => openMovement(movement)}
+                          >
+                            <span className="cash-bitacora-dot" />
+                            <div>
+                              <strong>
+                                {movement.hora || "—"} ·{" "}
+                                {context.origin || "Caja"}
+                              </strong>
+                              <span>{context.concept}</span>
                             </div>
-                          </motion.article>
+                            <b>{formatMoney(movement.monto)}</b>
+                          </button>
                         );
                       })}
                     </div>
                   )}
                 </div>
-              )}
+              </section>
 
-              {activeTab === "movements" && (
-                <div className="cash-card-body">
-                  <div className="cash-toolbar movements">
-                    <div className="cash-search">
-                      <Search size={17} />
-                      <input
-                        type="search"
-                        value={movementSearch}
-                        placeholder="Buscar movimiento, cliente, referencia..."
-                        onChange={(event) => setMovementSearch(event.target.value)}
-                      />
-                      {movementSearch && (
-                        <button type="button" onClick={() => setMovementSearch("")}>
-                          <X size={14} />
-                        </button>
-                      )}
+              {selectedMovement && (
+                <section className="cash-card cash-movement-detail-card">
+                  <div className="cash-card-head">
+                    <div className="cash-card-title">
+                      <div className="cash-card-title-icon coral">
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <strong>Detalle de movimiento</strong>
+                        <span>{selectedMovement.id || "MOV-LEGACY"}</span>
+                      </div>
                     </div>
-
-                    <select
-                      value={movementMethod}
-                      onChange={(event) => setMovementMethod(event.target.value)}
-                    >
-                      <option value="">Todos los medios</option>
-                      <option value="Efectivo">Efectivo</option>
-                      <option value="Transferencia">Transferencia</option>
-                      <option value="Mercado Pago">Mercado Pago</option>
-                      <option value="Tarjeta">Tarjeta</option>
-                      <option value="Saldo a Favor">Saldo a favor</option>
-                      <option value="Préstamo personal">Financiado</option>
-                    </select>
 
                     <button
                       type="button"
-                      className="cash-button soft compact"
-                      disabled={!canManageCash}
-                      title={
-                        canManageCash
-                          ? "Registrar movimiento manual"
-                          : "Requiere permiso de administración de Caja"
-                      }
-                      onClick={() => setMovementModalOpen(true)}
+                      className="cash-row-action"
+                      title="Cerrar detalle"
+                      onClick={() => setSelectedMovement(null)}
                     >
-                      <Plus size={15} />
-                      Registrar movimiento
+                      <X size={16} />
                     </button>
                   </div>
 
-                  {filteredMovements.length === 0 ? (
-                    <div className="cash-empty">
-                      <ReceiptText size={28} />
-                      <strong>Sin movimientos</strong>
-                      <span>No encontramos movimientos con estos filtros.</span>
-                    </div>
-                  ) : (
-                    <div className="cash-movements-table-wrap">
-                      <div className="cash-movements-head">
+                  <div className="cash-card-body">
+                    <div className="cash-movement-detail-grid">
+                      <div>
                         <span>Movimiento</span>
-                        <span>Fecha</span>
-                        <span>Cliente / concepto</span>
-                        <span>Medio</span>
-                        <span>Estado</span>
-                        <span>Importe</span>
-                        <span>Acciones</span>
+                        <strong>{selectedMovement.id || "MOV-LEGACY"}</strong>
                       </div>
+                      <div>
+                        <span>Fecha / hora</span>
+                        <strong>
+                          {selectedMovement.fecha || "—"} · {selectedMovement.hora || "—"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Origen</span>
+                        <strong>{movementContext(selectedMovement).origin}</strong>
+                      </div>
+                      <div>
+                        <span>Referencia</span>
+                        <strong>{movementContext(selectedMovement).ref}</strong>
+                      </div>
+                      <div>
+                        <span>Cliente</span>
+                        <strong>{movementContext(selectedMovement).client}</strong>
+                      </div>
+                      <div>
+                        <span>Medio</span>
+                        <strong>{selectedMovement.medioPago || "Manual"}</strong>
+                      </div>
+                      <div>
+                        <span>Operador</span>
+                        <strong>{selectedMovement.usuario || "Sistema"}</strong>
+                      </div>
+                      <div>
+                        <span>Factura</span>
+                        <strong>{selectedMovement.facturaId || "—"}</strong>
+                      </div>
+                    </div>
 
-                      {filteredMovements.map((movement) => {
-                        const context = movementContext(movement);
-                        const isExpense = movement.tipo === "egreso";
-                        const isInfo = movement.tipo === "informativo";
-                        const status =
-                          movement.medioPago === "Préstamo personal"
-                            ? "Financiado"
-                            : movement.medioPago === "Saldo a Favor"
-                              ? "Saldo aplicado"
-                              : isExpense
-                                ? "Egreso"
-                                : movement.clase === "manual"
-                                  ? "Manual"
-                                  : "Confirmado";
+                    <div className="cash-movement-concept-box">
+                      <span>Concepto</span>
+                      <strong>{movementContext(selectedMovement).concept}</strong>
+                    </div>
+
+                    <div
+                      className={`cash-movement-detail-total ${
+                        selectedMovement.tipo === "egreso" ? "negative" : ""
+                      }`}
+                    >
+                      <span>Importe</span>
+                      <strong>
+                        {selectedMovement.tipo === "egreso" ? "− " : ""}
+                        {formatMoney(selectedMovement.monto)}
+                      </strong>
+                    </div>
+
+                    <div className="cash-detail-actions">
+                      {selectedMovementNavigation && (
+                        <button
+                          type="button"
+                          className="cash-button soft"
+                          onClick={() => navigate(selectedMovementNavigation.path)}
+                        >
+                          <ChevronRight size={15} />
+                          {selectedMovementNavigation.label}
+                        </button>
+                      )}
+
+                      {selectedMovement.facturaId && (
+                        <button
+                          type="button"
+                          className="cash-button"
+                          onClick={() => navigate("/facturacion/facturas")}
+                        >
+                          <ReceiptText size={15} />
+                          Ver facturas
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="cash-button primary"
+                        onClick={() => printMovement(selectedMovement)}
+                      >
+                        <Printer size={16} />
+                        Imprimir movimiento
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </section>
+          </motion.section>
+        )}
+      </div>
+
+      {paymentItem && (
+        <motion.section
+          className="cash-payment-workspace"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="cash-payment-shell">
+            <header className="cash-payment-topbar">
+              <div className="cash-brand">
+                <button
+                  type="button"
+                  className="cash-icon-button"
+                  onClick={() => setPaymentItem(null)}
+                  aria-label="Volver a Caja"
+                  disabled={processingPayment}
+                >
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div className="cash-brand-icon payment">
+                  <Banknote size={22} />
+                </div>
+
+                <div className="cash-brand-copy">
+                  <strong>Cobrar operación</strong>
+                  <span>#{paymentItem.ref || paymentItem.id}</span>
+                </div>
+              </div>
+
+              <span className="cash-state-badge pending">
+                Cobro pendiente
+              </span>
+            </header>
+
+            <div className="cash-payment-page-head">
+              <div>
+                <span className="cash-eyebrow">
+                  <CircleDollarSign size={15} />
+                  Operación de cobro
+                </span>
+                <h2>{paymentItem.cliente || "Consumidor Final"}</h2>
+                <p>
+                  {paymentItem.origen || "Operación"} ·{" "}
+                  {paymentItem.concepto || "Servicio"}
+                </p>
+              </div>
+
+              <strong>{formatMoney(paymentItem.total)}</strong>
+            </div>
+
+            <div className="cash-payment-layout">
+              <div className="cash-payment-main">
+                <section className="cash-card">
+                  <div className="cash-card-head">
+                    <div className="cash-card-title">
+                      <div className="cash-card-title-icon blue">
+                        <ReceiptText size={18} />
+                      </div>
+                      <div>
+                        <strong>Operación seleccionada</strong>
+                        <span>Datos vinculados al cobro</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="cash-card-body">
+                    <div className="cash-operation-grid">
+                      <div>
+                        <span>Cliente</span>
+                        <strong>
+                          {paymentItem.cliente || "Consumidor Final"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Origen</span>
+                        <strong>{paymentItem.origen || "Operación"}</strong>
+                      </div>
+                      <div>
+                        <span>Referencia</span>
+                        <strong>#{paymentItem.ref || paymentItem.id}</strong>
+                      </div>
+                      <div>
+                        <span>Total</span>
+                        <strong>{formatMoney(paymentItem.total)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="cash-card">
+                  <div className="cash-card-head">
+                    <div className="cash-card-title">
+                      <div className="cash-card-title-icon violet">
+                        <CreditCard size={18} />
+                      </div>
+                      <div>
+                        <strong>Medio de pago</strong>
+                        <span>Seleccioná cómo se registra la operación</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="cash-card-body">
+                    <div className="cash-payment-grid">
+                      {availablePaymentMethods.map((method) => {
+                        const Icon = method.icon;
 
                         return (
-                          <article
-                            key={movement._rowKey}
-                            className={`cash-movement-row ${selectedMovement?._rowKey === movement._rowKey ? "selected" : ""}`}
-                            onClick={() => openMovement(movement)}
+                          <button
+                            type="button"
+                            key={method.id}
+                            className={
+                              paymentMethod === method.id ? "active" : ""
+                            }
+                            onClick={() => setPaymentMethod(method.id)}
                           >
-                            <div className="cash-movement-ref">
-                              <strong>{movement.id || "MOV-LEGACY"}</strong>
-                              <span>{context.ref}</span>
-                            </div>
-
-                            <div className="cash-movement-date">
-                              <strong>{movement.fecha || "—"}</strong>
-                              <span>{movement.hora || "—"}</span>
-                            </div>
-
-                            <div className="cash-movement-client">
-                              <strong>{context.client !== "—" ? context.client : context.origin}</strong>
-                              <span>{context.concept}</span>
-                            </div>
-
-                            <span className="cash-movement-method">{movement.medioPago || "Manual"}</span>
-
-                            <span className={`cash-badge ${isExpense ? "red" : isInfo ? "amber" : "green"}`}>
-                              {status}
+                            <span className="cash-payment-method-icon">
+                              <Icon size={20} />
                             </span>
-
-                            <strong className={`cash-movement-amount ${isExpense ? "negative" : isInfo ? "neutral" : "positive"}`}>
-                              {isExpense ? "− " : isInfo ? "" : "+ "}
-                              {formatMoney(movement.monto)}
-                            </strong>
-
-                            <div className="cash-movement-actions">
-                              <button
-                                type="button"
-                                className="cash-row-action"
-                                title="Consultar movimiento"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openMovement(movement);
-                                }}
-                              >
-                                <Eye size={16} />
-                              </button>
-
-                              <button
-                                type="button"
-                                className="cash-row-action"
-                                title="Imprimir movimiento"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  printMovement(movement);
-                                }}
-                              >
-                                <Printer size={16} />
-                              </button>
-                            </div>
-                          </article>
+                            <strong>{method.label}</strong>
+                            <span>{method.helper}</span>
+                          </button>
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              )}
-            </section>
-          </div>
 
-          <aside className="cash-side-column">
-            {activeTab === "pendings" ? (
-              <section className="cash-card cash-payment-panel">
-                <div className="cash-card-head">
-                  <div className="cash-card-title">
-                    <div className="cash-card-title-icon coral"><CircleDollarSign size={18} /></div>
-                    <div>
-                      <strong>Cobrar operación</strong>
-                      <span>{paymentItem ? `#${paymentItem.ref || paymentItem.id}` : "Seleccioná un pendiente"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="cash-card-body">
-                  {!paymentItem ? (
-                    <div className="cash-side-empty">
-                      <CircleDollarSign size={34} />
-                      <strong>Seleccioná una operación</strong>
-                      <span>Elegí un pendiente de la lista para revisar el total y registrar el cobro.</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="cash-customer-card">
-                        <div className="cash-customer-left">
-                          <div className="cash-customer-avatar">
-                            {String(paymentItem.cliente || "CF")
-                              .split(" ")
-                              .filter(Boolean)
-                              .slice(0, 2)
-                              .map((part) => part[0])
-                              .join("")
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <strong>{paymentItem.cliente || "Consumidor Final"}</strong>
-                            <span>{paymentItem.origen || "Operación"} #{paymentItem.ref || paymentItem.id}</span>
-                          </div>
-                        </div>
-
-                        {eligibility?.balance !== undefined && (
-                          <div className="cash-customer-balance">
-                            <span>Saldo a favor</span>
-                            <strong>{formatMoney(eligibility.balance)}</strong>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="cash-payment-summary-card">
-                        <div><span>Origen</span><strong>{paymentItem.origen || "Operación"}</strong></div>
-                        <div><span>Concepto</span><strong>{paymentItem.concepto || "Servicio"}</strong></div>
-                        {paymentItem.descuentoPorcentaje !== undefined && Number(paymentItem.descuentoPorcentaje) > 0 && (
-                          <div><span>Descuento POS</span><strong>{Number(paymentItem.descuentoPorcentaje)}%</strong></div>
-                        )}
-                        <div className="total"><span>Total a cobrar</span><strong>{formatMoney(paymentItem.total)}</strong></div>
-                      </div>
-
-                      <span className="cash-payment-label">Medio de pago</span>
-
-                      <div className="cash-payment-grid">
-                        {availablePaymentMethods.map((method) => {
-                          const Icon = method.icon;
-                          return (
-                            <button
-                              type="button"
-                              key={method.id}
-                              className={paymentMethod === method.id ? "active" : ""}
-                              onClick={() => setPaymentMethod(method.id)}
-                            >
-                              <Icon size={19} />
-                              <strong>{method.label}</strong>
-                              <span>{method.helper}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="cash-payment-dynamic">
-                        {paymentMethod === "Efectivo" && (
-                          <>
-                            <label>
-                              <span>Dinero recibido</span>
+                    <div className="cash-payment-dynamic">
+                      {paymentMethod === "Efectivo" && (
+                        <div className="cash-payment-field-layout">
+                          <label>
+                            <span>Dinero recibido</span>
+                            <div className="cash-money-input">
+                              <b>ARS</b>
                               <input
                                 type="number"
                                 min="0"
                                 value={paymentDetails.received}
                                 placeholder="0"
                                 onChange={(event) =>
-                                  setPaymentDetails((current) => ({ ...current, received: event.target.value }))
-                                }
-                              />
-                            </label>
-
-                            <div className="cash-change">
-                              <span>Vuelto</span>
-                              <strong>
-                                {Number(paymentDetails.received || 0) >= Number(paymentItem.total || 0)
-                                  ? formatMoney(Number(paymentDetails.received || 0) - Number(paymentItem.total || 0))
-                                  : "Importe insuficiente"}
-                              </strong>
-                            </div>
-                          </>
-                        )}
-
-                        {["Transferencia", "Mercado Pago"].includes(paymentMethod) && (
-                          <label>
-                            <span>Comprobante / referencia</span>
-                            <input
-                              value={paymentDetails.reference}
-                              placeholder="Ej: REF-88392011"
-                              onChange={(event) =>
-                                setPaymentDetails((current) => ({ ...current, reference: event.target.value }))
-                              }
-                            />
-                          </label>
-                        )}
-
-                        {paymentMethod === "Tarjeta" && (
-                          <div className="cash-card-fields">
-                            <label>
-                              <span>Últimos 4</span>
-                              <input
-                                maxLength={4}
-                                value={paymentDetails.last4}
-                                placeholder="4242"
-                                onChange={(event) =>
                                   setPaymentDetails((current) => ({
                                     ...current,
-                                    last4: event.target.value.replace(/\D/g, "").slice(0, 4),
+                                    received: event.target.value,
                                   }))
                                 }
                               />
-                            </label>
-
-                            <label>
-                              <span>Autorización</span>
-                              <input
-                                value={paymentDetails.authorization}
-                                placeholder="AUTH-9921"
-                                onChange={(event) =>
-                                  setPaymentDetails((current) => ({ ...current, authorization: event.target.value }))
-                                }
-                              />
-                            </label>
-                          </div>
-                        )}
-
-                        {["Saldo a Favor", "Préstamo personal"].includes(paymentMethod) && (
-                          <div className={`cash-eligibility ${eligibility?.eligible ? "approved" : "rejected"}`}>
-                            <ShieldCheck size={18} />
-                            <div>
-                              <strong>
-                                {checkingEligibility
-                                  ? "Evaluando cliente..."
-                                  : eligibility?.eligible
-                                    ? "Operación habilitada"
-                                    : "Operación no disponible"}
-                              </strong>
-                              <span>{checkingEligibility ? "Consultando Firestore" : eligibility?.reason || "—"}</span>
-                              {paymentMethod === "Saldo a Favor" && eligibility?.balance !== undefined && (
-                                <small>Disponible: {formatMoney(eligibility.balance)}</small>
-                              )}
-                              {paymentMethod === "Préstamo personal" && eligibility?.available !== undefined && (
-                                <small>Cupo disponible: {formatMoney(eligibility.available)}</small>
-                              )}
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          </label>
 
-                      <div className="cash-professional-note">
+                          <div
+                            className={`cash-change ${
+                              Number(paymentDetails.received || 0) >=
+                              Number(paymentItem.total || 0)
+                                ? "ready"
+                                : ""
+                            }`}
+                          >
+                            <span>Vuelto</span>
+                            <strong>
+                              {Number(paymentDetails.received || 0) >=
+                              Number(paymentItem.total || 0)
+                                ? formatMoney(
+                                    Number(paymentDetails.received || 0) -
+                                      Number(paymentItem.total || 0)
+                                  )
+                                : "Importe insuficiente"}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {["Transferencia", "Mercado Pago"].includes(
+                        paymentMethod
+                      ) && (
+                        <label className="cash-payment-single-field">
+                          <span>Comprobante / referencia</span>
+                          <input
+                            value={paymentDetails.reference}
+                            placeholder="Ej: REF-88392011"
+                            onChange={(event) =>
+                              setPaymentDetails((current) => ({
+                                ...current,
+                                reference: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                      )}
+
+                      {paymentMethod === "Tarjeta" && (
+                        <div className="cash-card-fields">
+                          <label>
+                            <span>Últimos 4</span>
+                            <input
+                              maxLength={4}
+                              value={paymentDetails.last4}
+                              placeholder="4242"
+                              onChange={(event) =>
+                                setPaymentDetails((current) => ({
+                                  ...current,
+                                  last4: event.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 4),
+                                }))
+                              }
+                            />
+                          </label>
+
+                          <label>
+                            <span>Autorización</span>
+                            <input
+                              value={paymentDetails.authorization}
+                              placeholder="AUTH-9921"
+                              onChange={(event) =>
+                                setPaymentDetails((current) => ({
+                                  ...current,
+                                  authorization: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {["Saldo a Favor", "Préstamo personal"].includes(
+                        paymentMethod
+                      ) && (
+                        <div
+                          className={`cash-eligibility ${
+                            eligibility?.eligible ? "approved" : "rejected"
+                          }`}
+                        >
+                          <ShieldCheck size={20} />
+                          <div>
+                            <strong>
+                              {checkingEligibility
+                                ? "Evaluando cliente..."
+                                : eligibility?.eligible
+                                  ? "Operación habilitada"
+                                  : "Operación no disponible"}
+                            </strong>
+
+                            <span>
+                              {checkingEligibility
+                                ? "Consultando Firestore"
+                                : eligibility?.reason || "—"}
+                            </span>
+
+                            {paymentMethod === "Saldo a Favor" &&
+                              eligibility?.balance !== undefined && (
+                                <small>
+                                  Disponible:{" "}
+                                  {formatMoney(eligibility.balance)}
+                                </small>
+                              )}
+
+                            {paymentMethod === "Préstamo personal" &&
+                              eligibility?.available !== undefined && (
+                                <small>
+                                  Cupo disponible:{" "}
+                                  {formatMoney(eligibility.available)}
+                                </small>
+                              )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="cash-professional-note">
+                      <ShieldCheck size={18} />
+                      <div>
                         <strong>Registro trazable</strong>
                         <span>
-                          Al confirmar, SERVIX genera un movimiento único con fecha, operador, origen y medio de pago. Si hay un error, se corrige con una reversión; no se borra el movimiento original.
+                          SERVIX conserva operador, origen, referencia y medio
+                          de pago. Una corrección posterior genera otro
+                          movimiento, sin borrar el original.
                         </span>
                       </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
 
-                      <div className="cash-payment-actions">
-                        <button
-                          type="button"
-                          className="cash-button soft"
-                          onClick={() => setReceiptPreview(buildPendingReceipt(paymentItem))}
-                        >
-                          <Eye size={15} />
-                          Previsualizar
-                        </button>
+              <aside className="cash-payment-summary-panel">
+                <div className="cash-total-hero">
+                  <span>Total de la operación</span>
+                  <strong>{formatMoney(paymentItem.total)}</strong>
+                  <small>
+                    {paymentItem.origen || "Operación"} · #
+                    {paymentItem.ref || paymentItem.id}
+                  </small>
+                </div>
 
-                        <button
-                          type="button"
-                          className="cash-button"
-                          onClick={() => setPaymentItem(null)}
-                        >
-                          Dejar pendiente
-                        </button>
+                <div className="cash-payment-summary-rows">
+                  <div>
+                    <span>Medio seleccionado</span>
+                    <strong>{paymentMethod}</strong>
+                  </div>
 
-                        <button
-                          type="button"
-                          className="cash-button primary wide"
-                          disabled={!paymentCanConfirm}
-                          onClick={handlePayment}
-                        >
-                          <CheckCircle2 size={16} />
-                          {processingPayment
-                            ? "Procesando..."
-                            : paymentMethod === "Préstamo personal"
-                              ? "Financiar y emitir factura"
-                              : "Confirmar cobro"}
-                        </button>
+                  <div>
+                    <span>Estado</span>
+                    <strong>
+                      {checkingEligibility
+                        ? "Validando"
+                        : eligibility?.eligible
+                          ? "Listo para confirmar"
+                          : "Requiere revisión"}
+                    </strong>
+                  </div>
+
+                  {paymentMethod === "Efectivo" && (
+                    <>
+                      <div>
+                        <span>Recibido</span>
+                        <strong>
+                          {formatMoney(paymentDetails.received || 0)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Vuelto</span>
+                        <strong>
+                          {Number(paymentDetails.received || 0) >=
+                          Number(paymentItem.total || 0)
+                            ? formatMoney(
+                                Number(paymentDetails.received || 0) -
+                                  Number(paymentItem.total || 0)
+                              )
+                            : formatMoney(0)}
+                        </strong>
                       </div>
                     </>
                   )}
                 </div>
-              </section>
-            ) : (
-              <section className="cash-card cash-movement-detail-card">
-                <div className="cash-card-head">
-                  <div className="cash-card-title">
-                    <div className="cash-card-title-icon coral"><FileText size={18} /></div>
-                    <div>
-                      <strong>Detalle de movimiento</strong>
-                      <span>{selectedMovement?.id || "Seleccioná un movimiento"}</span>
-                    </div>
-                  </div>
+
+                <div className="cash-payment-actions">
+                  <button
+                    type="button"
+                    className="cash-button soft wide"
+                    onClick={() =>
+                      setReceiptPreview(buildPendingReceipt(paymentItem))
+                    }
+                  >
+                    <Eye size={15} />
+                    Previsualizar
+                  </button>
+
+                  <button
+                    type="button"
+                    className="cash-button wide"
+                    disabled={processingPayment}
+                    onClick={() => setPaymentItem(null)}
+                  >
+                    Dejar pendiente
+                  </button>
+
+                  <button
+                    type="button"
+                    className="cash-button primary wide"
+                    disabled={!paymentCanConfirm}
+                    onClick={handlePayment}
+                  >
+                    <CheckCircle2 size={16} />
+                    {processingPayment
+                      ? "Procesando..."
+                      : paymentMethod === "Préstamo personal"
+                        ? "Financiar y emitir factura"
+                        : "Confirmar cobro"}
+                  </button>
                 </div>
-
-                <div className="cash-card-body">
-                  {!selectedMovement ? (
-                    <div className="cash-side-empty">
-                      <History size={34} />
-                      <strong>Consultá cualquier movimiento</strong>
-                      <span>Podés ver el detalle, imprimirlo y volver al origen cuando esté disponible.</span>
-                    </div>
-                  ) : (() => {
-                    const context = movementContext(selectedMovement);
-                    const isExpense = selectedMovement.tipo === "egreso";
-
-                    return (
-                      <>
-                        <div className="cash-movement-detail-grid">
-                          <div><span>Movimiento</span><strong>{selectedMovement.id || "MOV-LEGACY"}</strong></div>
-                          <div><span>Fecha / hora</span><strong>{selectedMovement.fecha || "—"} · {selectedMovement.hora || "—"}</strong></div>
-                          <div><span>Origen</span><strong>{context.origin}</strong></div>
-                          <div><span>Referencia</span><strong>{context.ref}</strong></div>
-                          <div><span>Cliente</span><strong>{context.client}</strong></div>
-                          <div><span>Medio</span><strong>{selectedMovement.medioPago || "Manual"}</strong></div>
-                          <div><span>Operador</span><strong>{selectedMovement.usuario || "Sistema"}</strong></div>
-                          <div><span>Factura</span><strong>{selectedMovement.facturaId || "—"}</strong></div>
-                        </div>
-
-                        <div className="cash-movement-concept-box">
-                          <span>Concepto</span>
-                          <strong>{context.concept}</strong>
-                        </div>
-
-                        <div className={`cash-movement-detail-total ${isExpense ? "negative" : ""}`}>
-                          <span>Importe</span>
-                          <strong>{isExpense ? "− " : ""}{formatMoney(selectedMovement.monto)}</strong>
-                        </div>
-
-                        <div className="cash-professional-note">
-                          <strong>Historial inmutable</strong>
-                          <span>
-                            Este registro queda como parte de la trazabilidad de Caja. Una corrección debe generar otro movimiento de reversión, no eliminar éste.
-                          </span>
-                        </div>
-
-                        <div className="cash-detail-actions">
-                          {selectedMovementNavigation && (
-                            <button
-                              type="button"
-                              className="cash-button soft"
-                              onClick={() => navigate(selectedMovementNavigation.path)}
-                            >
-                              <ChevronRight size={15} />
-                              {selectedMovementNavigation.label}
-                            </button>
-                          )}
-
-                          {selectedMovement.facturaId && (
-                            <button
-                              type="button"
-                              className="cash-button"
-                              onClick={() => navigate("/facturacion/facturas")}
-                            >
-                              <ReceiptText size={15} />
-                              Ver facturas
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            className="cash-button primary wide"
-                            onClick={() => printMovement(selectedMovement)}
-                          >
-                            <Printer size={16} />
-                            Imprimir movimiento
-                          </button>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </section>
-            )}
-
-            <section className="cash-card cash-compact-summary">
-              <div className="cash-card-body">
-                <div className="cash-summary-line"><span>Fondo actual</span><strong>{formatMoney(summary.fund)}</strong></div>
-                <div className="cash-summary-line"><span>Ingresos manuales / cobros</span><strong>{formatMoney(summary.income)}</strong></div>
-                <div className="cash-summary-line"><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
-                <div className="cash-summary-line total"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
-              </div>
-            </section>
-          </aside>
-        </section>
-      </div>
+              </aside>
+            </div>
+          </div>
+        </motion.section>
+      )}
 
       {cancelItem && (
         <div
@@ -1647,6 +1999,7 @@ export default function Caja() {
           </motion.div>
         </div>
       )}
+
     </main>
   );
 }

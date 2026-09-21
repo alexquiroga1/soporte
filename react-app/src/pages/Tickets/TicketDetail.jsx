@@ -16,18 +16,24 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  CircleAlert,
   CircleDollarSign,
   ClipboardList,
   Clock3,
   Copy,
   Cpu,
+  Laptop,
+  MessageCircle,
   MessageSquareText,
   Package,
   Pencil,
   Plus,
   Printer,
   Save,
+  Search,
+  Settings,
   ShieldCheck,
+  Sparkles,
   Tag,
   Trash2,
   UserRound,
@@ -40,6 +46,7 @@ import {
   addTicketNote,
   addTicketPiece,
   saveTicketBudgetSummary,
+  saveTicketDiagnosis,
   removeTicketPiece,
   subscribeToTicket,
   updateTicketPiece,
@@ -59,6 +66,8 @@ import {
   useAuth,
 } from "../../context/AuthContext.jsx";
 
+import technicianCharacter from "./assets/technician-character.png";
+
 import "./TicketDetail.css";
 
 /* =========================================
@@ -66,8 +75,13 @@ import "./TicketDetail.css";
 ========================================= */
 
 const STAGES = {
+  pendiente_ingreso: {
+    label: "Pendiente de ingreso",
+    className: "detail-stage-awaiting",
+  },
+
   pendiente: {
-    label: "Recibido",
+    label: "Recepción",
     className: "detail-stage-pending",
   },
 
@@ -123,7 +137,8 @@ const STAGES = {
 };
 
 const WORKFLOW_STAGES = [
-  { key: "pendiente", label: "Ingresado" },
+  { key: "pendiente_ingreso", label: "Pendiente ingreso" },
+  { key: "pendiente", label: "Recepción" },
   { key: "diagnostico", label: "Diagnóstico" },
   { key: "presupuesto", label: "Presupuesto" },
   { key: "reparacion", label: "Reparación" },
@@ -262,6 +277,20 @@ export default function TicketDetail() {
   const [
     cancellingCashPending,
     setCancellingCashPending,
+  ] = useState(false);
+
+  /* =======================================
+     DIAGNÓSTICO ÚNICO
+  ======================================= */
+
+  const [
+    diagnosisDraft,
+    setDiagnosisDraft,
+  ] = useState("");
+
+  const [
+    savingDiagnosis,
+    setSavingDiagnosis,
   ] = useState(false);
 
   /* =======================================
@@ -630,6 +659,11 @@ export default function TicketDetail() {
         budgetDiscountAmount
     );
 
+  const displayBudgetTotal =
+    budgetTotal > 0
+      ? budgetTotal
+      : Math.max(0, Number(ticket?.presupuestoEstimado || 0));
+
 
   /* =======================================
      CAJA / FACTURACIÓN
@@ -780,6 +814,51 @@ export default function TicketDetail() {
         setSavingStage(
           false
         );
+      }
+    };
+
+  /* =======================================
+     GUARDAR DIAGNÓSTICO ÚNICO
+  ======================================= */
+
+  const handleSaveDiagnosis =
+    async () => {
+      const cleanDiagnosis = diagnosisDraft.trim();
+
+      if (!cleanDiagnosis) {
+        notify.warning(
+          "Diagnóstico vacío",
+          "Escribí el diagnóstico antes de guardarlo."
+        );
+        return;
+      }
+
+      if (ticket?.diagnosticoInicial) {
+        notify.info(
+          "Diagnóstico ya registrado",
+          "El diagnóstico principal se guarda una sola vez. Los avances siguientes van a la bitácora."
+        );
+        return;
+      }
+
+      try {
+        setSavingDiagnosis(true);
+        await saveTicketDiagnosis(ticket.id, cleanDiagnosis, author);
+        setDiagnosisDraft("");
+        notify.success(
+          "Diagnóstico registrado",
+          "Quedó guardado como diagnóstico principal y también en la bitácora."
+        );
+      } catch (diagnosisError) {
+        console.error(diagnosisError);
+        notify.error(
+          "No se pudo guardar el diagnóstico",
+          diagnosisError?.message === "DIAGNOSIS_ALREADY_REGISTERED"
+            ? "Este ticket ya tiene un diagnóstico principal."
+            : "Revisá la conexión e intentá nuevamente."
+        );
+      } finally {
+        setSavingDiagnosis(false);
       }
     };
 
@@ -1578,104 +1657,89 @@ export default function TicketDetail() {
       ================================= */}
 
       <motion.header
-        className="ticket-detail-header"
-
-        initial={{
-          opacity: 0,
-          y: -8,
-        }}
-
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
+        className="ticket-detail-header ticket-detail-header-2026"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
       >
+        <button type="button" className="ticket-detail-back ticket-detail-back-pill" onClick={handleBack}>
+          <ArrowLeft size={17} />
+          <span>{returnTo ? "Volver al cliente" : "Volver a Tickets"}</span>
+        </button>
 
-        <div className="ticket-detail-header-left">
-
-          <button
-            type="button"
-
-            className="ticket-detail-back"
-
-            onClick={handleBack}
-          >
-            <ArrowLeft
-              size={18}
-            />
-          </button>
-
-          <div className="ticket-detail-header-symbol">
-
-            <ClipboardList
-              size={20}
-            />
-
+        <div className="ticket-detail-header-main">
+          <div className="ticket-detail-header-symbol ticket-detail-header-symbol-large">
+            <ClipboardList size={30} />
           </div>
 
-          <div className="ticket-detail-title">
+          <div className="ticket-detail-title ticket-detail-title-large">
+            <h1>{ticket.id}</h1>
+            <p>
+              {[ticket.equipo, ticket.marca, ticket.modelo].filter(Boolean).join(" · ") || "Orden de servicio técnico"}
+            </p>
+          </div>
 
-            <span>
-              ALEX SOPORTE TÉCNICO · Orden de servicio
-            </span>
-
-            <div>
-
-              <h1>
-                Ticket #{ticket.id}
-              </h1>
-
-              <button
-                type="button"
-
-                onClick={
-                  handleCopyTicket
-                }
-
-                title="Copiar número"
+          <div className="ticket-detail-hero-chips">
+            <motion.span
+              className={`ticket-detail-stage ${stage.className}`}
+              animate={{ y: [0, -2, 0], scale: [1, 1.025, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <motion.span
+                className="ticket-detail-stage-icon-motion"
+                animate={ticket.stage === "reparacion" ? { rotate: [0, -10, 10, 0] } : { opacity: [0.75, 1, 0.75] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
               >
-                <Copy
-                  size={13}
-                />
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="ticket-detail-header-right">
-
-          <span
-            className={
-              `ticket-detail-stage ${stage.className}`
-            }
-          >
-            {stage.label}
-          </span>
-
-          <button
-            type="button"
-
-            className="ticket-header-print"
-
-            onClick={
-              handlePrint
-            }
-          >
-            <Printer
-              size={16}
-            />
-
-            <span>
-              Imprimir
+                <Wrench size={15} />
+              </motion.span>
+              {stage.label}
+            </motion.span>
+            <span className="ticket-detail-priority-chip">
+              <Tag size={15} /> {ticket.prioridad === "P1" ? "Alta" : ticket.prioridad === "P3" ? "Baja" : "Media"}
             </span>
-          </button>
-
+            <span className="ticket-detail-client-chip">
+              <UserRound size={15} /> {ticket.cliente || "Sin cliente"}
+            </span>
+          </div>
         </div>
 
+        <div className="ticket-detail-header-art ticket-detail-header-art-dom" aria-label="Cabecera editable">
+          <motion.span className="ticket-detail-float-icon detail-gear" animate={{ rotate: [0, 12, 0], y: [0, -5, 0] }} transition={{ duration: 4, repeat: Infinity }}>
+            <Settings size={23} />
+          </motion.span>
+          <motion.span className="ticket-detail-float-icon detail-laptop" animate={{ y: [0, 6, 0] }} transition={{ duration: 3.3, repeat: Infinity }}>
+            <Laptop size={23} />
+          </motion.span>
+          <motion.span className="ticket-detail-float-icon detail-chat" animate={{ y: [0, -5, 0], scale: [1, 1.05, 1] }} transition={{ duration: 3.1, repeat: Infinity }}>
+            <MessageCircle size={23} />
+          </motion.span>
+          <img className="ticket-detail-technician" src={technicianCharacter} alt="Técnico de soporte" />
+          <div className="ticket-detail-header-quote"><Sparkles size={14} /><span>“Diagnóstico claro,</span><strong>reparación segura”</strong></div>
+        </div>
+
+        <div className="ticket-detail-header-tools">
+          <button type="button" onClick={handleCopyTicket} title="Copiar número"><Copy size={15} /></button>
+          <button type="button" className="ticket-header-print" onClick={handlePrint}><Printer size={15} /><span>Imprimir</span></button>
+        </div>
       </motion.header>
+
+      <section className="ticket-detail-kpis">
+        <article>
+          <div className="ticket-detail-kpi-icon violet"><UserRound size={22} /></div>
+          <div><span>Cliente</span><strong>{ticket.cliente || "Sin cliente"}</strong><small>{ticket.clienteId || "Cliente particular"}</small></div>
+        </article>
+        <article>
+          <div className="ticket-detail-kpi-icon blue"><Cpu size={22} /></div>
+          <div><span>Equipo</span><strong>{ticket.equipo || "Sin especificar"}</strong><small>{[ticket.marca, ticket.modelo].filter(Boolean).join(" ") || "Sin modelo"}</small></div>
+        </article>
+        <article>
+          <div className="ticket-detail-kpi-icon green"><CircleDollarSign size={22} /></div>
+          <div><span>Presupuesto</span><strong>{formatMoney(displayBudgetTotal)}</strong><small>{displayBudgetTotal > 0 ? "Estimado / actualizado" : "Pendiente"}</small></div>
+        </article>
+        <article>
+          <div className="ticket-detail-kpi-icon purple"><CalendarDays size={22} /></div>
+          <div><span>Fecha de ingreso</span><strong>{ticket.ingreso || "—"}</strong><small>{ticket.tipoServicio || "Servicio técnico"}</small></div>
+        </article>
+      </section>
 
       {/* =================================
           SHELL
@@ -1756,13 +1820,17 @@ export default function TicketDetail() {
                     isDone ? "done" : ""
                   } ${isCurrent ? "current" : ""}`}
                 >
-                  <span className="ticket-workflow-marker">
+                  <motion.span
+                    className="ticket-workflow-marker"
+                    animate={isCurrent ? { scale: [1, 1.16, 1], y: [0, -2, 0] } : {}}
+                    transition={{ duration: 1.7, repeat: Infinity, ease: "easeInOut" }}
+                  >
                     {isDone ? (
                       <CheckCircle2 size={14} />
                     ) : (
                       index + 1
                     )}
-                  </span>
+                  </motion.span>
 
                   <strong>{item.label}</strong>
                 </div>
@@ -1919,6 +1987,40 @@ export default function TicketDetail() {
               {ticket.falla ||
                 "No se registró una falla informada por el cliente."}
             </p>
+
+            <div className="ticket-diagnostic-grid ticket-diagnostic-grid-locked">
+              <article className={ticket.diagnosticoInicial ? "diagnosis-saved" : "diagnosis-pending"}>
+                <Search size={18} />
+                <div>
+                  <span>Diagnóstico técnico principal</span>
+                  {ticket.diagnosticoInicial ? (
+                    <>
+                      <strong>{ticket.diagnosticoInicial}</strong>
+                      <small>Registrado una sola vez. Los avances siguientes van a la bitácora.</small>
+                    </>
+                  ) : (
+                    <div className="ticket-diagnosis-entry">
+                      <textarea
+                        value={diagnosisDraft}
+                        onChange={(event) => setDiagnosisDraft(event.target.value)}
+                        placeholder="Escribí el diagnóstico definitivo del equipo..."
+                        disabled={savingDiagnosis}
+                      />
+                      <button type="button" onClick={handleSaveDiagnosis} disabled={savingDiagnosis || !diagnosisDraft.trim()}>
+                        <Save size={14} /> {savingDiagnosis ? "Guardando..." : "Guardar diagnóstico"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+              <article>
+                <ClipboardList size={18} />
+                <div>
+                  <span>Observaciones visibles de ingreso</span>
+                  <strong>{ticket.observacionesVisibles || ticket.condicion || "Sin observaciones adicionales"}</strong>
+                </div>
+              </article>
+            </div>
 
           </section>
 
@@ -3243,7 +3345,7 @@ export default function TicketDetail() {
 
                   <strong>
                     {formatMoney(
-                      budgetTotal
+                      displayBudgetTotal
                     )}
                   </strong>
 

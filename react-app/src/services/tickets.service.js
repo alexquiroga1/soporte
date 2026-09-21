@@ -21,7 +21,8 @@ import {
 ========================================= */
 
 const TICKET_STAGE_LABELS = {
-  pendiente: "Recibido",
+  pendiente_ingreso: "Pendiente de ingreso",
+  pendiente: "Recepción",
   diagnostico: "En diagnóstico",
   presupuesto: "Presupuesto",
   presupuesto_rechazado: "Presupuesto rechazado",
@@ -424,6 +425,8 @@ export async function createTicket({
   client = null,
   clientName = "",
   serviceType = "Taller",
+  jobType = "Reparación",
+  initialStage = "pendiente",
 
   equipment = "Otro",
 
@@ -439,11 +442,23 @@ export async function createTicket({
 
   condition = "",
 
+  issue = "",
+  visibleObservations = "",
+  initialDiagnosis = "",
+  priority = "P2",
+  technician = "Alex",
+  estimatedDate = "",
+  estimatedBudget = 0,
+  advance = 0,
+  paymentMethod = "",
+  internalNotes = "",
+  consents = {},
+
   homeService = {},
 
   remoteService = {},
 
-  warrantyDays = 30,
+  warrantyDays = 90,
 
   author = "Sistema",
 } = {}) {
@@ -469,6 +484,11 @@ export async function createTicket({
     )
       ? serviceType
       : "Taller";
+
+  const normalizedInitialStage =
+    ["pendiente_ingreso", "pendiente"].includes(initialStage)
+      ? initialStage
+      : "pendiente";
 
   if (
     normalizedServiceType ===
@@ -541,6 +561,9 @@ export async function createTicket({
 
     tipoServicio:
       normalizedServiceType,
+
+    tipoTrabajo:
+      cleanText(jobType) || "Reparación",
 
     estadoPago:
       "Pendiente",
@@ -624,6 +647,30 @@ export async function createTicket({
     condicion:
       cleanText(condition),
 
+    falla:
+      cleanText(issue),
+
+    observacionesVisibles:
+      cleanText(visibleObservations),
+
+    diagnosticoInicial:
+      cleanText(initialDiagnosis),
+
+    fechaEstimada:
+      cleanText(estimatedDate),
+
+    adelanto:
+      Math.max(0, normalizeNumber(advance, 0)),
+
+    formaPago:
+      cleanText(paymentMethod),
+
+    consentimiento: {
+      revision: Boolean(consents?.review),
+      datosCorrectos: Boolean(consents?.correct),
+      terminos: Boolean(consents?.terms),
+    },
+
     datosDomicilio: {
       direccion:
         cleanText(
@@ -667,18 +714,28 @@ export async function createTicket({
     },
 
     presupuestoEstimado:
-      0,
+      Math.max(0, normalizeNumber(estimatedBudget, 0)),
 
     prioridad:
-      "P2",
+      ["P1", "P2", "P3"].includes(cleanText(priority).toUpperCase())
+        ? cleanText(priority).toUpperCase()
+        : "P2",
 
     stage:
-      "pendiente",
+      normalizedInitialStage,
 
     tecnico:
-      "Alex",
+      cleanText(technician) || "Alex",
 
-    ingreso,
+    ingreso:
+      normalizedInitialStage === "pendiente_ingreso"
+        ? ""
+        : ingreso,
+
+    fechaIngresoReal:
+      normalizedInitialStage === "pendiente_ingreso"
+        ? null
+        : createdAt,
 
     creadoEn:
       createdAt,
@@ -692,7 +749,7 @@ export async function createTicket({
         Math.trunc(
           normalizeNumber(
             warrantyDays,
-            30
+            90
           )
         )
       ),
@@ -707,11 +764,28 @@ export async function createTicket({
           "Ticket creado",
 
         detail:
-          `Check-in inicial. Servicio: ${normalizedServiceType}`,
+          normalizedInitialStage === "pendiente_ingreso"
+            ? `Orden abierta antes del ingreso físico. Trabajo: ${cleanText(jobType) || "Reparación"}. Modalidad: ${normalizedServiceType}.`
+            : `Equipo recibido. Trabajo: ${cleanText(jobType) || "Reparación"}. Modalidad: ${normalizedServiceType}.`,
       }),
+      ...(cleanText(internalNotes)
+        ? [
+            createHistoryEntry({
+              author,
+              action: "Nota interna inicial",
+              detail: cleanText(internalNotes),
+            }),
+          ]
+        : []),
     ],
 
-    notas: [],
+    notas: cleanText(internalNotes)
+      ? [{
+          fecha: formatHistoryDate(now),
+          autor: cleanAuthor(author),
+          texto: cleanText(internalNotes),
+        }]
+      : [],
   };
 
   await setDoc(
@@ -1038,6 +1112,15 @@ export async function updateTicketStage(
         `${oldStageLabel} → ${newStageLabel}`;
 
       if (
+        currentStage === "pendiente_ingreso" &&
+        newStage === "pendiente"
+      ) {
+        updates.ingreso = formatDisplayYMD(formatDateYMD(now));
+        updates.fechaIngresoReal = now.toISOString();
+        logDetail += " | Equipo recibido físicamente.";
+      }
+
+      if (
         newStage ===
         "listo"
       ) {
@@ -1054,7 +1137,7 @@ export async function updateTicketStage(
             0,
             normalizeNumber(
               currentTicket.garantiaDias,
-              30
+              90
             )
           );
 
@@ -1148,6 +1231,59 @@ export async function updateTicketStage(
       };
     }
   );
+}
+
+/* =========================================
+   DIAGNÓSTICO ÚNICO
+========================================= */
+
+export async function saveTicketDiagnosis(
+  ticketId,
+  diagnosis,
+  author
+) {
+  if (!ticketId) {
+    throw new Error("TICKET_REQUIRED");
+  }
+
+  const cleanDiagnosis = cleanText(diagnosis);
+
+  if (!cleanDiagnosis) {
+    throw new Error("DIAGNOSIS_REQUIRED");
+  }
+
+  const ticketRef = doc(db, "tickets", String(ticketId));
+
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ticketRef);
+
+    if (!snapshot.exists()) {
+      throw new Error("TICKET_NOT_FOUND");
+    }
+
+    const current = snapshot.data();
+
+    if (cleanText(current?.diagnosticoInicial)) {
+      throw new Error("DIAGNOSIS_ALREADY_REGISTERED");
+    }
+
+    const now = new Date();
+    const historyEntry = createHistoryEntry({
+      author,
+      action: "Diagnóstico registrado",
+      detail: cleanDiagnosis,
+    });
+
+    transaction.update(ticketRef, {
+      diagnosticoInicial: cleanDiagnosis,
+      diagnosticoRegistradoEn: now.toISOString(),
+      diagnosticoRegistradoPor: cleanAuthor(author),
+      historial: arrayUnion(historyEntry),
+      actualizadoEn: now.toISOString(),
+    });
+
+    return { diagnosis: cleanDiagnosis, historyEntry };
+  });
 }
 
 /* =========================================
