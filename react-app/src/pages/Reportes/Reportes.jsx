@@ -41,6 +41,8 @@ import {
   notify,
 } from "../../services/notifications.js";
 
+import { toLocalISODate } from "../../utils/date.js";
+
 import "./Reportes.css";
 
 const PERIODS = [
@@ -142,7 +144,7 @@ function downloadCsv(report) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `servix-reportes-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.download = `servix-reportes-${toLocalISODate()}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

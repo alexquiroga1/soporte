@@ -152,3 +152,18 @@
 @media screen and (prefers-reduced-motion:reduce) {
 .products-page *, .products-page *::before, .products-page *::after { animation: none !important; transition: none !important; transform: none !important; }
 }
+
+/* Functional states added during the Products module repair. */
+@media screen {
+.products-status.inactive { color: #5c6f8e; background: #eaf0f8; }
+.products-table tbody tr.inactive-row { background: #f6f8fc; }
+.products-promotions-head { border-color: var(--line); background: #ffffffed; box-shadow: var(--shadow-sm); }
+.products-promotions-head strong { color: var(--ink); }
+.products-promotions-head span { color: var(--muted); }
+}
+@media screen and (min-width:1401px) {
+.products-toolbar:not(.movements) { grid-template-columns: minmax(260px,2fr) repeat(4,minmax(135px,1fr)); }
+}
+@media screen {
+.products-table.products-promotions-table { min-width: 880px; }
+}

@@ -74,6 +74,7 @@ function normalizeItem(item) {
     quantity,
     price,
     sku: cleanText(item?.sku),
+    productId: cleanText(item?.productId || item?.productoId || item?.docId),
     type: cleanText(item?.tipo),
   };
 }
@@ -343,6 +344,10 @@ export async function sendTicketToCash(
               item.sku ||
               null,
 
+            productId:
+              item.productId ||
+              null,
+
             nombre:
               item.description,
 
@@ -595,6 +600,7 @@ export async function sendBudgetToCash(
 
     const articulosCart = sourceItems.map((item) => ({
       sku: item.sku || null,
+      productId: item.productId || null,
       nombre: item.description,
       cantidad: item.quantity,
       precio: item.price,

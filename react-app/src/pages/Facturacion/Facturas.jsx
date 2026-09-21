@@ -59,6 +59,8 @@ import {
   notify,
 } from "../../services/notifications.js";
 
+import { toLocalISODate } from "../../utils/date.js";
+
 import "./Facturas.css";
 
 /* =========================================
@@ -585,7 +587,7 @@ export default function Facturas() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `SERVIX_facturas_${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `SERVIX_facturas_${toLocalISODate()}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

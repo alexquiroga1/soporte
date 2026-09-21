@@ -97,6 +97,8 @@ import {
   profileHasPermission,
 } from "../../security/permissions.js";
 
+import { toLocalISODate } from "../../utils/date.js";
+
 import "./Clientes.css";
 
 const EMPTY_CLIENT = {
@@ -1220,7 +1222,7 @@ export default function Clientes() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `clientes-${toLocalISODate()}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

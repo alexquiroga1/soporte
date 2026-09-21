@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
+import { addDaysLocalISO, toLocalISODate } from "../utils/date.js";
 
 /* =========================================
    CONSTANTES
@@ -63,7 +64,7 @@ function dateOnly(value) {
     typeof value === "object" &&
     typeof value.toDate === "function"
   ) {
-    return value.toDate().toISOString().split("T")[0];
+    return toLocalISODate(value.toDate());
   }
 
   const text = cleanText(value);
@@ -86,7 +87,7 @@ function dateOnly(value) {
 
   return Number.isNaN(parsed.getTime())
     ? ""
-    : parsed.toISOString().split("T")[0];
+    : toLocalISODate(parsed);
 }
 
 function parseDate(value) {
@@ -102,13 +103,7 @@ function parseDate(value) {
 }
 
 function addDaysISO(days, from = new Date()) {
-  const date = new Date(from);
-
-  date.setDate(
-    date.getDate() + Number(days || 0)
-  );
-
-  return date.toISOString().split("T")[0];
+  return addDaysLocalISO(days, from);
 }
 
 function getFullName(client) {

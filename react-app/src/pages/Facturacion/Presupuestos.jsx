@@ -66,6 +66,8 @@ import {
   publishBudget,
 } from "../../services/presupuesto-publico.service.js";
 
+import { toLocalISODate } from "../../utils/date.js";
+
 import "./Presupuestos.css";
 
 function number(value) {
@@ -706,7 +708,7 @@ export default function Presupuestos() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `servix-presupuestos-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `servix-presupuestos-${toLocalISODate()}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }

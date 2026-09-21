@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
+import { addDaysLocalISO } from "../utils/date.js";
 
 function cleanText(value) {
   return String(value ?? "").trim();
@@ -30,9 +31,7 @@ function normalizeEmail(value) {
 }
 
 function addDaysISO(days, from = new Date()) {
-  const date = new Date(from);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
+  return addDaysLocalISO(days, from);
 }
 
 function clientMatchesRecord(client, record) {

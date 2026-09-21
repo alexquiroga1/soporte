@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
+import { resolveProductForTransaction } from "./product-reference.service.js";
 
 /* =========================================
    HELPERS
@@ -161,16 +162,36 @@ export function subscribeToPosProducts(
       snapshot
     ) => {
       const rows =
-        snapshot.docs.map(
-          (
-            documentSnapshot
-          ) => ({
-            id:
-              documentSnapshot.id,
+        snapshot.docs
+          .map(
+            (
+              documentSnapshot
+            ) => {
+              const data =
+                documentSnapshot.data();
 
-            ...documentSnapshot.data(),
-          })
-        );
+              return {
+                ...data,
+
+                docId:
+                  documentSnapshot.id,
+
+                id:
+                  documentSnapshot.id,
+
+                sku:
+                  cleanText(
+                    data.sku ||
+                    data.id ||
+                    documentSnapshot.id
+                  ),
+              };
+            }
+          )
+          .filter(
+            (product) =>
+              product.activo !== false
+          );
 
       rows.sort(
         (
@@ -498,7 +519,7 @@ export function calculatePosTotals({
     ) {
       discount =
         applicableSubtotal > 0
-          ? value
+          ? Math.min(value, applicableSubtotal)
           : 0;
     }
   }
@@ -589,6 +610,7 @@ export async function sendPosSaleToCash({
         productId:
           cleanText(
             item.productId ||
+            item.docId ||
             item.id ||
             item.sku
           ),
@@ -713,22 +735,24 @@ export async function sendPosSaleToCash({
          * confirma efectivamente el cobro.
          */
 
-        const productRef =
-          doc(
-            db,
-            "productos",
-            item.sku
-          );
-
-        const productSnapshot =
-          await transaction.get(
-            productRef
+        const resolvedProduct =
+          await resolveProductForTransaction(
+            transaction,
+            item
           );
 
         productReads.push({
-          item,
-          productRef,
-          productSnapshot,
+          item: {
+            ...item,
+            productId:
+              resolvedProduct.docId ||
+              item.productId ||
+              null,
+          },
+          productRef:
+            resolvedProduct.ref,
+          productSnapshot:
+            resolvedProduct.snapshot,
         });
       }
 
@@ -743,7 +767,7 @@ export async function sendPosSaleToCash({
         } of productReads
       ) {
         if (
-          !productSnapshot.exists()
+          !productSnapshot?.exists()
         ) {
           const error =
             new Error(

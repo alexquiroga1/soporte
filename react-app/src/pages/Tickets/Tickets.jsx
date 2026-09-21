@@ -41,6 +41,8 @@ import { notify } from "../../services/notifications.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 import ticketsHero from "./assets/tickets-hero.png";
+import { toLocalISODate } from "../../utils/date.js";
+
 import "./Tickets.css";
 
 const TICKET_STAGES = {
@@ -389,7 +391,7 @@ export default function Tickets() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `tickets-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `tickets-${toLocalISODate()}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();

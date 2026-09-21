@@ -69,6 +69,8 @@ import {
   notify,
 } from "../../services/notifications.js";
 
+import { addDaysLocalISO } from "../../utils/date.js";
+
 import "./Creditos.css";
 
 const FILTERS = [
@@ -1449,7 +1451,7 @@ export default function Creditos() {
                         onClick={() => {
                           setRefinanceForm({
                             ...EMPTY_REFINANCE,
-                            firstDueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+                            firstDueDate: addDaysLocalISO(30),
                           });
                           setRefinanceOpen(true);
                         }}

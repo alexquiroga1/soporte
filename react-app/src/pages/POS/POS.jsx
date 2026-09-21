@@ -46,6 +46,7 @@ import {
   subscribeToPosBusiness,
   subscribeToPosClients,
   subscribeToPosProducts,
+  subscribeToPosPromotions,
   subscribeToPosSales,
 } from "../../services/pos.service.js";
 
@@ -59,7 +60,8 @@ import {
 
 import "./POS.css";
 
-const CART_STORAGE_KEY = "servix_cart_temp_react";
+const CART_STORAGE_PREFIX = "servix_cart_react_";
+const LEGACY_CART_STORAGE_KEY = "servix_cart_temp_react";
 
 const EMPTY_NEW_CLIENT = {
   nombre: "",
@@ -138,7 +140,9 @@ function getClientMeta(client) {
 
 function getProductStatus(product) {
   const service = product?.categoria === "Servicios";
-  const stock = Number(product?.stock || 0);
+  const stock = Math.max(0, Number(product?.stock || 0));
+  const reserved = Math.max(0, Number(product?.stockReservado || 0));
+  const availableStock = Math.max(0, stock - reserved);
   const stockMax = Math.max(1, Number(product?.stockMax || 0));
 
   if (service) {
@@ -146,29 +150,33 @@ function getProductStatus(product) {
       label: "Servicio",
       className: "pos-stock-service",
       available: true,
+      availableStock: Number.POSITIVE_INFINITY,
     };
   }
 
-  if (stock <= 0) {
+  if (availableStock <= 0) {
     return {
-      label: "Agotado",
+      label: reserved > 0 ? "Sin libre" : "Agotado",
       className: "pos-stock-out",
       available: false,
+      availableStock: 0,
     };
   }
 
-  if (stock / stockMax < 0.25 || stock <= 3) {
+  if (availableStock / stockMax < 0.25 || availableStock <= 3) {
     return {
-      label: `Bajo · ${stock}`,
+      label: `Bajo · ${availableStock}`,
       className: "pos-stock-low",
       available: true,
+      availableStock,
     };
   }
 
   return {
-    label: `${stock} disp.`,
+    label: `${availableStock} disp.`,
     className: "pos-stock-ok",
     available: true,
+    availableStock,
   };
 }
 
@@ -190,9 +198,16 @@ function salePaymentClass(method) {
   }
 }
 
-function readInitialCart() {
+function getCartStorageKey(uid) {
+  return `${CART_STORAGE_PREFIX}${uid || "anonymous"}`;
+}
+
+function readInitialCart(uid) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]");
+    const scopedKey = getCartStorageKey(uid);
+    const scopedValue = localStorage.getItem(scopedKey);
+    const legacyValue = uid ? localStorage.getItem(LEGACY_CART_STORAGE_KEY) : null;
+    const parsed = JSON.parse(scopedValue || legacyValue || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -214,6 +229,7 @@ export default function POS() {
     "Mostrador";
 
   const [products, setProducts] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [clients, setClients] = useState([]);
   const [sales, setSales] = useState([]);
   const [business, setBusiness] = useState({ impuesto: 21 });
@@ -223,12 +239,18 @@ export default function POS() {
   const [codeSearch, setCodeSearch] = useState("");
   const [activeTab, setActiveTab] = useState("sale");
 
-  const [cart, setCart] = useState(readInitialCart);
+  const cartStorageKey = useMemo(
+    () => getCartStorageKey(user?.uid),
+    [user?.uid]
+  );
+
+  const [cart, setCart] = useState(() => readInitialCart(user?.uid));
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientQuery, setClientQuery] = useState("");
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [customerMode, setCustomerMode] = useState("consumer");
   const [discountPercent, setDiscountPercent] = useState("0");
+  const [selectedPromotionId, setSelectedPromotionId] = useState("");
   const [sending, setSending] = useState(false);
 
   const [newClientOpen, setNewClientOpen] = useState(false);
@@ -269,6 +291,17 @@ export default function POS() {
       }
     );
 
+    const unsubscribePromotions = subscribeToPosPromotions(
+      setPromotions,
+      (error) => {
+        console.error(error);
+        notify.warning(
+          "Promociones no disponibles",
+          "El POS seguirá funcionando con descuento manual."
+        );
+      }
+    );
+
     const unsubscribeClients = subscribeToPosClients(
       (data) => {
         setClients(data);
@@ -294,6 +327,7 @@ export default function POS() {
 
     return () => {
       unsubscribeProducts();
+      unsubscribePromotions();
       unsubscribeClients();
       unsubscribeSales();
       unsubscribeBusiness();
@@ -301,8 +335,12 @@ export default function POS() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-  }, [cart]);
+    localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+
+    if (user?.uid) {
+      localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
+    }
+  }, [cart, cartStorageKey, user?.uid]);
 
   /* =======================================
      BÚSQUEDA
@@ -473,6 +511,13 @@ export default function POS() {
     };
   }, [normalizedDiscountPercent]);
 
+  const selectedPromotion = useMemo(
+    () => promotions.find((promotion) => promotion.id === selectedPromotionId) || null,
+    [promotions, selectedPromotionId]
+  );
+
+  const activePromotion = selectedPromotion || manualDiscount;
+
   /* =======================================
      TOTALES
   ======================================= */
@@ -483,10 +528,10 @@ export default function POS() {
     () =>
       calculatePosTotals({
         cart,
-        promotion: manualDiscount,
+        promotion: activePromotion,
         taxRate,
       }),
-    [cart, manualDiscount, taxRate]
+    [cart, activePromotion, taxRate]
   );
 
   const cartCount = useMemo(
@@ -516,11 +561,11 @@ export default function POS() {
 
         if (
           product.categoria !== "Servicios" &&
-          nextQuantity > Number(product.stock || 0)
+          nextQuantity > status.availableStock
         ) {
           notify.warning(
             "Sin más stock",
-            `Disponibles: ${Number(product.stock || 0)}.`
+            `Disponibles: ${status.availableStock}.`
           );
           return current;
         }
@@ -535,7 +580,8 @@ export default function POS() {
       return [
         ...current,
         {
-          productId: product.id,
+          productId: product.docId || product.id || product.sku,
+          docId: product.docId || product.id || product.sku,
           sku: product.sku,
           nombre: product.nombre,
           categoria: product.categoria,
@@ -643,14 +689,16 @@ export default function POS() {
         return current.filter((_, index) => index !== itemIndex);
       }
 
+      const productStatus = product ? getProductStatus(product) : null;
+
       if (
         product &&
         product.categoria !== "Servicios" &&
-        nextQuantity > Number(product.stock || 0)
+        nextQuantity > Number(productStatus?.availableStock || 0)
       ) {
         notify.warning(
           "Sin más stock",
-          `Disponibles: ${Number(product.stock || 0)}.`
+          `Disponibles: ${Number(productStatus?.availableStock || 0)}.`
         );
         return current;
       }
@@ -677,6 +725,7 @@ export default function POS() {
 
     setCart([]);
     setDiscountPercent("0");
+    setSelectedPromotionId("");
   };
 
   /* =======================================
@@ -704,17 +753,18 @@ export default function POS() {
       const result = await sendPosSaleToCash({
         cart,
         client: selectedClient,
-        promotion: manualDiscount,
+        promotion: activePromotion,
         taxRate,
         author,
       });
 
       setCart([]);
       setDiscountPercent("0");
+      setSelectedPromotionId("");
       setSelectedClient(null);
       setClientQuery("");
       setCustomerMode("consumer");
-      localStorage.removeItem(CART_STORAGE_KEY);
+      localStorage.removeItem(cartStorageKey);
 
       notify.success(
         "Venta enviada a Caja",
@@ -1211,23 +1261,50 @@ export default function POS() {
                       <div className="pos-discount-heading">
                         <div>
                           <BadgePercent size={16} />
-                          <strong>Descuento porcentual</strong>
+                          <strong>Promoción / descuento</strong>
                         </div>
-                        <span>Sobre el subtotal</span>
+                        <span>Una opción por venta</span>
                       </div>
 
-                      <label className="pos-percent-field">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.5"
-                          value={discountPercent}
-                          onChange={(event) => setDiscountPercent(event.target.value)}
-                          onBlur={() => setDiscountPercent(String(normalizedDiscountPercent))}
-                        />
-                        <span>%</span>
-                      </label>
+                      <div className="pos-discount-controls">
+                        <label className="pos-promotion-field">
+                          <span>Promoción activa</span>
+                          <select
+                            value={selectedPromotionId}
+                            onChange={(event) => {
+                              setSelectedPromotionId(event.target.value);
+                              if (event.target.value) setDiscountPercent("0");
+                            }}
+                          >
+                            <option value="">Sin promoción</option>
+                            {promotions.map((promotion) => (
+                              <option key={promotion.id} value={promotion.id}>
+                                {promotion.nombre} · {promotion.tipo === "Porcentaje (%)"
+                                  ? `${promotion.valor}%`
+                                  : formatMoney(promotion.valor)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="pos-percent-field">
+                          <span className="pos-percent-label">Descuento manual</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            value={discountPercent}
+                            disabled={Boolean(selectedPromotionId)}
+                            onChange={(event) => {
+                              setSelectedPromotionId("");
+                              setDiscountPercent(event.target.value);
+                            }}
+                            onBlur={() => setDiscountPercent(String(normalizedDiscountPercent))}
+                          />
+                          <span>%</span>
+                        </label>
+                      </div>
                     </div>
 
                     <div className="pos-cart-totals">
@@ -1237,7 +1314,11 @@ export default function POS() {
                       </div>
 
                       <div className="discount">
-                        <span>Descuento ({normalizedDiscountPercent}%)</span>
+                        <span>
+                          {selectedPromotion
+                            ? `Promo: ${selectedPromotion.nombre}`
+                            : `Descuento (${normalizedDiscountPercent}%)`}
+                        </span>
                         <strong>- {formatMoney(totals.discount)}</strong>
                       </div>
 

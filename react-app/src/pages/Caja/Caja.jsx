@@ -48,6 +48,7 @@ import {
 
 import {
   addCashMovement,
+  closeCashRegister,
   getCashSummary,
   getPaymentEligibility,
   processCashPayment,
@@ -189,6 +190,7 @@ function paymentErrorMessage(error) {
     CLIENT_BALANCE_INSUFFICIENT: "El saldo a favor cambió y ahora resulta insuficiente.",
     PAYMENT_TOTAL_INVALID: "La operación tiene un total inválido.",
     STOCK_INSUFFICIENT: `Stock insuficiente para ${error?.productName || "un producto"}.`,
+    STOCK_PRODUCT_NOT_FOUND: `No encontramos ${error?.productName || "un producto"} en el catálogo. El cobro fue cancelado para no desajustar el stock.`,
     CREDIT_NOT_FOUND: "El crédito ya no existe.",
     CREDIT_ALREADY_PAID: "El crédito ya fue saldado.",
     PAYMENT_NOT_APPLIED: "El importe no pudo aplicarse al crédito.",
@@ -246,6 +248,9 @@ export default function Caja() {
   });
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [savingMovement, setSavingMovement] = useState(false);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [newFund, setNewFund] = useState("");
+  const [closingCash, setClosingCash] = useState(false);
 
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
@@ -622,6 +627,53 @@ export default function Caja() {
     }
   };
 
+  const openCloseCash = () => {
+    if (!canManageCash) {
+      notify.warning(
+        "Acción no habilitada",
+        "Necesitás permiso de administración de Caja para realizar un cierre."
+      );
+      return;
+    }
+
+    const suggestedFund = Math.min(
+      Math.max(0, Number(summary.fund || 0)),
+      Math.max(0, Number(summary.cashExpected || 0))
+    );
+
+    setNewFund(String(suggestedFund));
+    setCloseModalOpen(true);
+  };
+
+  const handleCloseCash = async () => {
+    if (closingCash || !canManageCash) return;
+
+    try {
+      setClosingCash(true);
+
+      const result = await closeCashRegister({
+        newFund: Number(newFund || 0),
+        author,
+      });
+
+      setCloseModalOpen(false);
+      notify.success(
+        "Cierre de Caja registrado",
+        `${result.cutId} · efectivo esperado ${formatMoney(result.cashExpected)} · nuevo fondo ${formatMoney(result.newFund)}.`
+      );
+    } catch (error) {
+      console.error(error);
+      notify.error(
+        "No se pudo cerrar Caja",
+        error?.message === "NEW_FUND_EXCEEDS_CASH"
+          ? "El fondo de la nueva sesión no puede superar el efectivo esperado."
+          : error?.message || "Revisá los importes e intentá nuevamente."
+      );
+    } finally {
+      setClosingCash(false);
+    }
+  };
+
   const handleAddMovement = async () => {
     if (!canManageCash) {
       notify.warning(
@@ -801,6 +853,17 @@ export default function Caja() {
               <History size={16} />
               Actividad
             </button>
+
+            {canManageCash && (
+              <button
+                type="button"
+                className="cash-button"
+                onClick={openCloseCash}
+              >
+                <ShieldCheck size={16} />
+                Cerrar caja
+              </button>
+            )}
 
             <button
               type="button"
@@ -1837,6 +1900,65 @@ export default function Caja() {
                 onClick={handleCancelPending}
               >
                 {cancellingPendingId ? "Cancelando..." : "Cancelar pendiente"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {closeModalOpen && (
+        <div
+          className="cash-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !closingCash) setCloseModalOpen(false);
+          }}
+        >
+          <motion.div
+            className="cash-modal cash-manual-modal"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+          >
+            <div className="cash-modal-heading">
+              <div className="cash-modal-icon graphite"><ShieldCheck size={20} /></div>
+              <section>
+                <span>Corte de caja</span>
+                <h3>Cerrar sesión actual</h3>
+              </section>
+              <button type="button" disabled={closingCash} onClick={() => setCloseModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="cash-close-summary">
+              <div><span>Fondo actual</span><strong>{formatMoney(summary.fund)}</strong></div>
+              <div><span>Ingresos</span><strong>{formatMoney(summary.income)}</strong></div>
+              <div><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
+              <div className="emphasis"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
+            </div>
+
+            <label className="cash-field">
+              <span>Fondo para la nueva sesión</span>
+              <input
+                type="number"
+                min="0"
+                max={Math.max(0, Number(summary.cashExpected || 0))}
+                value={newFund}
+                onChange={(event) => setNewFund(event.target.value)}
+              />
+            </label>
+
+            <div className="cash-modal-actions">
+              <button type="button" disabled={closingCash} onClick={() => setCloseModalOpen(false)}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={closingCash || Number(newFund || 0) < 0 || Number(newFund || 0) > Math.max(0, Number(summary.cashExpected || 0))}
+                onClick={handleCloseCash}
+              >
+                <ShieldCheck size={15} />
+                {closingCash ? "Cerrando..." : "Confirmar cierre"}
               </button>
             </div>
           </motion.div>

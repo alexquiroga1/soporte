@@ -92,6 +92,9 @@ const ACCESSORY_ITEMS = [
   ["cable", "Cable"],
 ];
 
+const DRAFT_STORAGE_PREFIX = "servix-ticket-draft-";
+const LEGACY_DRAFT_STORAGE_KEY = "servix-ticket-draft";
+
 const EMPTY_NEW_CLIENT = {
   nombre: "",
   apellido: "",
@@ -176,8 +179,11 @@ export default function NuevoTicket() {
   const [searchParams] = useSearchParams();
   const { profile, user } = useAuth();
   const preselectedApplied = useRef(false);
+  const draftRestoreChecked = useRef(false);
+  const draftSelectedClientId = useRef("");
 
   const author = profile?.nombre || profile?.name || user?.email || "Sistema";
+  const draftStorageKey = `${DRAFT_STORAGE_PREFIX}${user?.uid || "anonymous"}`;
 
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -190,6 +196,70 @@ export default function NuevoTicket() {
   const [savingNewClient, setSavingNewClient] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (draftRestoreChecked.current) return;
+    draftRestoreChecked.current = true;
+
+    try {
+      const raw =
+        localStorage.getItem(draftStorageKey) ||
+        (user?.uid ? localStorage.getItem(LEGACY_DRAFT_STORAGE_KEY) : null);
+
+      if (!raw || searchParams.get("cliente")) return;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+
+      const restore = window.confirm(
+        "Se encontró un borrador de Nuevo Ticket en este navegador. ¿Querés restaurarlo?"
+      );
+
+      if (!restore) {
+        localStorage.removeItem(draftStorageKey);
+        localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+        return;
+      }
+
+      const base = createEmptyForm();
+      const savedForm = parsed.form && typeof parsed.form === "object" ? parsed.form : {};
+
+      setForm({
+        ...base,
+        ...savedForm,
+        physicalState: {
+          ...base.physicalState,
+          ...(savedForm.physicalState || {}),
+        },
+        accessories: {
+          ...base.accessories,
+          ...(savedForm.accessories || {}),
+        },
+        homeService: {
+          ...base.homeService,
+          ...(savedForm.homeService || {}),
+        },
+        remoteService: {
+          ...base.remoteService,
+          ...(savedForm.remoteService || {}),
+        },
+      });
+
+      setClientQuery(String(parsed.clientQuery || ""));
+      draftSelectedClientId.current = String(parsed.selectedClientId || "");
+      setDirty(true);
+
+      if (user?.uid) {
+        localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+      }
+
+      notify.info("Borrador restaurado", "Podés continuar el ingreso donde lo habías dejado.");
+    } catch (error) {
+      console.error(error);
+      localStorage.removeItem(draftStorageKey);
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+    }
+  }, [draftStorageKey, searchParams, user?.uid]);
 
   useEffect(() => {
     const unsubscribe = subscribeToClients(
@@ -210,7 +280,7 @@ export default function NuevoTicket() {
   useEffect(() => {
     if (preselectedApplied.current || !clients.length) return;
 
-    const clientId = searchParams.get("cliente");
+    const clientId = searchParams.get("cliente") || draftSelectedClientId.current;
     if (!clientId) {
       preselectedApplied.current = true;
       return;
@@ -424,6 +494,8 @@ export default function NuevoTicket() {
       });
 
       setDirty(false);
+      localStorage.removeItem(draftStorageKey);
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
       notify.success(
         "Ticket creado",
         form.arrivalStatus === "pending"
@@ -446,14 +518,15 @@ export default function NuevoTicket() {
   const handleSaveDraft = () => {
     try {
       localStorage.setItem(
-        "servix-ticket-draft",
+        draftStorageKey,
         JSON.stringify({
           form,
           clientQuery,
           selectedClientId: selectedClient?.id || null,
         })
       );
-      notify.success("Borrador guardado", "El formulario quedó guardado en este navegador.");
+      if (user?.uid) localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+      notify.success("Borrador guardado", "El formulario quedó guardado para tu usuario en este navegador.");
     } catch (draftError) {
       console.error(draftError);
       notify.error("No se pudo guardar", "El navegador no permitió guardar el borrador local.");
@@ -470,6 +543,8 @@ export default function NuevoTicket() {
     setSelectedClient(null);
     setClientSearchOpen(false);
     setDirty(false);
+    localStorage.removeItem(draftStorageKey);
+    localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
   };
 
   return (

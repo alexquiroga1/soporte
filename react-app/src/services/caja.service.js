@@ -10,6 +10,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
+import { resolveProductForTransaction } from "./product-reference.service.js";
+import { addDaysLocalISO, toLocalISODate } from "../utils/date.js";
 
 import {
   registerCreditPayment,
@@ -42,7 +44,7 @@ function formatDateTimeAR(date = new Date()) {
 }
 
 function getISODate(date = new Date()) {
-  return date.toISOString().split("T")[0];
+  return toLocalISODate(date);
 }
 
 function getISOTime(date = new Date()) {
@@ -53,9 +55,7 @@ function getISOTime(date = new Date()) {
 }
 
 function addDaysISO(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
+  return addDaysLocalISO(days);
 }
 
 function getClientName(client, fallback = "Cliente") {
@@ -80,6 +80,7 @@ function normalizeInvoiceItems(pending) {
       cant: Math.max(1, toNumber(item.cantidad ?? item.cant ?? 1) || 1),
       precio: Math.max(0, toNumber(item.precio ?? item.costo ?? 0)),
       sku: cleanText(item.sku) || null,
+      productId: cleanText(item.productId || item.docId) || null,
     }));
   }
 
@@ -482,10 +483,21 @@ export async function processCashPayment({
       : [];
 
     for (const item of cart) {
-      if (!item?.sku || item?.manual === true) continue;
-      const productRef = doc(db, "productos", item.sku);
-      const productSnapshot = await transaction.get(productRef);
-      productReads.push({ item, productRef, productSnapshot });
+      if ((!item?.sku && !item?.productId && !item?.docId) || item?.manual === true) continue;
+
+      const resolvedProduct = await resolveProductForTransaction(
+        transaction,
+        item
+      );
+
+      productReads.push({
+        item: {
+          ...item,
+          productId: resolvedProduct.docId || item.productId || item.docId || null,
+        },
+        productRef: resolvedProduct.ref,
+        productSnapshot: resolvedProduct.snapshot,
+      });
     }
 
     if (cleanMethod === "Saldo a Favor") {
@@ -512,9 +524,11 @@ export async function processCashPayment({
       } of productReads
     ) {
       if (
-        !productSnapshot.exists()
+        !productSnapshot?.exists()
       ) {
-        continue;
+        const error = new Error("STOCK_PRODUCT_NOT_FOUND");
+        error.productName = item.nombre || item.sku || "Producto";
+        throw error;
       }
 
       const product =
@@ -551,17 +565,18 @@ export async function processCashPayment({
         );
 
       // Una venta directa/POS no puede consumir unidades reservadas.
-      // Los cobros originados en Ticket sí pueden consumir reserva,
-      // porque la pieza ya forma parte del trabajo que se está cobrando.
-      const available =
-        pending.origen ===
-        "Ticket"
-          ? stock
-          : Math.max(
-              0,
-              stock -
-                reserved
-            );
+      // Un Ticket puede consumir su propia reserva más el stock que siga libre,
+      // pero nunca las unidades reservadas por otros tickets.
+      const reservations =
+        product.stockReservas && typeof product.stockReservas === "object"
+          ? product.stockReservas
+          : {};
+      const ownReservation =
+        pending.origen === "Ticket" && pending.ref
+          ? Math.max(0, toNumber(reservations[pending.ref]))
+          : 0;
+      const reservedByOthers = Math.max(0, reserved - ownReservation);
+      const available = Math.max(0, stock - reservedByOthers);
 
       if (
         quantity > 0 &&
@@ -738,9 +753,11 @@ export async function processCashPayment({
       } of productReads
     ) {
       if (
-        !productSnapshot.exists()
+        !productSnapshot?.exists()
       ) {
-        continue;
+        const error = new Error("STOCK_PRODUCT_NOT_FOUND");
+        error.productName = item.nombre || item.sku || "Producto";
+        throw error;
       }
 
       const product =

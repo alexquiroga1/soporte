@@ -299,7 +299,7 @@ export default function App() {
           <Route
             path="/facturacion/facturas"
             element={
-              <Secured module="facturacion">
+              <Secured module="facturas">
                 <Facturas />
               </Secured>
             }
@@ -307,7 +307,7 @@ export default function App() {
           <Route
             path="/facturacion/notas-credito"
             element={
-              <Secured module="facturacion">
+              <Secured module="facturas">
                 <NotasCredito />
               </Secured>
             }
@@ -315,7 +315,7 @@ export default function App() {
           <Route
             path="/facturacion/rectificaciones"
             element={
-              <Secured module="facturacion">
+              <Secured module="facturas">
                 <Rectificaciones />
               </Secured>
             }
@@ -323,7 +323,7 @@ export default function App() {
           <Route
             path="/facturacion/anulaciones"
             element={
-              <Secured module="facturacion">
+              <Secured module="facturas">
                 <Anulaciones />
               </Secured>
             }
@@ -331,7 +331,7 @@ export default function App() {
           <Route
             path="/facturacion/historial"
             element={
-              <Secured module="facturacion">
+              <Secured module="facturas">
                 <HistorialFacturacion />
               </Secured>
             }

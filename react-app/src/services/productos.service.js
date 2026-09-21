@@ -8,6 +8,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
+import { resolveProductForTransaction } from "./product-reference.service.js";
+import { addDaysLocalISO, toLocalISODate } from "../utils/date.js";
 
 export const PRODUCT_CATEGORIES = [
   "Componentes",
@@ -46,10 +48,23 @@ function normalizeSku(value) {
     .replace(/[^A-Z0-9_-]/g, "");
 }
 
+function resolveProductIdentity(identity) {
+  if (identity && typeof identity === "object") {
+    const docId = cleanText(identity.docId);
+    const sku = normalizeSku(identity.sku || identity.id || docId);
+
+    return {
+      docId: docId || sku,
+      sku,
+    };
+  }
+
+  const sku = normalizeSku(identity);
+  return { docId: sku, sku };
+}
+
 function addDaysISO(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
+  return addDaysLocalISO(days);
 }
 
 function buildRandomSku() {
@@ -133,7 +148,7 @@ function createMovementData({
     costoUnitario: Math.max(0, toNumber(unitCost)),
     observacion: cleanText(note),
     usuario: cleanText(author) || "Sistema",
-    fecha: now.toISOString().split("T")[0],
+    fecha: toLocalISODate(now),
     hora: now.toLocaleTimeString("es-AR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -146,10 +161,17 @@ export function subscribeToProducts(onData, onError) {
   return onSnapshot(
     collection(db, "productos"),
     (snapshot) => {
-      const rows = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data(),
-      }));
+      const rows = snapshot.docs.map((documentSnapshot) => {
+        const data = documentSnapshot.data();
+        const fallbackSku = cleanText(data.sku || data.id || documentSnapshot.id);
+
+        return {
+          ...data,
+          docId: documentSnapshot.id,
+          id: cleanText(data.id) || documentSnapshot.id,
+          sku: cleanText(data.sku) || fallbackSku,
+        };
+      });
 
       rows.sort((a, b) =>
         cleanText(a.nombre).localeCompare(cleanText(b.nombre), "es")
@@ -310,12 +332,12 @@ export async function createProduct({
       );
     }
 
-    return product;
+    return { ...product, docId: normalizedSku };
   });
 }
 
 export async function updateProduct(
-  sku,
+  identity,
   {
     nombre,
     categoria,
@@ -329,7 +351,7 @@ export async function updateProduct(
     author = "Sistema",
   }
 ) {
-  const normalizedSku = normalizeSku(sku);
+  const { docId, sku: normalizedSku } = resolveProductIdentity(identity);
   const cleanName = cleanText(nombre);
   const cleanCategory = cleanText(categoria);
   const cleanSupplier = cleanText(proveedor) || "—";
@@ -339,7 +361,7 @@ export async function updateProduct(
   const numericPrice = Math.max(0, toNumber(precio));
   const numericMinStock = toInteger(stockMin);
 
-  if (!normalizedSku) {
+  if (!docId) {
     throw new Error("PRODUCT_SKU_REQUIRED");
   }
 
@@ -355,12 +377,12 @@ export async function updateProduct(
     throw new Error("PRODUCT_PRICE_REQUIRED");
   }
 
-  const productRef = doc(db, "productos", normalizedSku);
+  const productRef = doc(db, "productos", docId);
 
   return runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(productRef);
 
-    if (!snapshot.exists()) {
+    if (!snapshot?.exists()) {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
@@ -409,15 +431,17 @@ export async function updateProduct(
     transaction.update(productRef, updates);
 
     return {
-      id: normalizedSku,
-      sku: normalizedSku,
       ...previous,
       ...updates,
+      docId,
+      id: cleanText(previous.id) || docId,
+      sku: cleanText(previous.sku) || normalizedSku || docId,
     };
   });
 }
 
 export async function registerStockEntry({
+  docId = "",
   sku,
   cantidad,
   costoUnitario,
@@ -426,12 +450,14 @@ export async function registerStockEntry({
   observacion = "",
   author = "Sistema",
 }) {
-  const normalizedSku = normalizeSku(sku);
+  const identity = resolveProductIdentity({ docId, sku });
+  const normalizedSku = identity.sku;
+  const productDocId = identity.docId;
   const quantity = toInteger(cantidad);
   const unitCost = Math.max(0, toNumber(costoUnitario));
   const cleanAuthor = cleanText(author) || "Sistema";
 
-  if (!normalizedSku) {
+  if (!productDocId) {
     throw new Error("PRODUCT_SKU_REQUIRED");
   }
 
@@ -439,14 +465,14 @@ export async function registerStockEntry({
     throw new Error("STOCK_QUANTITY_INVALID");
   }
 
-  const productRef = doc(db, "productos", normalizedSku);
+  const productRef = doc(db, "productos", productDocId);
   const movementId = buildStockMovementId();
   const movementRef = doc(db, "stock_movimientos", movementId);
 
   return runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(productRef);
 
-    if (!snapshot.exists()) {
+    if (!snapshot?.exists()) {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
@@ -486,7 +512,7 @@ export async function registerStockEntry({
       createMovementData({
         id: movementId,
         type: "Ingreso",
-        product: { ...product, sku: normalizedSku },
+        product: { ...product, sku: cleanText(product.sku) || normalizedSku || productDocId },
         quantity,
         stockBefore,
         stockAfter,
@@ -506,28 +532,32 @@ export async function registerStockEntry({
       stockBefore,
       stockAfter,
       product: {
-        id: normalizedSku,
-        sku: normalizedSku,
         ...product,
         ...updates,
+        docId: productDocId,
+        id: cleanText(product.id) || productDocId,
+        sku: cleanText(product.sku) || normalizedSku || productDocId,
       },
     };
   });
 }
 
 export async function adjustStock({
+  docId = "",
   sku,
   conteoFisico,
   motivo,
   observacion = "",
   author = "Sistema",
 }) {
-  const normalizedSku = normalizeSku(sku);
+  const identity = resolveProductIdentity({ docId, sku });
+  const normalizedSku = identity.sku;
+  const productDocId = identity.docId;
   const targetStock = toInteger(conteoFisico);
   const cleanReason = cleanText(motivo);
   const cleanAuthor = cleanText(author) || "Sistema";
 
-  if (!normalizedSku) {
+  if (!productDocId) {
     throw new Error("PRODUCT_SKU_REQUIRED");
   }
 
@@ -535,14 +565,14 @@ export async function adjustStock({
     throw new Error("STOCK_REASON_REQUIRED");
   }
 
-  const productRef = doc(db, "productos", normalizedSku);
+  const productRef = doc(db, "productos", productDocId);
   const movementId = buildStockMovementId();
   const movementRef = doc(db, "stock_movimientos", movementId);
 
   return runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(productRef);
 
-    if (!snapshot.exists()) {
+    if (!snapshot?.exists()) {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
@@ -579,7 +609,7 @@ export async function adjustStock({
       createMovementData({
         id: movementId,
         type: "Ajuste",
-        product: { ...product, sku: normalizedSku },
+        product: { ...product, sku: cleanText(product.sku) || normalizedSku || productDocId },
         quantity: difference,
         stockBefore,
         stockAfter: targetStock,
@@ -616,9 +646,19 @@ function aggregateTicketPieces(pieces = []) {
   for (const piece of Array.isArray(pieces) ? pieces : []) {
     const sku = normalizeSku(piece?.sku);
     const quantity = Math.max(0, Math.trunc(toNumber(piece?.cant ?? piece?.cantidad)));
+    const docId = cleanText(piece?.productId || piece?.productoId || piece?.docId);
 
     if (!sku || quantity <= 0) continue;
-    result.set(sku, (result.get(sku) || 0) + quantity);
+
+    const current = result.get(sku) || {
+      sku,
+      docId,
+      quantity: 0,
+    };
+
+    current.quantity += quantity;
+    if (!current.docId && docId) current.docId = docId;
+    result.set(sku, current);
   }
 
   return result;
@@ -644,10 +684,18 @@ export async function reserveTicketStockInTransaction(
   // Firestore exige realizar todas las lecturas antes de las escrituras.
   const reads = [];
 
-  for (const [sku, quantity] of requested.entries()) {
-    const productRef = doc(db, "productos", sku);
-    const snapshot = await transaction.get(productRef);
-    reads.push({ sku, quantity, productRef, snapshot });
+  for (const request of requested.values()) {
+    const resolved = await resolveProductForTransaction(transaction, {
+      sku: request.sku,
+      docId: request.docId,
+    });
+
+    reads.push({
+      sku: request.sku,
+      quantity: request.quantity,
+      productRef: resolved.ref,
+      snapshot: resolved.snapshot,
+    });
   }
 
   const prepared = [];
@@ -656,7 +704,7 @@ export async function reserveTicketStockInTransaction(
     // Un concepto con SKU histórico/manual que ya no existe en catálogo
     // no debe bloquear la aprobación del presupuesto. Simplemente no
     // participa de la reserva automática.
-    if (!snapshot.exists()) {
+    if (!snapshot?.exists()) {
       continue;
     }
 
@@ -771,16 +819,23 @@ export async function releaseTicketStockInTransaction(
 
   const reads = [];
 
-  for (const sku of requested.keys()) {
-    const productRef = doc(db, "productos", sku);
-    const snapshot = await transaction.get(productRef);
-    reads.push({ sku, productRef, snapshot });
+  for (const request of requested.values()) {
+    const resolved = await resolveProductForTransaction(transaction, {
+      sku: request.sku,
+      docId: request.docId,
+    });
+
+    reads.push({
+      sku: request.sku,
+      productRef: resolved.ref,
+      snapshot: resolved.snapshot,
+    });
   }
 
   const prepared = [];
 
   for (const { sku, productRef, snapshot } of reads) {
-    if (!snapshot.exists()) continue;
+    if (!snapshot?.exists()) continue;
 
     const product = snapshot.data();
     if (isServiceCategory(product.categoria) || product.tipo === "Servicio") continue;
@@ -853,16 +908,32 @@ export async function releaseTicketStockInTransaction(
   };
 }
 
-export async function deleteProduct(sku) {
-  const normalizedSku = normalizeSku(sku);
+export async function setProductActive(identity, active, author = "Sistema") {
+  const { docId } = resolveProductIdentity(identity);
 
-  if (!normalizedSku) {
+  if (!docId) {
     throw new Error("PRODUCT_SKU_REQUIRED");
   }
 
-  await deleteDoc(doc(db, "productos", normalizedSku));
+  await updateDoc(doc(db, "productos", docId), {
+    activo: Boolean(active),
+    actualizadoEn: new Date().toISOString(),
+    actualizadoPor: cleanText(author) || "Sistema",
+  });
 
-  return normalizedSku;
+  return Boolean(active);
+}
+
+export async function deleteProduct(identity) {
+  const { docId } = resolveProductIdentity(identity);
+
+  if (!docId) {
+    throw new Error("PRODUCT_SKU_REQUIRED");
+  }
+
+  await deleteDoc(doc(db, "productos", docId));
+
+  return docId;
 }
 
 /* =========================================

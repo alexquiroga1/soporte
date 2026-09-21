@@ -22,7 +22,9 @@ import {
   Package,
   Pencil,
   Plus,
+  Power,
   Printer,
+  Tag,
   RefreshCcw,
   Search,
   SlidersHorizontal,
@@ -34,11 +36,16 @@ import {
 import { useAuth } from "../../context/AuthContext.jsx";
 import {
   PRODUCT_CATEGORIES,
+  PROMOTION_TYPES,
   adjustStock,
   createProduct,
+  createPromotion,
   registerStockEntry,
+  setProductActive,
   subscribeToProducts,
+  subscribeToPromotions,
   subscribeToStockMovements,
+  togglePromotion,
   updateProduct,
 } from "../../services/productos.service.js";
 
@@ -72,6 +79,14 @@ const EMPTY_ADJUSTMENT = {
   conteoFisico: "",
   motivo: "Conteo físico",
   observacion: "",
+};
+
+const EMPTY_PROMOTION = {
+  nombre: "",
+  tipo: PROMOTION_TYPES[0],
+  valor: "",
+  aplicaA: "Todos",
+  vence: "",
 };
 
 function number(value) {
@@ -109,6 +124,18 @@ function formatDateTime(value) {
   });
 }
 
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function isService(product) {
   return (
     String(product?.tipo || "").toLowerCase() === "servicio" ||
@@ -137,6 +164,10 @@ function getMinimum(product) {
 }
 
 function getProductStatus(product) {
+  if (product?.activo === false) {
+    return { label: "Inactivo", className: "inactive" };
+  }
+
   if (isService(product)) {
     return { label: "Servicio", className: "service" };
   }
@@ -179,6 +210,11 @@ function getErrorMessage(error) {
       "El conteo físico no puede quedar por debajo del stock reservado.",
     STOCK_NO_CHANGE: "El conteo coincide con el stock registrado.",
     SERVICE_HAS_NO_STOCK: "Los servicios no administran stock físico.",
+    PROMOTION_NAME_REQUIRED: "Ingresá un nombre para la promoción.",
+    PROMOTION_TYPE_INVALID: "El tipo de promoción no es válido.",
+    PROMOTION_VALUE_INVALID: "Ingresá un valor mayor a cero.",
+    PROMOTION_PERCENT_INVALID: "El porcentaje no puede superar el 100%.",
+    PROMOTION_CATEGORY_INVALID: "La categoría de la promoción no es válida.",
   };
 
   return messages[error?.message] || error?.message || "Ocurrió un error inesperado.";
@@ -278,8 +314,10 @@ export default function Productos() {
 
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMovements, setLoadingMovements] = useState(true);
+  const [loadingPromotions, setLoadingPromotions] = useState(true);
   const [activeTab, setActiveTab] = useState("catalog");
 
   const [selectedProductId, setSelectedProductId] = useState(null);
@@ -287,6 +325,7 @@ export default function Productos() {
   const [typeFilter, setTypeFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
+  const [activityFilter, setActivityFilter] = useState("active");
 
   const [movementSearch, setMovementSearch] = useState("");
   const [movementType, setMovementType] = useState("");
@@ -308,6 +347,11 @@ export default function Productos() {
   const [savingAdjustment, setSavingAdjustment] = useState(false);
 
   const [labelProduct, setLabelProduct] = useState(null);
+  const [promotionModal, setPromotionModal] = useState(false);
+  const [promotionForm, setPromotionForm] = useState(EMPTY_PROMOTION);
+  const [savingPromotion, setSavingPromotion] = useState(false);
+  const [togglingProductId, setTogglingProductId] = useState(null);
+  const [togglingPromotionId, setTogglingPromotionId] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const pushToast = useCallback((type, title, description) => {
@@ -352,9 +396,26 @@ export default function Productos() {
       }
     );
 
+    const unsubscribePromotions = subscribeToPromotions(
+      (rows) => {
+        setPromotions(rows);
+        setLoadingPromotions(false);
+      },
+      (error) => {
+        console.error(error);
+        setLoadingPromotions(false);
+        pushToast(
+          "warning",
+          "Promociones no disponibles",
+          "No pudimos leer las promociones de Firestore."
+        );
+      }
+    );
+
     return () => {
       unsubscribeProducts();
       unsubscribeMovements();
+      unsubscribePromotions();
     };
   }, [pushToast]);
 
@@ -387,7 +448,7 @@ export default function Productos() {
     return {
       total: products.filter((product) => product.activo !== false).length,
       physical: physicalProducts.length,
-      services: products.filter(isService).length,
+      services: products.filter((product) => isService(product) && product.activo !== false).length,
       inventoryValue,
       lowStock,
       outOfStock,
@@ -414,14 +475,20 @@ export default function Productos() {
         .join(" ")
         .toLowerCase();
 
+      const matchesActivity =
+        activityFilter === "all" ||
+        (activityFilter === "active" && product.activo !== false) ||
+        (activityFilter === "inactive" && product.activo === false);
+
       return (
+        matchesActivity &&
         (!query || text.includes(query)) &&
         (!typeFilter || type === typeFilter) &&
         (!categoryFilter || product.categoria === categoryFilter) &&
         (!stockFilter || status === stockFilter)
       );
     });
-  }, [products, search, typeFilter, categoryFilter, stockFilter]);
+  }, [products, search, typeFilter, categoryFilter, stockFilter, activityFilter]);
 
   const replenishment = useMemo(
     () =>
@@ -527,7 +594,7 @@ export default function Productos() {
       };
 
       if (productModal?.mode === "edit") {
-        await updateProduct(productModal.product.sku || productModal.product.id, payload);
+        await updateProduct(productModal.product, payload);
         pushToast(
           "success",
           "Artículo actualizado",
@@ -592,6 +659,7 @@ export default function Productos() {
     try {
       setSavingEntry(true);
       const result = await registerStockEntry({
+        docId: entryProduct.docId,
         sku: entryProduct.sku || entryProduct.id,
         ...entryForm,
         author,
@@ -641,6 +709,7 @@ export default function Productos() {
     try {
       setSavingAdjustment(true);
       const result = await adjustStock({
+        docId: adjustProduct.docId,
         sku: adjustProduct.sku || adjustProduct.id,
         ...adjustForm,
         author,
@@ -664,6 +733,75 @@ export default function Productos() {
 
   function openLabel(product) {
     setLabelProduct(product);
+  }
+
+  async function handleToggleProduct(product) {
+    const key = product.docId || product.id || product.sku;
+    if (!key || togglingProductId) return;
+
+    const nextActive = product.activo === false;
+
+    try {
+      setTogglingProductId(key);
+      await setProductActive(product, nextActive, author);
+      pushToast(
+        "success",
+        nextActive ? "Artículo reactivado" : "Artículo desactivado",
+        `${product.nombre} ${nextActive ? "vuelve a estar disponible" : "queda oculto de la operación normal"}.`
+      );
+    } catch (error) {
+      console.error(error);
+      pushToast("error", "No se pudo cambiar el estado", getErrorMessage(error));
+    } finally {
+      setTogglingProductId(null);
+    }
+  }
+
+  function openPromotionModal() {
+    setPromotionForm(EMPTY_PROMOTION);
+    setPromotionModal(true);
+  }
+
+  function closePromotionModal() {
+    if (savingPromotion) return;
+    setPromotionModal(false);
+    setPromotionForm(EMPTY_PROMOTION);
+  }
+
+  async function handleCreatePromotion() {
+    if (savingPromotion) return;
+
+    try {
+      setSavingPromotion(true);
+      const promotion = await createPromotion({ ...promotionForm, author });
+      pushToast("success", "Promoción creada", `${promotion.nombre} quedó activa.`);
+      setPromotionModal(false);
+      setPromotionForm(EMPTY_PROMOTION);
+    } catch (error) {
+      console.error(error);
+      pushToast("error", "No se pudo crear la promoción", getErrorMessage(error));
+    } finally {
+      setSavingPromotion(false);
+    }
+  }
+
+  async function handleTogglePromotion(promotion) {
+    if (!promotion?.id || togglingPromotionId) return;
+
+    try {
+      setTogglingPromotionId(promotion.id);
+      const nextState = await togglePromotion(promotion);
+      pushToast(
+        "success",
+        nextState ? "Promoción activada" : "Promoción pausada",
+        promotion.nombre
+      );
+    } catch (error) {
+      console.error(error);
+      pushToast("error", "No se pudo cambiar la promoción", getErrorMessage(error));
+    } finally {
+      setTogglingPromotionId(null);
+    }
   }
 
   async function handleReplenishmentList() {
@@ -700,7 +838,7 @@ export default function Productos() {
     [products]
   );
 
-  const selectedProduct = filteredProducts.find((product) => (product.id || product.sku) === selectedProductId) || filteredProducts[0] || null;
+  const selectedProduct = filteredProducts.find((product) => (product.docId || product.id || product.sku) === selectedProductId) || filteredProducts[0] || null;
 
   return (
     <main className="products-page">
@@ -777,6 +915,12 @@ export default function Productos() {
                 label="Movimientos"
                 onClick={() => setActiveTab("movements")}
               />
+              <TabButton
+                active={activeTab === "promotions"}
+                icon={<Tag size={15} />}
+                label="Promociones"
+                onClick={() => setActiveTab("promotions")}
+              />
             </div>
             <div className="products-head-actions">
               <button type="button" className="secondary" onClick={() => openStockEntry()}><Truck size={17} /> Ingreso de stock</button>
@@ -823,6 +967,12 @@ export default function Productos() {
                   <option value="Sin stock">Sin stock</option>
                   <option value="Servicio">Servicio</option>
                 </select>
+
+                <select aria-label="Estado del artículo" value={activityFilter} onChange={(event) => setActivityFilter(event.target.value)}>
+                  <option value="active">Solo activos</option>
+                  <option value="inactive">Solo inactivos</option>
+                  <option value="all">Activos e inactivos</option>
+                </select>
               </div>
 
               {loadingProducts ? (
@@ -858,8 +1008,8 @@ export default function Productos() {
 
                         return (
                           <motion.tr
-                            key={product.id || product.sku}
-                            className={selectedProduct === product ? "selected" : ""}
+                            key={product.docId || product.id || product.sku}
+                            className={`${selectedProduct === product ? "selected" : ""} ${product.activo === false ? "inactive-row" : ""}`.trim()}
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.18, delay: Math.min(index * 0.012, 0.12) }}
@@ -893,9 +1043,18 @@ export default function Productos() {
                             </td>
                             <td>
                               <div className="products-row-actions">
-                                <button type="button" title="Ver resumen" aria-label={`Ver resumen de ${product.nombre}`} onClick={() => setSelectedProductId(product.id || product.sku)}><Eye size={15} /></button>
+                                <button type="button" title="Ver resumen" aria-label={`Ver resumen de ${product.nombre}`} onClick={() => setSelectedProductId(product.docId || product.id || product.sku)}><Eye size={15} /></button>
                                 <button type="button" title="Editar ficha" onClick={() => openEditProduct(product)}>
                                   <Pencil size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title={product.activo === false ? "Reactivar artículo" : "Desactivar artículo"}
+                                  aria-label={`${product.activo === false ? "Reactivar" : "Desactivar"} ${product.nombre}`}
+                                  disabled={togglingProductId === (product.docId || product.id || product.sku)}
+                                  onClick={() => handleToggleProduct(product)}
+                                >
+                                  <Power size={15} />
                                 </button>
                                 {!service && (
                                   <button type="button" title="Ajustar stock" onClick={() => openAdjustment(product)}>
@@ -948,7 +1107,7 @@ export default function Productos() {
                   <div className="products-alert-list">
                     {replenishment.map(({ product, available, minimum, suggested }) => (
                       <article
-                        key={product.id || product.sku}
+                        key={product.docId || product.id || product.sku}
                         className={`products-stock-alert ${available <= 0 ? "critical" : ""}`}
                       >
                         <div className="products-stock-alert-icon">
@@ -989,6 +1148,84 @@ export default function Productos() {
                   Generar lista de reposición
                 </button>
               </aside>
+            </div>
+          )}
+
+          {activeTab === "promotions" && (
+            <div className="products-panel products-promotions-panel">
+              <div className="products-promotions-head">
+                <div>
+                  <strong>Promociones comerciales</strong>
+                  <span>Administrá descuentos por porcentaje o monto fijo sin mezclarlos con el stock.</span>
+                </div>
+                <div className="products-head-actions">
+                  <button type="button" className="primary" onClick={openPromotionModal}>
+                    <Plus size={17} /> Nueva promoción
+                  </button>
+                </div>
+              </div>
+
+              {loadingPromotions ? (
+                <LoadingState label="Cargando promociones..." />
+              ) : promotions.length === 0 ? (
+                <EmptyState
+                  icon={<Tag size={28} />}
+                  title="Sin promociones"
+                  detail="Creá una promoción para aplicarla por categoría o a todo el catálogo."
+                />
+              ) : (
+                <div className="products-table-wrap">
+                  <table className="products-table products-promotions-table">
+                    <thead>
+                      <tr>
+                        <th>Promoción</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Aplica a</th>
+                        <th>Vence</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promotions.map((promotion, index) => (
+                        <motion.tr
+                          key={promotion.id}
+                          className={promotion.activa === false ? "inactive-row" : ""}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.16, delay: Math.min(index * 0.01, 0.1) }}
+                        >
+                          <td><strong>{promotion.nombre}</strong></td>
+                          <td>{promotion.tipo}</td>
+                          <td className="products-money">
+                            {promotion.tipo === "Porcentaje (%)" ? `${number(promotion.valor)}%` : formatMoney(promotion.valor)}
+                          </td>
+                          <td>{promotion.aplicaA || "Todos"}</td>
+                          <td>{formatDate(promotion.vence)}</td>
+                          <td>
+                            <span className={`products-status ${promotion.activa === false ? "inactive" : "ok"}`}>
+                              {promotion.activa === false ? "Pausada" : "Activa"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="products-row-actions">
+                              <button
+                                type="button"
+                                title={promotion.activa === false ? "Activar promoción" : "Pausar promoción"}
+                                disabled={togglingPromotionId === promotion.id}
+                                onClick={() => handleTogglePromotion(promotion)}
+                              >
+                                <Power size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -1114,11 +1351,11 @@ export default function Productos() {
               </select>
             </Field>
 
-            <Field label="SKU / código *">
+            <Field label="SKU / código">
               <input
                 value={productForm.sku}
                 disabled={productModal.mode === "edit"}
-                placeholder="Ej.: SSD-KNV2-500"
+                placeholder="Ej.: SSD-KNV2-500 (si queda vacío, se genera)"
                 onChange={(event) => setProductForm((current) => ({ ...current, sku: event.target.value }))}
               />
             </Field>
@@ -1262,7 +1499,7 @@ export default function Productos() {
             {entrySuggestions.length > 0 && (
               <div className="products-product-suggestions">
                 {entrySuggestions.map((product) => (
-                  <button key={product.id || product.sku} type="button" onClick={() => selectEntryProduct(product)}>
+                  <button key={product.docId || product.id || product.sku} type="button" onClick={() => selectEntryProduct(product)}>
                     <span>
                       <strong>{product.nombre}</strong>
                       <small>{product.sku || product.id} · {product.proveedor || "Sin proveedor"}</small>
@@ -1401,6 +1638,70 @@ export default function Productos() {
             <button type="button" className="cancel" disabled={savingAdjustment} onClick={closeAdjustment}>Cancelar</button>
             <button type="button" className="save" disabled={savingAdjustment} onClick={handleAdjustment}>
               {savingAdjustment ? "Ajustando..." : "Confirmar ajuste"}
+            </button>
+          </div>
+        </ModalShell>
+      )}
+
+      {promotionModal && (
+        <ModalShell title="Nueva promoción" onClose={closePromotionModal}>
+          <div className="products-form-grid">
+            <Field label="Nombre *" wide>
+              <input
+                autoFocus
+                value={promotionForm.nombre}
+                placeholder="Ej.: Semana de periféricos"
+                onChange={(event) => setPromotionForm((current) => ({ ...current, nombre: event.target.value }))}
+              />
+            </Field>
+
+            <Field label="Tipo *">
+              <select
+                value={promotionForm.tipo}
+                onChange={(event) => setPromotionForm((current) => ({ ...current, tipo: event.target.value }))}
+              >
+                {PROMOTION_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Valor *">
+              <input
+                type="number"
+                min="0"
+                max={promotionForm.tipo === "Porcentaje (%)" ? "100" : undefined}
+                value={promotionForm.valor}
+                onChange={(event) => setPromotionForm((current) => ({ ...current, valor: event.target.value }))}
+              />
+            </Field>
+
+            <Field label="Aplica a">
+              <select
+                value={promotionForm.aplicaA}
+                onChange={(event) => setPromotionForm((current) => ({ ...current, aplicaA: event.target.value }))}
+              >
+                <option value="Todos">Todos</option>
+                {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Vencimiento">
+              <input
+                type="date"
+                value={promotionForm.vence}
+                onChange={(event) => setPromotionForm((current) => ({ ...current, vence: event.target.value }))}
+              />
+            </Field>
+          </div>
+
+          <div className="products-modal-info">
+            <Info size={16} />
+            <span>Si no indicás vencimiento, se asignan 30 días. La promoción puede pausarse y reactivarse sin eliminar el historial.</span>
+          </div>
+
+          <div className="products-modal-actions">
+            <button type="button" className="cancel" disabled={savingPromotion} onClick={closePromotionModal}>Cancelar</button>
+            <button type="button" className="save" disabled={savingPromotion} onClick={handleCreatePromotion}>
+              {savingPromotion ? "Guardando..." : "Crear promoción"}
             </button>
           </div>
         </ModalShell>

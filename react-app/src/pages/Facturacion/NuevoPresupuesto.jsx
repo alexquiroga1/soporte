@@ -117,7 +117,7 @@ function availableStock(product) {
 function createCatalogItem(product) {
   return {
     id: uid(),
-    productoId: product.id || product.sku || "",
+    productoId: product.docId || product.id || product.sku || "",
     descripcion: product.nombre || "Producto",
     sku: product.sku || product.id || "",
     tipo: isService(product) ? "Servicio" : "Producto",
@@ -420,6 +420,7 @@ export default function NuevoPresupuesto() {
     if (!query) return [];
 
     return products
+      .filter((product) => product.activo !== false)
       .filter((product) => {
         const text = [
           product.nombre,
