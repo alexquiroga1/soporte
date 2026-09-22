@@ -288,6 +288,11 @@ export default function Dashboard() {
   } =
     useAuth();
 
+  const notificationStorageScope =
+    user?.uid ||
+    user?.email ||
+    "session";
+
   const [
     notificationsOpen,
     setNotificationsOpen,
@@ -312,8 +317,14 @@ export default function Dashboard() {
   ] =
     useState(
       () =>
-        getReadNotificationIds()
+        getReadNotificationIds(notificationStorageScope)
     );
+
+  useEffect(() => {
+    setReadNotificationIds(
+      getReadNotificationIds(notificationStorageScope)
+    );
+  }, [notificationStorageScope]);
 
   const notificationRef =
     useRef(null);
@@ -443,7 +454,8 @@ export default function Dashboard() {
     (notification) => {
       const nextRead =
         markNotificationRead(
-          notification.id
+          notification.id,
+          notificationStorageScope
         );
 
       setReadNotificationIds(
@@ -467,7 +479,8 @@ export default function Dashboard() {
     () => {
       const nextRead =
         markAllNotificationsRead(
-          notifications
+          notifications,
+          notificationStorageScope
         );
 
       setReadNotificationIds(

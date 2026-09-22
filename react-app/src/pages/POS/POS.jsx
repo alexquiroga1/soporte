@@ -87,7 +87,8 @@ function formatMoney(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(Number(value || 0));
 }
 
@@ -781,6 +782,7 @@ export default function POS() {
         POS_TOTAL_INVALID: "El total de la venta no es válido.",
         POS_PRODUCT_NOT_FOUND: `No encontramos ${error?.productName || "un producto"} en Firestore.`,
         POS_STOCK_INSUFFICIENT: `Stock insuficiente para ${error?.productName || "un producto"}. Disponible: ${error?.available ?? 0}.`,
+        PRODUCT_REFERENCE_AMBIGUOUS: `Hay más de un producto con el SKU ${error?.sku || "indicado"}. Corregí el catálogo antes de continuar.`,
         POS_PENDING_EXISTS: "La venta ya fue enviada a Caja.",
       };
 

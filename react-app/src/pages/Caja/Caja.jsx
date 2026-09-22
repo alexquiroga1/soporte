@@ -110,7 +110,8 @@ function formatMoney(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(Number(value || 0));
 }
 
@@ -191,6 +192,7 @@ function paymentErrorMessage(error) {
     PAYMENT_TOTAL_INVALID: "La operación tiene un total inválido.",
     STOCK_INSUFFICIENT: `Stock insuficiente para ${error?.productName || "un producto"}.`,
     STOCK_PRODUCT_NOT_FOUND: `No encontramos ${error?.productName || "un producto"} en el catálogo. El cobro fue cancelado para no desajustar el stock.`,
+    PRODUCT_REFERENCE_AMBIGUOUS: `Hay más de un producto con el SKU ${error?.sku || "indicado"}. Corregí el catálogo antes de cobrar para no descontar stock del artículo equivocado.`,
     CREDIT_NOT_FOUND: "El crédito ya no existe.",
     CREDIT_ALREADY_PAID: "El crédito ya fue saldado.",
     PAYMENT_NOT_APPLIED: "El importe no pudo aplicarse al crédito.",

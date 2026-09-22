@@ -19,7 +19,7 @@ import { notify } from "../../services/notifications.js";
 import "./FacturacionSuite.css";
 
 function formatMoney(value) {
-  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(value || 0));
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
 function formatDate(value) {

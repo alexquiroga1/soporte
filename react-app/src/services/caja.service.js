@@ -33,6 +33,10 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function roundMoney(value) {
+  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+}
+
 function formatDateTimeAR(date = new Date()) {
   return new Intl.DateTimeFormat("es-AR", {
     day: "2-digit",
@@ -98,8 +102,8 @@ export function subscribeToCashPendings(onData, onError) {
     collection(db, "caja_pendientes"),
     (snapshot) => {
       const rows = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
         ...documentSnapshot.data(),
+              id: documentSnapshot.id,
       }));
 
       rows.sort((a, b) =>
@@ -118,7 +122,7 @@ export function subscribeToCashRegister(onData, onError) {
     (snapshot) => {
       onData(
         snapshot.exists()
-          ? { id: snapshot.id, ...snapshot.data() }
+          ? { ...snapshot.data(), id: snapshot.id }
           : {
               id: "caja_activa",
               fondo: 0,
@@ -136,8 +140,8 @@ export function subscribeToCashCuts(onData, onError) {
     collection(db, "caja_cortes"),
     (snapshot) => {
       const rows = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
         ...documentSnapshot.data(),
+              id: documentSnapshot.id,
       }));
 
       rows.sort((a, b) =>
@@ -172,17 +176,17 @@ export function getCashSummary(cash) {
   const fund = toNumber(cash?.fondo);
 
   return {
-    fund,
-    income,
-    expenses,
-    cashIncome,
-    cashExpected: fund + cashIncome - expenses,
+    fund: roundMoney(fund),
+    income: roundMoney(income),
+    expenses: roundMoney(expenses),
+    cashIncome: roundMoney(cashIncome),
+    cashExpected: roundMoney(fund + cashIncome - expenses),
     movements,
   };
 }
 
 export async function getPaymentEligibility(pending, method) {
-  const total = toNumber(pending?.total);
+  const total = roundMoney(pending?.total);
 
   if (!["Saldo a Favor", "Préstamo personal"].includes(method)) {
     return {
@@ -210,8 +214,8 @@ export async function getPaymentEligibility(pending, method) {
   }
 
   const client = {
-    id: clientSnapshot.id,
     ...clientSnapshot.data(),
+              id: clientSnapshot.id,
   };
 
   if (method === "Saldo a Favor") {
@@ -251,8 +255,8 @@ export async function getPaymentEligibility(pending, method) {
 
   const activeCredits = creditsSnapshot.docs
     .map((creditSnapshot) => ({
-      id: creditSnapshot.id,
       ...creditSnapshot.data(),
+              id: creditSnapshot.id,
     }))
     .filter((credit) => {
       const state = cleanText(credit.estado).toLowerCase();
@@ -349,8 +353,8 @@ export async function processCashPayment({
   if (!previewSnapshot.exists()) throw new Error("CASH_PENDING_NOT_FOUND");
 
   const preview = {
-    id: previewSnapshot.id,
     ...previewSnapshot.data(),
+              id: previewSnapshot.id,
   };
 
   if (cleanMethod === "Efectivo") {
@@ -442,11 +446,11 @@ export async function processCashPayment({
     }
 
     const pending = {
-      id: pendingSnapshot.id,
       ...pendingSnapshot.data(),
+              id: pendingSnapshot.id,
     };
 
-    const total = toNumber(pending.total);
+    const total = roundMoney(pending.total);
     if (total <= 0) throw new Error("PAYMENT_TOTAL_INVALID");
 
     const countersRef = doc(db, "negocio", "contadores");
@@ -1222,9 +1226,7 @@ export async function processCashPayment({
               : null,
 
           fecha:
-            nowISO.split(
-              "T"
-            )[0],
+            toLocalISODate(now),
 
           hora:
             now.toLocaleTimeString(
@@ -1371,30 +1373,12 @@ export async function processCashPayment({
     transaction.set(
       cashRef,
       {
-        fondo:
-          toNumber(
-            cashData.fondo
-          ),
-
+        // Una venta solo agrega movimientos. El fondo y la sesión de caja
+        // pertenecen al permiso específico de Caja y no se reescriben desde Ventas.
         movs: [
           ...movements,
           movement,
         ],
-
-        sesion:
-          cashData.sesion ||
-          {
-            inicio:
-              nowISO,
-
-            fondoInicial:
-              toNumber(
-                cashData.fondo
-              ),
-
-            usuario:
-              cleanAuthor,
-          },
 
         actualizadoEn:
           nowISO,
@@ -1843,7 +1827,7 @@ export async function addCashMovement({
     );
 
   const numericAmount =
-    toNumber(
+    roundMoney(
       amount
     );
 
@@ -2018,10 +2002,12 @@ export async function closeCashRegister({
   author = "Sistema",
 }) {
   const numericNewFund =
-    Math.max(
-      0,
-      toNumber(
-        newFund
+    roundMoney(
+      Math.max(
+        0,
+        toNumber(
+          newFund
+        )
       )
     );
 

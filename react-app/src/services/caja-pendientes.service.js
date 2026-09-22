@@ -16,6 +16,8 @@ import {
   getCreditFinancials,
 } from "./creditos.service.js";
 
+import { toLocalISODate } from "../utils/date.js";
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -703,8 +705,8 @@ export async function sendCreditPaymentToCash(
     }
 
     const credit = {
-      id: creditSnapshot.id,
       ...creditSnapshot.data(),
+              id: creditSnapshot.id,
     };
     const state = cleanText(credit.estado).toLowerCase();
     const settings = settingsSnapshot.exists()
@@ -746,7 +748,7 @@ export async function sendCreditPaymentToCash(
       forgiveLateFees: Boolean(forgiveLateFees),
       estado: "Pendiente",
       creadoEn: nowISO,
-      fecha: nowISO.split("T")[0],
+      fecha: toLocalISODate(now),
       hora: now.toLocaleTimeString("es-AR", {
         hour: "2-digit",
         minute: "2-digit",

@@ -18,6 +18,15 @@ import {
 const READ_STORAGE_KEY =
   "servix_dashboard_notifications_read_v1";
 
+function getReadStorageKey(scope = "default") {
+  const cleanScope = cleanText(scope)
+    .toLowerCase()
+    .replace(/[^a-z0-9@._-]+/g, "_")
+    .slice(0, 120) || "default";
+
+  return `${READ_STORAGE_KEY}:${cleanScope}`;
+}
+
 /* =========================================
    HELPERS
 ========================================= */
@@ -177,8 +186,11 @@ function formatMoney(
       currency:
         "ARS",
 
-      maximumFractionDigits:
+      minimumFractionDigits:
         0,
+
+      maximumFractionDigits:
+        2,
     }
   ).format(
     Number(
@@ -856,8 +868,8 @@ export function subscribeToDashboardNotifications(
 
   const mapSnapshot = (snapshot) =>
     snapshot.docs.map((snapshotDoc) => ({
-      id: snapshotDoc.id,
       ...snapshotDoc.data(),
+        id: snapshotDoc.id,
     }));
 
   const safeError = (error) => {
@@ -959,11 +971,11 @@ export function subscribeToDashboardNotifications(
    NO escribe en Firestore.
 ========================================= */
 
-export function getReadNotificationIds() {
+export function getReadNotificationIds(scope = "default") {
   try {
     const raw =
       window.localStorage.getItem(
-        READ_STORAGE_KEY
+        getReadStorageKey(scope)
       );
 
     const parsed =
@@ -991,7 +1003,8 @@ export function getReadNotificationIds() {
 }
 
 function saveReadNotificationIds(
-  ids
+  ids,
+  scope = "default"
 ) {
   try {
     const cleanIds =
@@ -1009,7 +1022,7 @@ function saveReadNotificationIds(
       );
 
     window.localStorage.setItem(
-      READ_STORAGE_KEY,
+      getReadStorageKey(scope),
       JSON.stringify(
         cleanIds
       )
@@ -1029,7 +1042,8 @@ function saveReadNotificationIds(
 }
 
 export function markNotificationRead(
-  notificationId
+  notificationId,
+  scope = "default"
 ) {
   const id =
     cleanText(
@@ -1037,7 +1051,7 @@ export function markNotificationRead(
     );
 
   const current =
-    getReadNotificationIds();
+    getReadNotificationIds(scope);
 
   if (
     !id
@@ -1048,11 +1062,12 @@ export function markNotificationRead(
   return saveReadNotificationIds([
     ...current,
     id,
-  ]);
+  ], scope);
 }
 
 export function markAllNotificationsRead(
-  notifications
+  notifications,
+  scope = "default"
 ) {
   const ids =
     (
@@ -1070,15 +1085,15 @@ export function markAllNotificationsRead(
       );
 
   return saveReadNotificationIds([
-    ...getReadNotificationIds(),
+    ...getReadNotificationIds(scope),
     ...ids,
-  ]);
+  ], scope);
 }
 
-export function clearReadNotifications() {
+export function clearReadNotifications(scope = "default") {
   try {
     window.localStorage.removeItem(
-      READ_STORAGE_KEY
+      getReadStorageKey(scope)
     );
   } catch (
     error

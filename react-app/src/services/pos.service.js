@@ -24,6 +24,10 @@ function toNumber(value) {
     : 0;
 }
 
+function roundMoney(value) {
+  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+}
+
 export function getClientDisplayName(
   client,
   fallback = "Mostrador"
@@ -236,10 +240,8 @@ export function subscribeToPosPromotions(
             (
               documentSnapshot
             ) => ({
-              id:
-                documentSnapshot.id,
-
               ...documentSnapshot.data(),
+              id: documentSnapshot.id,
             })
           )
           .filter(
@@ -288,10 +290,8 @@ export function subscribeToPosClients(
           (
             documentSnapshot
           ) => ({
-            id:
-              documentSnapshot.id,
-
             ...documentSnapshot.data(),
+              id: documentSnapshot.id,
           })
         );
 
@@ -337,10 +337,8 @@ export function subscribeToPosSales(
           (
             documentSnapshot
           ) => ({
-            id:
-              documentSnapshot.id,
-
             ...documentSnapshot.data(),
+              id: documentSnapshot.id,
           })
         );
 
@@ -387,10 +385,8 @@ export function subscribeToPosBusiness(
       onData(
         snapshot.exists()
           ? {
-              id:
-                snapshot.id,
-
               ...snapshot.data(),
+        id: snapshot.id,
             }
           : {
               impuesto:
@@ -420,7 +416,8 @@ export function calculatePosTotals({
       : [];
 
   const subtotal =
-    safeCart.reduce(
+    roundMoney(
+      safeCart.reduce(
       (
         sum,
         item
@@ -438,7 +435,8 @@ export function calculatePosTotals({
             item.cantidad
           )
         ),
-      0
+        0
+      )
     );
 
   let discount =
@@ -525,19 +523,23 @@ export function calculatePosTotals({
   }
 
   discount =
-    Math.min(
-      subtotal,
-      Math.max(
-        0,
-        discount
+    roundMoney(
+      Math.min(
+        subtotal,
+        Math.max(
+          0,
+          discount
+        )
       )
     );
 
   const taxableBase =
-    Math.max(
-      0,
-      subtotal -
-        discount
+    roundMoney(
+      Math.max(
+        0,
+        subtotal -
+          discount
+      )
     );
 
   const normalizedTaxRate =
@@ -549,15 +551,19 @@ export function calculatePosTotals({
     );
 
   const tax =
-    taxableBase *
-    (
-      normalizedTaxRate /
-      100
+    roundMoney(
+      taxableBase *
+      (
+        normalizedTaxRate /
+        100
+      )
     );
 
   const total =
-    taxableBase +
-    tax;
+    roundMoney(
+      taxableBase +
+      tax
+    );
 
   return {
     subtotal,

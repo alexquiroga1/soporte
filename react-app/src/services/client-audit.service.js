@@ -78,8 +78,8 @@ export function subscribeToClientAudit(clientId, onData, onError) {
     (snapshot) => {
       const rows = snapshot.docs
         .map((item) => ({
-          id: item.id,
           ...item.data(),
+        id: item.id,
         }))
         .sort((a, b) =>
           String(b.creadoEn || "").localeCompare(String(a.creadoEn || ""))
@@ -982,7 +982,7 @@ export async function cleanupTicketsFromDeletedClients({
 
   const activeClientNames = new Set(
     clientsSnapshot.docs
-      .map((item) => getDisplayName({ id: item.id, ...item.data() }).toLowerCase())
+      .map((item) => getDisplayName({ ...item.data(), id: item.id }).toLowerCase())
       .filter(Boolean)
   );
 

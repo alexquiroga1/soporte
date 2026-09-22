@@ -827,10 +827,8 @@ export function subscribeToTickets(
             (
               document
             ) => ({
-              id:
-                document.id,
-
               ...document.data(),
+              id: document.id,
             })
           );
 
@@ -944,10 +942,8 @@ export function subscribeToTicket(
       }
 
       onData?.({
-        id:
-          snapshot.id,
-
         ...snapshot.data(),
+        id: snapshot.id,
       });
     },
 

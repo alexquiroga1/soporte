@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase.js";
-import { addDaysLocalISO } from "../utils/date.js";
+import { addDaysLocalISO, toLocalISODate } from "../utils/date.js";
 
 function cleanText(value) {
   return String(value ?? "").trim();
@@ -133,10 +133,8 @@ export function subscribeToClients(
       const rows =
         snapshot.docs.map(
           (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
             ...snapshotDoc.data(),
+        id: snapshotDoc.id,
           })
         );
 
@@ -217,10 +215,8 @@ export function subscribeToClientActivityIndex(
           assign(
             snapshot.docs.map(
               (item) => ({
-                id:
-                  item.id,
-
                 ...item.data(),
+        id: item.id,
               })
             )
           );
@@ -920,10 +916,8 @@ export async function setClientArchived(
       ticketsSnapshot.docs
         .map(
           (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
             ...snapshotDoc.data(),
+        id: snapshotDoc.id,
           })
         )
         .filter(
@@ -943,10 +937,8 @@ export async function setClientArchived(
       creditsSnapshot.docs
         .map(
           (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
             ...snapshotDoc.data(),
+        id: snapshotDoc.id,
           })
         )
         .filter(
@@ -965,10 +957,8 @@ export async function setClientArchived(
       cashSnapshot.docs
         .map(
           (snapshotDoc) => ({
-            id:
-              snapshotDoc.id,
-
             ...snapshotDoc.data(),
+        id: snapshotDoc.id,
           })
         )
         .filter(
@@ -1248,10 +1238,8 @@ export async function deleteClient(
               client,
 
               {
-                id:
-                  snapshotDoc.id,
-
                 ...snapshotDoc.data(),
+        id: snapshotDoc.id,
               }
             )
         ).length;
@@ -1536,10 +1524,8 @@ export async function createClientCredit({
     allCredits.docs
       .map(
         (item) => ({
-          id:
-            item.id,
-
           ...item.data(),
+        id: item.id,
         })
       )
       .filter(
@@ -1656,11 +1642,7 @@ export async function createClientCredit({
         0,
 
       vence:
-        due
-          .toISOString()
-          .split(
-            "T"
-          )[0],
+        toLocalISODate(due),
     });
 
     due.setDate(
@@ -1715,9 +1697,7 @@ export async function createClientCredit({
       "Otorgamiento de Crédito",
 
     fechaOrigen:
-      nowISO.split(
-        "T"
-      )[0],
+      toLocalISODate(now),
 
     capital:
       numericCapital,
@@ -1787,9 +1767,7 @@ export async function createClientCredit({
               ).id,
 
             fecha:
-              nowISO.split(
-                "T"
-              )[0],
+              toLocalISODate(now),
 
             hora:
               now.toLocaleTimeString(
@@ -1880,10 +1858,8 @@ export async function refinanceClientDebt({
     allCredits.docs
       .map(
         (item) => ({
-          id:
-            item.id,
-
           ...item.data(),
+        id: item.id,
         })
       )
       .filter(
@@ -1992,11 +1968,7 @@ export async function refinanceClientDebt({
         0,
 
       vence:
-        due
-          .toISOString()
-          .split(
-            "T"
-          )[0],
+        toLocalISODate(due),
     });
 
     due.setDate(
@@ -2083,9 +2055,7 @@ export async function refinanceClientDebt({
       "Refinanciación de Deuda Anterior",
 
     fechaOrigen:
-      nowISO.split(
-        "T"
-      )[0],
+      toLocalISODate(now),
 
     original:
       totalFinanced,

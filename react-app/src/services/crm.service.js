@@ -53,8 +53,8 @@ function getStageLabel(stage) {
 function normalizeOpportunity(snapshotDoc) {
   const data = snapshotDoc.data() || {};
   return {
-    id: snapshotDoc.id,
     ...data,
+    id: snapshotDoc.id,
     stage: normalizeStage(data.stage),
     valor: Math.max(0, toNumber(data.valor)),
     probabilidad: clamp(toNumber(data.probabilidad || 0), 0, 100),
@@ -84,7 +84,7 @@ export function subscribeToCRMClients(onData, onError) {
     collection(db, "clientes"),
     (snapshot) => {
       const rows = snapshot.docs
-        .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
+        .map((snapshotDoc) => ({ ...snapshotDoc.data(), id: snapshotDoc.id }))
         .filter((client) => client.archivado !== true)
         .sort((a, b) => {
           const nameA = cleanText(a.razonSocial || `${a.nombre || ""} ${a.apellido || ""}`);

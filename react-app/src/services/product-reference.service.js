@@ -66,6 +66,14 @@ export async function resolveProductForTransaction(transaction, identity = {}) {
       );
       const matches = await getDocs(lookup);
 
+      if (matches.size > 1) {
+        const error = new Error("PRODUCT_REFERENCE_AMBIGUOUS");
+        error.sku = normalizedSku || rawSku || candidate;
+        error.field = field;
+        error.matches = matches.docs.map((item) => item.id);
+        throw error;
+      }
+
       if (!matches.empty) {
         const matchedRef = matches.docs[0].ref;
         const matchedSnapshot = await transaction.get(matchedRef);

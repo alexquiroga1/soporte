@@ -220,10 +220,8 @@ export function subscribeToBudgets(
           (
             document
           ) => ({
-            id:
-              document.id,
-
             ...document.data(),
+              id: document.id,
           })
         );
 
@@ -342,10 +340,8 @@ export function subscribeToBudget(
         onData
       ) {
         onData({
-          id:
-            snapshot.id,
-
           ...snapshot.data(),
+        id: snapshot.id,
         });
       }
     },

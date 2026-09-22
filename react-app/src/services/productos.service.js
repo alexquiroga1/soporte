@@ -188,8 +188,8 @@ export function subscribeToStockMovements(onData, onError) {
     collection(db, "stock_movimientos"),
     (snapshot) => {
       const rows = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
         ...documentSnapshot.data(),
+              id: documentSnapshot.id,
       }));
 
       rows.sort((a, b) =>
@@ -207,8 +207,8 @@ export function subscribeToPromotions(onData, onError) {
     collection(db, "promociones"),
     (snapshot) => {
       const rows = snapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
         ...documentSnapshot.data(),
+              id: documentSnapshot.id,
       }));
 
       rows.sort((a, b) => {

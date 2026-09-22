@@ -334,10 +334,8 @@ export function subscribeToReports(
         (
           snapshotDoc
         ) => ({
-          id:
-            snapshotDoc.id,
-
           ...snapshotDoc.data(),
+        id: snapshotDoc.id,
         })
       );
 
@@ -498,10 +496,8 @@ export function subscribeToReports(
         state.currentCash =
           snapshot.exists()
             ? {
-                id:
-                  snapshot.id,
-
                 ...snapshot.data(),
+        id: snapshot.id,
               }
             : null;
 

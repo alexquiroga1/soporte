@@ -79,7 +79,8 @@ function formatMoney(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(number(value));
 }
 
@@ -191,6 +192,7 @@ function getOperationError(error) {
     BUDGET_TICKET_USE_TICKET_FLOW: "Los presupuestos vinculados a Tickets se envían a Caja desde el detalle del Ticket.",
     BUDGET_INVALID_TOTAL: "El presupuesto no tiene un total válido para cobrar.",
     CASH_PENDING_EXISTS: "Este presupuesto ya tiene un cobro pendiente en Caja.",
+    PRODUCT_REFERENCE_AMBIGUOUS: `Hay más de un producto con el SKU ${error?.sku || "indicado"}. Corregí el catálogo antes de reservar stock.`,
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";

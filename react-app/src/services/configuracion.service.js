@@ -77,8 +77,8 @@ async function getRoleByName(roleName) {
   if (!roleDocument) return null;
 
   return {
-    id: roleDocument.id,
     ...roleDocument.data(),
+              id: roleDocument.id,
     permisos: normalizePermissions(
       roleDocument.data()?.permisos
     ),
@@ -139,8 +139,8 @@ export function subscribeToSystemUsers(onData, onError) {
     (snapshot) => {
       const rows = snapshot.docs
         .map((snapshotDoc) => ({
-          id: snapshotDoc.id,
           ...snapshotDoc.data(),
+        id: snapshotDoc.id,
         }))
         .sort((a, b) =>
           cleanText(a.nombre).localeCompare(
@@ -161,8 +161,8 @@ export function subscribeToRoles(onData, onError) {
     (snapshot) => {
       const rows = snapshot.docs
         .map((snapshotDoc) => ({
-          id: snapshotDoc.id,
           ...snapshotDoc.data(),
+        id: snapshotDoc.id,
           permisos: normalizePermissions(
             snapshotDoc.data()?.permisos
           ),
@@ -444,8 +444,8 @@ export async function updateSystemUserRole(
 
   const currentAuthUser = auth.currentUser;
   const targetUser = {
-    id: userSnapshot.id,
     ...userSnapshot.data(),
+              id: userSnapshot.id,
   };
 
   const isCurrentUser = Boolean(
@@ -609,8 +609,8 @@ export async function updateRole(
   }
 
   const previousRole = {
-    id: roleSnapshot.id,
     ...roleSnapshot.data(),
+              id: roleSnapshot.id,
   };
 
   const previousName = cleanText(previousRole.nombre);

@@ -125,7 +125,8 @@ function formatMoney(value) {
     {
       style: "currency",
       currency: "ARS",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
     }
   ).format(Number(value || 0));
 }
@@ -710,9 +711,7 @@ export default function Creditos() {
   const openNewCredit = () => {
     setCreditForm({
       ...EMPTY_CREDIT,
-      firstDueDate: new Date(Date.now() + 30 * 86400000)
-        .toISOString()
-        .split("T")[0],
+      firstDueDate: addDaysLocalISO(30),
     });
 
     setCreditOpen(true);

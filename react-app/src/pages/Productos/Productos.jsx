@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext.jsx";
+import { PERMISSIONS } from "../../security/permissions.js";
 import {
   PRODUCT_CATEGORIES,
   PROMOTION_TYPES,
@@ -94,11 +95,20 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeSkuKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Z0-9_-]/g, "");
+}
+
 function formatMoney(value) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(number(value));
 }
 
@@ -308,9 +318,10 @@ function AuroraToast({ toast, onClose }) {
 
 export default function Productos() {
   const navigate = useNavigate();
-  const { profile, user } = useAuth();
+  const { profile, user, hasPermission } = useAuth();
 
   const author = profile?.nombre || profile?.name || user?.email || "Sistema";
+  const canManageProducts = hasPermission(PERMISSIONS.PRODUCTS);
 
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -423,6 +434,22 @@ export default function Productos() {
     () => products.filter((product) => !isService(product) && product.activo !== false),
     [products]
   );
+
+  const duplicateSkus = useMemo(() => {
+    const counts = new Map();
+
+    products.forEach((product) => {
+      const key = normalizeSkuKey(product.sku || product.id);
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    return new Set(
+      [...counts.entries()]
+        .filter(([, count]) => count > 1)
+        .map(([sku]) => sku)
+    );
+  }, [products]);
 
   const metrics = useMemo(() => {
     const inventoryValue = physicalProducts.reduce(
@@ -922,10 +949,12 @@ export default function Productos() {
                 onClick={() => setActiveTab("promotions")}
               />
             </div>
-            <div className="products-head-actions">
-              <button type="button" className="secondary" onClick={() => openStockEntry()}><Truck size={17} /> Ingreso de stock</button>
-              <button type="button" className="primary" onClick={openNewProduct}><Plus size={17} /> Nuevo producto / servicio</button>
-            </div>
+            {canManageProducts && (
+              <div className="products-head-actions">
+                <button type="button" className="secondary" onClick={() => openStockEntry()}><Truck size={17} /> Ingreso de stock</button>
+                <button type="button" className="primary" onClick={openNewProduct}><Plus size={17} /> Nuevo producto / servicio</button>
+              </div>
+            )}
           </div>
 
           {activeTab === "catalog" && (
@@ -975,6 +1004,16 @@ export default function Productos() {
                 </select>
               </div>
 
+              {duplicateSkus.size > 0 && (
+                <div className="products-duplicate-warning" role="alert">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>{duplicateSkus.size === 1 ? "Hay 1 SKU duplicado" : `Hay ${duplicateSkus.size} SKU duplicados`}</strong>
+                    <span>Corregilos antes de vender, reservar o ajustar stock. Las operaciones sobre un SKU ambiguo quedan bloqueadas para evitar descontar el artículo equivocado.</span>
+                  </div>
+                </div>
+              )}
+
               {loadingProducts ? (
                 <LoadingState label="Cargando catálogo..." />
               ) : filteredProducts.length === 0 ? (
@@ -1005,6 +1044,9 @@ export default function Productos() {
                         const service = isService(product);
                         const status = getProductStatus(product);
                         const margin = getMargin(product);
+                        const duplicateSku = duplicateSkus.has(
+                          normalizeSkuKey(product.sku || product.id)
+                        );
 
                         return (
                           <motion.tr
@@ -1016,6 +1058,9 @@ export default function Productos() {
                           >
                             <td>
                               <strong className="products-sku-main">{product.sku || product.id}</strong>
+                              {duplicateSku && (
+                                <span className="products-duplicate-sku">SKU duplicado</span>
+                              )}
                               <span className="products-row-muted">
                                 {product.codigoBarras || "Sin EAN"}
                               </span>
@@ -1044,22 +1089,26 @@ export default function Productos() {
                             <td>
                               <div className="products-row-actions">
                                 <button type="button" title="Ver resumen" aria-label={`Ver resumen de ${product.nombre}`} onClick={() => setSelectedProductId(product.docId || product.id || product.sku)}><Eye size={15} /></button>
-                                <button type="button" title="Editar ficha" onClick={() => openEditProduct(product)}>
-                                  <Pencil size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title={product.activo === false ? "Reactivar artículo" : "Desactivar artículo"}
-                                  aria-label={`${product.activo === false ? "Reactivar" : "Desactivar"} ${product.nombre}`}
-                                  disabled={togglingProductId === (product.docId || product.id || product.sku)}
-                                  onClick={() => handleToggleProduct(product)}
-                                >
-                                  <Power size={15} />
-                                </button>
-                                {!service && (
-                                  <button type="button" title="Ajustar stock" onClick={() => openAdjustment(product)}>
-                                    <SlidersHorizontal size={15} />
-                                  </button>
+                                {canManageProducts && (
+                                  <>
+                                    <button type="button" title="Editar ficha" onClick={() => openEditProduct(product)}>
+                                      <Pencil size={15} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title={product.activo === false ? "Reactivar artículo" : "Desactivar artículo"}
+                                      aria-label={`${product.activo === false ? "Reactivar" : "Desactivar"} ${product.nombre}`}
+                                      disabled={togglingProductId === (product.docId || product.id || product.sku)}
+                                      onClick={() => handleToggleProduct(product)}
+                                    >
+                                      <Power size={15} />
+                                    </button>
+                                    {!service && (
+                                      <button type="button" title="Ajustar stock" onClick={() => openAdjustment(product)}>
+                                        <SlidersHorizontal size={15} />
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                                 <button type="button" title="Etiqueta" onClick={() => openLabel(product)}>
                                   <Barcode size={15} />
@@ -1074,7 +1123,7 @@ export default function Productos() {
                 </div>
               )}
               {!loadingProducts && selectedProduct && <section className="products-selection" aria-label="Resumen del artículo seleccionado">
-                <div className="products-selection-heading"><h2>Resumen del artículo seleccionado</h2><button type="button" onClick={() => openEditProduct(selectedProduct)}>Editar ficha <Pencil size={14} /></button></div>
+                <div className="products-selection-heading"><h2>Resumen del artículo seleccionado</h2>{canManageProducts && <button type="button" onClick={() => openEditProduct(selectedProduct)}>Editar ficha <Pencil size={14} /></button>}</div>
                 <div className="products-selection-grid">
                   <div className="products-selection-identity"><span className="products-item-icon"><Boxes size={30} /></span><div><strong>{selectedProduct.nombre}</strong><small>{selectedProduct.sku || selectedProduct.id}</small><span className={`products-status ${getProductStatus(selectedProduct).className}`}>{getProductStatus(selectedProduct).label}</span></div></div>
                   <article><span className="products-summary-icon blue"><Package size={22} /></span><div><span>Disponible</span><strong>{isService(selectedProduct) ? "Servicio" : getAvailable(selectedProduct) + " unidades"}</strong><small>{isService(selectedProduct) ? "Sin inventario físico" : getReserved(selectedProduct) + " reservadas"}</small></div></article>
@@ -1125,9 +1174,11 @@ export default function Productos() {
                           <span>Sugerido</span>
                           <strong>{suggested}</strong>
                         </div>
-                        <button type="button" onClick={() => openStockEntry(product)}>
-                          <Plus size={15} /> Ingresar
-                        </button>
+                        {canManageProducts && (
+                          <button type="button" onClick={() => openStockEntry(product)}>
+                            <Plus size={15} /> Ingresar
+                          </button>
+                        )}
                       </article>
                     ))}
                   </div>
@@ -1141,6 +1192,7 @@ export default function Productos() {
                 <SummaryRow label="Unidades reservadas" value={metrics.reserved} />
                 <SummaryRow label="Disponibles para vender" value={physicalProducts.reduce((sum, product) => sum + getAvailable(product), 0)} />
                 <SummaryRow label="SKU con alerta" value={replenishment.length} />
+                <SummaryRow label="SKU duplicados" value={duplicateSkus.size} />
                 <SummaryRow label="Valor a costo" value={formatMoney(metrics.inventoryValue)} />
 
                 <button type="button" className="products-replenishment" onClick={handleReplenishmentList}>
@@ -1158,11 +1210,13 @@ export default function Productos() {
                   <strong>Promociones comerciales</strong>
                   <span>Administrá descuentos por porcentaje o monto fijo sin mezclarlos con el stock.</span>
                 </div>
-                <div className="products-head-actions">
-                  <button type="button" className="primary" onClick={openPromotionModal}>
-                    <Plus size={17} /> Nueva promoción
-                  </button>
-                </div>
+                {canManageProducts && (
+                  <div className="products-head-actions">
+                    <button type="button" className="primary" onClick={openPromotionModal}>
+                      <Plus size={17} /> Nueva promoción
+                    </button>
+                  </div>
+                )}
               </div>
 
               {loadingPromotions ? (
@@ -1210,14 +1264,18 @@ export default function Productos() {
                           </td>
                           <td>
                             <div className="products-row-actions">
-                              <button
-                                type="button"
-                                title={promotion.activa === false ? "Activar promoción" : "Pausar promoción"}
-                                disabled={togglingPromotionId === promotion.id}
-                                onClick={() => handleTogglePromotion(promotion)}
-                              >
-                                <Power size={15} />
-                              </button>
+                              {canManageProducts ? (
+                                <button
+                                  type="button"
+                                  title={promotion.activa === false ? "Activar promoción" : "Pausar promoción"}
+                                  disabled={togglingPromotionId === promotion.id}
+                                  onClick={() => handleTogglePromotion(promotion)}
+                                >
+                                  <Power size={15} />
+                                </button>
+                              ) : (
+                                <span className="products-row-muted">Solo lectura</span>
+                              )}
                             </div>
                           </td>
                         </motion.tr>

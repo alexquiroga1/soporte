@@ -53,6 +53,10 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function roundMoney(value) {
+  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -195,8 +199,8 @@ export function subscribeToCredits(onData, onError) {
 
     (snapshot) => {
       const rows = snapshot.docs.map((snapshotDoc) => ({
-        id: snapshotDoc.id,
         ...snapshotDoc.data(),
+        id: snapshotDoc.id,
       }));
 
       rows.sort((a, b) =>
@@ -226,8 +230,8 @@ export function subscribeToCreditClients(onData, onError) {
 
     (snapshot) => {
       const rows = snapshot.docs.map((snapshotDoc) => ({
-        id: snapshotDoc.id,
         ...snapshotDoc.data(),
+        id: snapshotDoc.id,
       }));
 
       rows.sort((a, b) =>
@@ -349,19 +353,22 @@ export function getInstallmentFinancials(
         )
       );
 
-      generatedLateFees =
+      generatedLateFees = roundMoney(
         capitalPending *
         (normalizedSettings.creditoPunitorioDiario / 100) *
-        daysLate;
+        daysLate
+      );
     }
   }
 
   const pendingLateFees = forgiveLateFees
     ? 0
-    : Math.max(
-        0,
-        generatedLateFees -
-          normalized.punitoriosPagados
+    : roundMoney(
+        Math.max(
+          0,
+          generatedLateFees -
+            normalized.punitoriosPagados
+        )
       );
 
   let status = "A vencer";
@@ -852,13 +859,14 @@ export function simulateCreditPlans({
       numericAdvance
   );
 
-  const total =
+  const total = roundMoney(
     financedBase *
     (
       1 +
       globalInterest /
       100
-    );
+    )
+  );
 
   const interestAmount = Math.max(
     0,
@@ -895,8 +903,7 @@ export function simulateCreditPlans({
 
           installmentAmount:
             installments > 0
-              ? total /
-                installments
+              ? roundMoney(total / installments)
               : 0,
 
           requested,
@@ -938,9 +945,9 @@ function buildInstallments({
     )
   );
 
-  const amount =
-    total /
-    count;
+  const totalCents = Math.max(0, Math.round(roundMoney(total) * 100));
+  const baseCents = Math.floor(totalCents / count);
+  const remainderCents = totalCents - baseCents * count;
 
   const rows =
     [];
@@ -967,7 +974,7 @@ function buildInstallments({
         index,
 
       importe:
-        amount,
+        (baseCents + (index <= remainderCents ? 1 : 0)) / 100,
 
       pagado:
         0,
@@ -979,9 +986,7 @@ function buildInstallments({
         0,
 
       vence:
-        due
-          .toISOString()
-          .split("T")[0],
+        toLocalISODate(due),
     });
 
     due.setDate(
@@ -1082,10 +1087,8 @@ export async function createCredit({
   const allCredits =
     creditsSnapshot.docs.map(
       (snapshotDoc) => ({
-        id:
-          snapshotDoc.id,
-
         ...snapshotDoc.data(),
+        id: snapshotDoc.id,
       })
     );
 
@@ -1100,13 +1103,14 @@ export async function createCredit({
     requested -
     numericAdvance;
 
-  const totalFinanced =
+  const totalFinanced = roundMoney(
     financedBase *
     (
       1 +
       numericInterest /
       100
-    );
+    )
+  );
 
   if (
     totalFinanced >
@@ -1215,9 +1219,7 @@ export async function createCredit({
       "Otorgamiento de Crédito",
 
     fechaOrigen:
-      nowISO.split(
-        "T"
-      )[0],
+      toLocalISODate(now),
 
     capitalSolicitado:
       requested,
@@ -1362,9 +1364,7 @@ export async function createCredit({
               ).id,
 
             fecha:
-              nowISO.split(
-                "T"
-              )[0],
+              toLocalISODate(now),
 
             hora:
               now.toLocaleTimeString(
@@ -1441,10 +1441,12 @@ export async function registerCreditPayment({
       creditId
     );
 
-  const inputAmount = Math.max(
-    0,
-    toNumber(
-      amount
+  const inputAmount = roundMoney(
+    Math.max(
+      0,
+      toNumber(
+        amount
+      )
     )
   );
 
@@ -1512,10 +1514,8 @@ export async function registerCreditPayment({
       }
 
       const credit = {
-        id:
-          creditSnapshot.id,
-
         ...creditSnapshot.data(),
+              id: creditSnapshot.id,
       };
 
       let cashPendingRef = null;
@@ -1677,24 +1677,28 @@ export async function registerCreditPayment({
         /*
          * Primero punitorios.
          */
-        const lateFeePayment =
+        const lateFeePayment = roundMoney(
           Math.min(
             remaining,
             financial.pendingLateFees
-          );
+          )
+        );
 
         if (
           lateFeePayment >
           0
         ) {
-          installment.punitoriosPagados +=
-            lateFeePayment;
+          installment.punitoriosPagados = roundMoney(
+            installment.punitoriosPagados + lateFeePayment
+          );
 
-          lateFeesPaid +=
-            lateFeePayment;
+          lateFeesPaid = roundMoney(
+            lateFeesPaid + lateFeePayment
+          );
 
-          remaining -=
-            lateFeePayment;
+          remaining = roundMoney(
+            remaining - lateFeePayment
+          );
         }
 
         /*
@@ -1704,37 +1708,44 @@ export async function registerCreditPayment({
           remaining >
           0
         ) {
-          const currentCapitalPending =
+          const currentCapitalPending = roundMoney(
             Math.max(
               0,
               installment.importe -
                 installment.capitalPagado
-            );
+            )
+          );
 
-          const capitalPayment =
+          const capitalPayment = roundMoney(
             Math.min(
               remaining,
               currentCapitalPending
-            );
+            )
+          );
 
-          installment.capitalPagado +=
-            capitalPayment;
+          installment.capitalPagado = roundMoney(
+            installment.capitalPagado + capitalPayment
+          );
 
-          capitalPaid +=
-            capitalPayment;
+          capitalPaid = roundMoney(
+            capitalPaid + capitalPayment
+          );
 
-          remaining -=
-            capitalPayment;
+          remaining = roundMoney(
+            remaining - capitalPayment
+          );
         }
 
-        installment.pagado =
+        installment.pagado = roundMoney(
           installment.capitalPagado +
-          installment.punitoriosPagados;
+          installment.punitoriosPagados
+        );
       }
 
-      const applied =
+      const applied = roundMoney(
         capitalPaid +
-        lateFeesPaid;
+        lateFeesPaid
+      );
 
       if (
         applied <=
@@ -1745,7 +1756,7 @@ export async function registerCreditPayment({
         );
       }
 
-      const balance =
+      const balance = roundMoney(
         installments.reduce(
           (
             sum,
@@ -1759,7 +1770,8 @@ export async function registerCreditPayment({
             ),
 
           0
-        );
+        )
+      );
 
       /*
        * Validamos saldo a favor antes
@@ -2136,9 +2148,7 @@ export async function registerCreditPayment({
               null,
 
             fecha:
-              nowISO.split(
-                "T"
-              )[0],
+              toLocalISODate(now),
 
             hora:
               now.toLocaleTimeString(
@@ -2181,9 +2191,7 @@ export async function registerCreditPayment({
               ).id,
 
             fecha:
-              nowISO.split(
-                "T"
-              )[0],
+              toLocalISODate(now),
 
             hora:
               now.toLocaleTimeString(
@@ -2252,9 +2260,7 @@ export async function registerCreditPayment({
               ).id,
 
             fecha:
-              nowISO.split(
-                "T"
-              )[0],
+              toLocalISODate(now),
 
             hora:
               now.toLocaleTimeString(
@@ -2699,13 +2705,14 @@ export async function refinanceClientCredits({
       )
     );
 
-  const total =
+  const total = roundMoney(
     debt *
     (
       1 +
       numericInterest /
       100
-    );
+    )
+  );
 
   const firstDue =
     dateOnly(
@@ -2797,9 +2804,7 @@ export async function refinanceClientCredits({
       "Refinanciación de Deuda",
 
     fechaOrigen:
-      nowISO.split(
-        "T"
-      )[0],
+      toLocalISODate(now),
 
     deudaRefinanciada:
       debt,

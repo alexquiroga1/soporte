@@ -282,10 +282,8 @@ export function subscribeToClients(
           (
             documentSnapshot
           ) => ({
-            id:
-              documentSnapshot.id,
-
             ...documentSnapshot.data(),
+              id: documentSnapshot.id,
           })
         );
 

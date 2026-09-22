@@ -432,10 +432,8 @@ export async function publishBudget(
       }
 
       const budget = {
-        id:
-          budgetSnapshot.id,
-
         ...budgetSnapshot.data(),
+              id: budgetSnapshot.id,
       };
 
       if (
@@ -481,10 +479,8 @@ export async function publishBudget(
           ticketSnapshot.exists()
         ) {
           ticket = {
-            id:
-              ticketSnapshot.id,
-
             ...ticketSnapshot.data(),
+              id: ticketSnapshot.id,
           };
         }
       }
@@ -813,10 +809,8 @@ export function subscribeToPublicBudget(
       }
 
       onData?.({
-        id:
-          snapshot.id,
-
         ...snapshot.data(),
+        id: snapshot.id,
       });
     },
 
@@ -1373,10 +1367,8 @@ export async function getPublicBudget(
   }
 
   return {
-    id:
-      snapshot.id,
-
     ...snapshot.data(),
+        id: snapshot.id,
   };
 }
 
