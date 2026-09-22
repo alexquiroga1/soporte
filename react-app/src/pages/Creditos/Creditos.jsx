@@ -172,7 +172,7 @@ function daysFromToday(value) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
-  return Math.ceil((date - today) / 86400000);
+  return Math.ceil((date.getTime() - today.getTime()) / 86400000);
 }
 
 function creditSituation(status, financials) {
@@ -218,9 +218,20 @@ function errorMessage(error) {
     CASH_PENDING_AMOUNT_INVALID: "Ingresá un importe válido para enviar a Caja.",
     CASH_PENDING_AMOUNT_EXCEEDS_DEBT: `El importe supera la deuda exigible actual. Máximo: ${formatMoney(error?.available)}.`,
     CREDIT_CLOSED: "El crédito no admite nuevos cobros.",
+    CASH_SESSION_REQUIRED: "Antes de registrar un anticipo o cobro, iniciá una sesión desde Caja.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error inesperado.";
+}
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function openPrintable(title, body) {
@@ -236,7 +247,7 @@ function openPrintable(title, body) {
     <html lang="es">
       <head>
         <meta charset="utf-8" />
-        <title>${title}</title>
+        <title>${escapeHtml(title)}</title>
         <style>
           body{font-family:Arial,sans-serif;padding:34px;color:#111827}
           h1,h2,h3{margin:0 0 10px}
@@ -959,13 +970,13 @@ export default function Creditos() {
       .join("");
 
     openPrintable(
-      `Estado de cuenta ${selectedCredit.id}`,
+      `Estado de cuenta ${escapeHtml(selectedCredit.id)}`,
       `
         <h1>Estado de cuenta</h1>
-        <p class="muted">Crédito ${selectedCredit.id}</p>
+        <p class="muted">Crédito ${escapeHtml(selectedCredit.id)}</p>
         <div class="box">
-          <p><b>Cliente:</b> ${selectedCredit.cliente || "Cliente"}</p>
-          <p><b>Concepto:</b> ${selectedCredit.concepto || "Crédito"}</p>
+          <p><b>Cliente:</b> ${escapeHtml(selectedCredit.cliente || "Cliente")}</p>
+          <p><b>Concepto:</b> ${escapeHtml(selectedCredit.concepto || "Crédito")}</p>
           <p><b>Fecha de origen:</b> ${formatDate(selectedCredit.fechaOrigen)}</p>
           <p><b>Total financiado:</b> ${formatMoney(selectedCredit.original)}</p>
           <p><b>Capital pendiente:</b> ${formatMoney(selectedFinancials.capitalBalance)}</p>
@@ -987,16 +998,16 @@ export default function Creditos() {
 
   const printPaymentMovement = (movement) => {
     openPrintable(
-      `Movimiento ${movement.id}`,
+      `Movimiento ${escapeHtml(movement.id)}`,
       `
         <h1>Movimiento de crédito</h1>
         <p class="muted">Comprobante interno SERVIX</p>
         <div class="box">
-          <p><b>Movimiento:</b> ${movement.id}</p>
-          <p><b>Crédito:</b> ${movement.creditId}</p>
-          <p><b>Cliente:</b> ${movement.client}</p>
-          <p><b>Fecha:</b> ${movement.date || "—"}</p>
-          <p><b>Medio:</b> ${movement.method}</p>
+          <p><b>Movimiento:</b> ${escapeHtml(movement.id)}</p>
+          <p><b>Crédito:</b> ${escapeHtml(movement.creditId)}</p>
+          <p><b>Cliente:</b> ${escapeHtml(movement.client)}</p>
+          <p><b>Fecha:</b> ${escapeHtml(movement.date || "—")}</p>
+          <p><b>Medio:</b> ${escapeHtml(movement.method)}</p>
           <p><b>Capital:</b> ${formatMoney(movement.capital)}</p>
           <p><b>Punitorios:</b> ${formatMoney(movement.lateFees)}</p>
           <p><b>Total aplicado:</b> ${formatMoney(movement.amount)}</p>
@@ -1010,7 +1021,7 @@ export default function Creditos() {
     if (!selectedCredit) return;
 
     openPrintable(
-      `Pagaré ${selectedCredit.id}`,
+      `Pagaré ${escapeHtml(selectedCredit.id)}`,
       `
         <h1>SOLICITUD DE CRÉDITO / PAGARÉ</h1>
         <p class="muted">
@@ -1018,10 +1029,10 @@ export default function Creditos() {
           antes de utilizarlo como instrumento exigible.
         </p>
         <div class="box">
-          <p><b>Carpeta:</b> ${selectedCredit.id}</p>
+          <p><b>Carpeta:</b> ${escapeHtml(selectedCredit.id)}</p>
           <p><b>Fecha:</b> ${formatDate(selectedCredit.fechaOrigen)}</p>
-          <p><b>Cliente:</b> ${selectedCredit.cliente || "Cliente"}</p>
-          <p><b>Documento:</b> ${getClientDocument(selectedClient)}</p>
+          <p><b>Cliente:</b> ${escapeHtml(selectedCredit.cliente || "Cliente")}</p>
+          <p><b>Documento:</b> ${escapeHtml(getClientDocument(selectedClient))}</p>
           <p><b>Total financiado:</b> ${formatMoney(selectedCredit.original)}</p>
           <p><b>Plan:</b> ${selectedCredit.cantidadCuotas || selectedCredit.cuotas?.length || 1} cuota(s)</p>
         </div>
@@ -1358,7 +1369,7 @@ export default function Creditos() {
                 <div className="credits-pro-detail-body">
                   <div className="credits-pro-customer">
                     <div className="avatar">{(selectedCredit.cliente || "CL").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</div>
-                    <div className="identity"><strong>{selectedCredit.cliente || "Cliente"}</strong><span>{selectedClient ? `Documento ${getClientDocument(selectedClient)}` : selectedCredit.concepto || "Crédito"}</span></div>
+                    <div className="identity"><strong>{selectedCredit.cliente || "Cliente"}</strong><span>{selectedClient ? `Documento ${escapeHtml(getClientDocument(selectedClient))}` : selectedCredit.concepto || "Crédito"}</span></div>
                     <div className="situation"><span>Situación</span><strong>{selectedSituation}</strong></div>
                   </div>
 

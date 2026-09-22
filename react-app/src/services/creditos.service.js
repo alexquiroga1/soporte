@@ -2,6 +2,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   runTransaction,
@@ -349,7 +350,7 @@ export function getInstallmentFinancials(
       daysLate = Math.max(
         1,
         Math.floor(
-          (comparison - chargeStart) / 86400000
+          (comparison.getTime() - chargeStart.getTime()) / 86400000
         )
       );
 
@@ -462,16 +463,20 @@ export function getCreditFinancials(
       )
     );
 
-  const capitalBalance = installments.reduce(
-    (sum, installment) =>
-      sum + installment.capitalPending,
-    0
+  const capitalBalance = roundMoney(
+    installments.reduce(
+      (sum, installment) =>
+        sum + installment.capitalPending,
+      0
+    )
   );
 
-  const pendingLateFees = installments.reduce(
-    (sum, installment) =>
-      sum + installment.pendingLateFees,
-    0
+  const pendingLateFees = roundMoney(
+    installments.reduce(
+      (sum, installment) =>
+        sum + installment.pendingLateFees,
+      0
+    )
   );
 
   const maxDaysLate = installments.reduce(
@@ -494,9 +499,10 @@ export function getCreditFinancials(
     capitalBalance,
     pendingLateFees,
 
-    totalDue:
+    totalDue: roundMoney(
       capitalBalance +
-      pendingLateFees,
+      pendingLateFees
+    ),
 
     maxDaysLate,
     nextInstallment,
@@ -1328,6 +1334,16 @@ export async function createCredit({
     ],
   };
 
+  if (numericAdvance > 0) {
+    const cashSnapshot = await getDoc(
+      doc(db, "negocio", "caja_activa")
+    );
+
+    if (!cashSnapshot.exists() || !cashSnapshot.data()?.sesion?.inicio) {
+      throw new Error("CASH_SESSION_REQUIRED");
+    }
+  }
+
   const batch =
     writeBatch(
       db
@@ -1618,6 +1634,19 @@ export async function registerCreditPayment({
           await transaction.get(
             invoiceRef
           );
+      }
+
+      const cashRef =
+        normalizedMethod !== "Saldo a Favor"
+          ? doc(db, "negocio", "caja_activa")
+          : null;
+
+      const cashSnapshot = cashRef
+        ? await transaction.get(cashRef)
+        : null;
+
+      if (cashRef && (!cashSnapshot?.exists() || !cashSnapshot.data()?.sesion?.inicio)) {
+        throw new Error("CASH_SESSION_REQUIRED");
       }
 
       const installments =
@@ -2319,11 +2348,7 @@ export async function registerCreditPayment({
           movements.length
         ) {
           transaction.set(
-            doc(
-              db,
-              "negocio",
-              "caja_activa"
-            ),
+            cashRef,
 
             {
               movs:
@@ -2738,9 +2763,11 @@ export async function refinanceClientCredits({
       db
     );
 
+  const now =
+    new Date();
+
   const nowISO =
-    new Date()
-      .toISOString();
+    now.toISOString();
 
   const authorName =
     cleanText(

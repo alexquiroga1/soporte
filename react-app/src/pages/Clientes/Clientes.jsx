@@ -285,7 +285,7 @@ function daysAgoLabel(value) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diff = Math.max(0, Math.round((today - target) / 86400000));
+  const diff = Math.max(0, Math.round((today.getTime() - target.getTime()) / 86400000));
 
   if (diff === 0) return "Hoy";
   if (diff === 1) return "Hace 1 día";
@@ -2117,26 +2117,31 @@ export default function Clientes() {
                   {activeTab === "summary" && (
                     <div className="clients-reference-summary">
                       <section className="clients-profile-kpi-grid">
-                        <article className="pink">
-                          <div className="clients-profile-kpi-icon"><CircleDollarSign size={27} /></div>
-                          <div>
-                            <span>Deuda Actual</span>
-                            <strong>{formatMoney(selectedDebt)}</strong>
-                            <small className={selectedDebt > 0 ? "negative" : "positive"}>
-                              {selectedDebt > 0 ? <ArrowUpRight size={13} /> : <CheckCircle2 size={13} />}
-                              {selectedDebt > 0 ? `${selectedActivity?.activeCredits.length || 0} créditos con saldo` : "Sin deuda pendiente"}
-                            </small>
-                          </div>
-                        </article>
+                        {canCredits && (
+                          <>
+                            <article className="pink">
+                              <div className="clients-profile-kpi-icon"><CircleDollarSign size={27} /></div>
+                              <div>
+                                <span>Deuda Actual</span>
+                                <strong>{formatMoney(selectedDebt)}</strong>
+                                <small className={selectedDebt > 0 ? "negative" : "positive"}>
+                                  {selectedDebt > 0 ? <ArrowUpRight size={13} /> : <CheckCircle2 size={13} />}
+                                  {selectedDebt > 0 ? `${selectedActivity?.activeCredits.length || 0} créditos con saldo` : "Sin deuda pendiente"}
+                                </small>
+                              </div>
+                            </article>
 
-                        <article className="blue">
-                          <div className="clients-profile-kpi-icon"><WalletCards size={27} /></div>
-                          <div>
-                            <span>Límite de Crédito</span>
-                            <strong>{formatMoney(selectedLimit)}</strong>
-                            <small>Disponible {formatMoney(selectedAvailable)}</small>
-                          </div>
-                        </article>
+                            <article className="blue">
+                              <div className="clients-profile-kpi-icon"><WalletCards size={27} /></div>
+                              <div>
+                                <span>Límite de Crédito</span>
+                                <strong>{formatMoney(selectedLimit)}</strong>
+                                <small>Disponible {formatMoney(selectedAvailable)}</small>
+                              </div>
+                            </article>
+
+                          </>
+                        )}
 
                         <article className="purple">
                           <div className="clients-profile-kpi-icon"><FileText size={27} /></div>
@@ -2174,26 +2179,29 @@ export default function Clientes() {
                         </article>
 
                         <div className="clients-reference-middle-stack">
-                          <article className="clients-reference-card clients-credit-card">
-                            <header>
-                              <h3>Límite de Crédito</h3>
-                              <button type="button" onClick={() => setEditingLimit((current) => !current)}>Configurar</button>
-                            </header>
-                            <div className="clients-credit-main"><strong>{formatMoney(selectedDebt)}</strong><span>de {formatMoney(selectedLimit)}</span><em>{selectedCreditUsage}%</em></div>
-                            <div className="clients-credit-progress"><i style={{ width: `${selectedCreditUsage}%` }} /></div>
-                            <div className="clients-credit-breakdown">
-                              <span><i className="available" />Disponible <strong>{formatMoney(selectedAvailable)}</strong></span>
-                              <span><i className="used" />Utilizado <strong>{formatMoney(selectedDebt)}</strong></span>
-                            </div>
-                            {editingLimit && (
-                              <div className="clients-reference-limit-editor">
-                                <input type="number" min="0" value={limitValue} disabled={selectedClient.archivado === true} onChange={(event) => setLimitValue(event.target.value)} />
-                                <button type="button" disabled={savingLimit || selectedClient.archivado === true} onClick={async () => { await handleSaveLimit(); setEditingLimit(false); }}>
-                                  {savingLimit ? "Guardando..." : "Guardar"}
-                                </button>
+                          {canCredits && (
+                            <article className="clients-reference-card clients-credit-card">
+                              <header>
+                                <h3>Límite de Crédito</h3>
+                                <button type="button" onClick={() => setEditingLimit((current) => !current)}>Configurar</button>
+                              </header>
+                              <div className="clients-credit-main"><strong>{formatMoney(selectedDebt)}</strong><span>de {formatMoney(selectedLimit)}</span><em>{selectedCreditUsage}%</em></div>
+                              <div className="clients-credit-progress"><i style={{ width: `${selectedCreditUsage}%` }} /></div>
+                              <div className="clients-credit-breakdown">
+                                <span><i className="available" />Disponible <strong>{formatMoney(selectedAvailable)}</strong></span>
+                                <span><i className="used" />Utilizado <strong>{formatMoney(selectedDebt)}</strong></span>
                               </div>
-                            )}
-                          </article>
+                              {editingLimit && (
+                                <div className="clients-reference-limit-editor">
+                                  <input type="number" min="0" value={limitValue} disabled={selectedClient.archivado === true} onChange={(event) => setLimitValue(event.target.value)} />
+                                  <button type="button" disabled={savingLimit || selectedClient.archivado === true} onClick={async () => { await handleSaveLimit(); setEditingLimit(false); }}>
+                                    {savingLimit ? "Guardando..." : "Guardar"}
+                                  </button>
+                                </div>
+                              )}
+                            </article>
+
+                          )}
 
                           <article className="clients-reference-card clients-reference-notes-card">
                             <header>

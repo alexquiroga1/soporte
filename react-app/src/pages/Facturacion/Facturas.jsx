@@ -1310,6 +1310,24 @@ function InvoiceFullscreen({
   const pending = getPendingAmount(invoice);
   const paymentDetail = getPaymentDetail(invoice);
 
+  const itemSubtotal = items.reduce(
+    (sum, item) => sum + Number(item.subtotal || 0),
+    0
+  );
+  const invoiceSubtotal = Number.isFinite(Number(invoice.subtotal))
+    ? Number(invoice.subtotal)
+    : itemSubtotal;
+  const invoiceDiscount = Math.max(0, Number(invoice.descuento || 0));
+  const invoiceTaxableBase = Number.isFinite(Number(invoice.baseImponible))
+    ? Number(invoice.baseImponible)
+    : Math.max(0, invoiceSubtotal - invoiceDiscount);
+  const invoiceTaxRate = Math.max(0, Number(invoice.impuestoPorcentaje || 0));
+  const invoiceTax = Math.max(0, Number(invoice.impuestoMonto || 0));
+  const hasCommercialBreakdown =
+    invoiceDiscount > 0 ||
+    invoiceTax > 0 ||
+    Math.abs(invoiceSubtotal - Number(invoice.total || 0)) > 0.009;
+
   const canOperate = invoice.estado === "Emitida";
   const paid = isInvoicePaid(invoice);
   const partiallyPaid = isInvoicePartiallyPaid(invoice);
@@ -1463,6 +1481,35 @@ function InvoiceFullscreen({
           </div>
 
           <div className="invoice-document-totals">
+            {hasCommercialBreakdown && (
+              <>
+                <div>
+                  <span>Subtotal</span>
+                  <strong>{formatMoney(invoiceSubtotal)}</strong>
+                </div>
+
+                {invoiceDiscount > 0 && (
+                  <div>
+                    <span>Descuento{invoice.promocionNombre ? ` · ${invoice.promocionNombre}` : ""}</span>
+                    <strong>- {formatMoney(invoiceDiscount)}</strong>
+                  </div>
+                )}
+
+                {invoiceTax > 0 && (
+                  <>
+                    <div>
+                      <span>Base imponible</span>
+                      <strong>{formatMoney(invoiceTaxableBase)}</strong>
+                    </div>
+                    <div>
+                      <span>IVA ({invoiceTaxRate}%)</span>
+                      <strong>{formatMoney(invoiceTax)}</strong>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
             <div>
               <span>Total</span>
               <strong>{formatMoney(invoice.total)}</strong>

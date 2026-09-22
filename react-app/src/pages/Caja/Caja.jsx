@@ -51,6 +51,7 @@ import {
   closeCashRegister,
   getCashSummary,
   getPaymentEligibility,
+  initializeCashRegister,
   processCashPayment,
   subscribeToCashCuts,
   subscribeToCashPendings,
@@ -199,6 +200,7 @@ function paymentErrorMessage(error) {
     PAYMENT_CLIENT_REQUIRED: "El crédito necesita un cliente válido para usar saldo a favor.",
     PAYMENT_CREDIT_BALANCE_INSUFFICIENT: "El saldo a favor del cliente resulta insuficiente.",
     CASH_PENDING_CREDIT_MISMATCH: "El pendiente no coincide con el crédito que se intenta cobrar.",
+    CASH_SESSION_REQUIRED: "Primero iniciá una sesión de Caja antes de registrar cobros.",
   };
 
   return map[error?.message] || error?.message || "Ocurrió un error al procesar el cobro.";
@@ -638,10 +640,13 @@ export default function Caja() {
       return;
     }
 
-    const suggestedFund = Math.min(
-      Math.max(0, Number(summary.fund || 0)),
-      Math.max(0, Number(summary.cashExpected || 0))
-    );
+    const hasSession = Boolean(cash?.sesion?.inicio);
+    const suggestedFund = hasSession
+      ? Math.min(
+          Math.max(0, Number(summary.fund || 0)),
+          Math.max(0, Number(summary.cashExpected || 0))
+        )
+      : Math.max(0, Number(summary.fund || 0));
 
     setNewFund(String(suggestedFund));
     setCloseModalOpen(true);
@@ -652,6 +657,22 @@ export default function Caja() {
 
     try {
       setClosingCash(true);
+
+      const hasSession = Boolean(cash?.sesion?.inicio);
+
+      if (!hasSession) {
+        const result = await initializeCashRegister({
+          fund: Number(newFund || 0),
+          author,
+        });
+
+        setCloseModalOpen(false);
+        notify.success(
+          "Caja iniciada",
+          `Fondo inicial ${formatMoney(result.fund)}. Ya se pueden registrar cobros y anticipos.`
+        );
+        return;
+      }
 
       const result = await closeCashRegister({
         newFund: Number(newFund || 0),
@@ -669,7 +690,11 @@ export default function Caja() {
         "No se pudo cerrar Caja",
         error?.message === "NEW_FUND_EXCEEDS_CASH"
           ? "El fondo de la nueva sesión no puede superar el efectivo esperado."
-          : error?.message || "Revisá los importes e intentá nuevamente."
+          : error?.message === "CASH_SESSION_ALREADY_OPEN"
+            ? "La Caja ya tiene una sesión iniciada."
+            : error?.message === "CASH_SESSION_REQUIRED"
+              ? "Primero iniciá una sesión de Caja."
+              : error?.message || "Revisá los importes e intentá nuevamente."
       );
     } finally {
       setClosingCash(false);
@@ -863,7 +888,7 @@ export default function Caja() {
                 onClick={openCloseCash}
               >
                 <ShieldCheck size={16} />
-                Cerrar caja
+                {cash?.sesion?.inicio ? "Cerrar caja" : "Iniciar caja"}
               </button>
             )}
 
@@ -1923,27 +1948,34 @@ export default function Caja() {
             <div className="cash-modal-heading">
               <div className="cash-modal-icon graphite"><ShieldCheck size={20} /></div>
               <section>
-                <span>Corte de caja</span>
-                <h3>Cerrar sesión actual</h3>
+                <span>{cash?.sesion?.inicio ? "Corte de caja" : "Apertura de caja"}</span>
+                <h3>{cash?.sesion?.inicio ? "Cerrar sesión actual" : "Iniciar primera sesión"}</h3>
               </section>
               <button type="button" disabled={closingCash} onClick={() => setCloseModalOpen(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <div className="cash-close-summary">
-              <div><span>Fondo actual</span><strong>{formatMoney(summary.fund)}</strong></div>
-              <div><span>Ingresos</span><strong>{formatMoney(summary.income)}</strong></div>
-              <div><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
-              <div className="emphasis"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
-            </div>
+            {cash?.sesion?.inicio ? (
+              <div className="cash-close-summary">
+                <div><span>Fondo actual</span><strong>{formatMoney(summary.fund)}</strong></div>
+                <div><span>Ingresos</span><strong>{formatMoney(summary.income)}</strong></div>
+                <div><span>Egresos</span><strong>{formatMoney(summary.expenses)}</strong></div>
+                <div className="emphasis"><span>Efectivo esperado</span><strong>{formatMoney(summary.cashExpected)}</strong></div>
+              </div>
+            ) : (
+              <div className="cash-close-summary">
+                <div className="emphasis"><span>Estado</span><strong>Sin sesión iniciada</strong></div>
+                <div><span>Movimientos previos</span><strong>{summary.movements.length}</strong></div>
+              </div>
+            )}
 
             <label className="cash-field">
-              <span>Fondo para la nueva sesión</span>
+              <span>{cash?.sesion?.inicio ? "Fondo para la nueva sesión" : "Fondo inicial"}</span>
               <input
                 type="number"
                 min="0"
-                max={Math.max(0, Number(summary.cashExpected || 0))}
+                max={cash?.sesion?.inicio ? Math.max(0, Number(summary.cashExpected || 0)) : undefined}
                 value={newFund}
                 onChange={(event) => setNewFund(event.target.value)}
               />
@@ -1956,11 +1988,18 @@ export default function Caja() {
               <button
                 type="button"
                 className="primary"
-                disabled={closingCash || Number(newFund || 0) < 0 || Number(newFund || 0) > Math.max(0, Number(summary.cashExpected || 0))}
+                disabled={
+                  closingCash ||
+                  Number(newFund || 0) < 0 ||
+                  (cash?.sesion?.inicio &&
+                    Number(newFund || 0) > Math.max(0, Number(summary.cashExpected || 0)))
+                }
                 onClick={handleCloseCash}
               >
                 <ShieldCheck size={15} />
-                {closingCash ? "Cerrando..." : "Confirmar cierre"}
+                {closingCash
+                  ? (cash?.sesion?.inicio ? "Cerrando..." : "Iniciando...")
+                  : (cash?.sesion?.inicio ? "Confirmar cierre" : "Iniciar caja")}
               </button>
             </div>
           </motion.div>

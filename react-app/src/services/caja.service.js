@@ -459,6 +459,10 @@ export async function processCashPayment({
     const countersSnapshot = await transaction.get(countersRef);
     const cashSnapshot = await transaction.get(cashRef);
 
+    if (!cashSnapshot.exists() || !cashSnapshot.data()?.sesion?.inicio) {
+      throw new Error("CASH_SESSION_REQUIRED");
+    }
+
     const clientRef = pending.clienteId
       ? doc(db, "clientes", pending.clienteId)
       : null;
@@ -485,8 +489,14 @@ export async function processCashPayment({
     const cart = Array.isArray(pending.articulosCart)
       ? pending.articulosCart
       : [];
+    const reservationKey = cleanText(
+      pending.reservaStockId ||
+      (pending.origen === "Ticket" ? pending.ref : "")
+    );
+    const skipInventory = pending.inventarioYaAplicado === true;
 
     for (const item of cart) {
+      if (skipInventory) continue;
       if ((!item?.sku && !item?.productId && !item?.docId) || item?.manual === true) continue;
 
       const resolvedProduct = await resolveProductForTransaction(
@@ -503,6 +513,47 @@ export async function processCashPayment({
         productSnapshot: resolvedProduct.snapshot,
       });
     }
+
+    // Un mismo producto puede aparecer en más de una línea del Ticket/POS.
+    // Para inventario se agrupa por documento real para no escribir dos veces
+    // sobre el mismo snapshot y perder parte del descuento de stock.
+    const groupedProductReads = new Map();
+
+    for (const row of productReads) {
+      const key = row.productRef?.path || row.item.productId || row.item.sku;
+      const existing = groupedProductReads.get(key);
+
+      if (existing) {
+        existing.item.cantidad =
+          toNumber(existing.item.cantidad) +
+          toNumber(row.item.cantidad);
+      } else {
+        groupedProductReads.set(key, {
+          ...row,
+          item: {
+            ...row.item,
+            cantidad: toNumber(row.item.cantidad),
+          },
+        });
+      }
+    }
+
+    const inventoryReads = [
+      ...groupedProductReads.values(),
+    ];
+
+    const physicalInventoryApplied = inventoryReads.some(({ item, productSnapshot }) => {
+      if (!productSnapshot?.exists()) return false;
+      const product = productSnapshot.data();
+      return (
+        cleanText(product.categoria).toLowerCase() !== "servicios" &&
+        cleanText(product.tipo).toLowerCase() !== "servicio" &&
+        toNumber(item.cantidad) > 0
+      );
+    });
+
+    const inventoryAppliedForOperation =
+      skipInventory || physicalInventoryApplied;
 
     if (cleanMethod === "Saldo a Favor") {
       if (!clientRef || !clientSnapshot?.exists()) {
@@ -525,7 +576,7 @@ export async function processCashPayment({
       const {
         item,
         productSnapshot,
-      } of productReads
+      } of inventoryReads
     ) {
       if (
         !productSnapshot?.exists()
@@ -569,16 +620,15 @@ export async function processCashPayment({
         );
 
       // Una venta directa/POS no puede consumir unidades reservadas.
-      // Un Ticket puede consumir su propia reserva más el stock que siga libre,
-      // pero nunca las unidades reservadas por otros tickets.
+      // Un Ticket o Presupuesto puede consumir su propia reserva más el stock
+      // que siga libre, pero nunca las unidades reservadas por otras operaciones.
       const reservations =
         product.stockReservas && typeof product.stockReservas === "object"
           ? product.stockReservas
           : {};
-      const ownReservation =
-        pending.origen === "Ticket" && pending.ref
-          ? Math.max(0, toNumber(reservations[pending.ref]))
-          : 0;
+      const ownReservation = reservationKey
+        ? Math.max(0, toNumber(reservations[reservationKey]))
+        : 0;
       const reservedByOthers = Math.max(0, reserved - ownReservation);
       const available = Math.max(0, stock - reservedByOthers);
 
@@ -685,6 +735,58 @@ export async function processCashPayment({
         pending
       );
 
+    const itemsSubtotal =
+      roundMoney(
+        invoiceItems.reduce(
+          (sum, item) =>
+            sum +
+            toNumber(item.cant) *
+            toNumber(item.precio),
+          0
+        )
+      );
+
+    const invoiceSubtotal =
+      roundMoney(
+        pending.subtotal ??
+          itemsSubtotal ??
+          total
+      );
+
+    const invoiceDiscount =
+      roundMoney(
+        Math.max(
+          0,
+          toNumber(pending.descuento)
+        )
+      );
+
+    const invoiceTaxableBase =
+      roundMoney(
+        pending.baseImponible ??
+          Math.max(
+            0,
+            invoiceSubtotal -
+              invoiceDiscount
+          )
+      );
+
+    const invoiceTaxRate =
+      Math.max(
+        0,
+        toNumber(
+          pending.impuestoPorcentaje
+        )
+      );
+
+    const invoiceTax =
+      roundMoney(
+        Math.max(
+          0,
+          toNumber(pending.impuestoMonto)
+        )
+      );
+
     /* =======================================
        DATOS DEL PAGO
     ======================================= */
@@ -754,7 +856,7 @@ export async function processCashPayment({
         item,
         productRef,
         productSnapshot,
-      } of productReads
+      } of inventoryReads
     ) {
       if (
         !productSnapshot?.exists()
@@ -812,48 +914,19 @@ export async function processCashPayment({
             }
           : {};
 
-      const ticketReservation =
-        pending.origen ===
-          "Ticket" &&
-        pending.ref
-          ? Math.max(
-              0,
-              toNumber(
-                reservations[
-                  pending.ref
-                ]
-              )
-            )
-          : 0;
+      const ownReservation = reservationKey
+        ? Math.max(
+            0,
+            toNumber(reservations[reservationKey])
+          )
+        : 0;
 
-      const reservationConsumed =
-        Math.min(
-          ticketReservation,
-          quantity
-        );
+      // Al cobrar se cierra toda la reserva propia del Ticket o Presupuesto.
+      // Las reservas de otras operaciones permanecen intactas.
+      const reservationReleased = ownReservation;
 
-      if (
-        reservationConsumed >
-          0 &&
-        pending.ref
-      ) {
-        const remainingReservation =
-          ticketReservation -
-          reservationConsumed;
-
-        if (
-          remainingReservation >
-          0
-        ) {
-          reservations[
-            pending.ref
-          ] =
-            remainingReservation;
-        } else {
-          delete reservations[
-            pending.ref
-          ];
-        }
+      if (reservationReleased > 0 && reservationKey) {
+        delete reservations[reservationKey];
       }
 
       const stockAfter =
@@ -864,7 +937,7 @@ export async function processCashPayment({
         Math.max(
           0,
           reservedBefore -
-            reservationConsumed
+            reservationReleased
         );
 
       transaction.update(
@@ -1434,6 +1507,12 @@ export async function processCashPayment({
         facturaId:
           invoiceId,
 
+        inventarioAplicado:
+          inventoryAppliedForOperation,
+
+        inventarioOmitidoPorRefacturacion:
+          skipInventory,
+
         estadoPago:
           isFinanced
             ? "Financiado"
@@ -1512,8 +1591,43 @@ export async function processCashPayment({
 
         total,
 
+        subtotal:
+          invoiceSubtotal,
+
+        descuento:
+          invoiceDiscount,
+
+        descuentoPorcentaje:
+          Math.max(
+            0,
+            toNumber(
+              pending.descuentoPorcentaje
+            )
+          ),
+
+        baseImponible:
+          invoiceTaxableBase,
+
+        impuestoPorcentaje:
+          invoiceTaxRate,
+
+        impuestoMonto:
+          invoiceTax,
+
+        promocionId:
+          cleanText(pending.promocionId) || null,
+
+        promocionNombre:
+          cleanText(pending.promocionNombre) || null,
+
         items:
           invoiceItems,
+
+        inventarioAplicado:
+          inventoryAppliedForOperation,
+
+        inventarioOmitidoPorRefacturacion:
+          skipInventory,
 
         usuario:
           cleanAuthor,
@@ -1640,6 +1754,14 @@ export async function processCashPayment({
           notaCreditoId:
             null,
 
+          inventarioAplicado:
+            inventoryAppliedForOperation,
+
+          inventarioAplicadoFacturaId:
+            inventoryAppliedForOperation
+              ? invoiceId
+              : null,
+
           cajaPendienteId:
             null,
 
@@ -1726,6 +1848,14 @@ export async function processCashPayment({
           notaCreditoId:
             null,
 
+          inventarioAplicado:
+            inventoryAppliedForOperation,
+
+          inventarioAplicadoFacturaId:
+            inventoryAppliedForOperation
+              ? invoiceId
+              : null,
+
           actualizadoEn:
             nowISO,
 
@@ -1802,6 +1932,54 @@ export async function processCashPayment({
                 total
             )
           : 0,
+    };
+  });
+}
+
+/* =========================================
+   INICIAR CAJA
+========================================= */
+
+export async function initializeCashRegister({
+  fund = 0,
+  author = "Sistema",
+}) {
+  const numericFund = roundMoney(
+    Math.max(0, toNumber(fund))
+  );
+
+  const cleanAuthor = cleanText(author) || "Sistema";
+  const cashRef = doc(db, "negocio", "caja_activa");
+
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(cashRef);
+    const current = snapshot.exists() ? snapshot.data() : {};
+
+    if (current?.sesion?.inicio) {
+      throw new Error("CASH_SESSION_ALREADY_OPEN");
+    }
+
+    const now = new Date();
+    const movements = Array.isArray(current.movs) ? current.movs : [];
+
+    transaction.set(
+      cashRef,
+      {
+        fondo: numericFund,
+        movs: movements,
+        sesion: {
+          inicio: now.toISOString(),
+          fondoInicial: numericFund,
+          usuario: cleanAuthor,
+        },
+        actualizadoEn: now.toISOString(),
+      },
+      { merge: true }
+    );
+
+    return {
+      fund: numericFund,
+      startedAt: now.toISOString(),
     };
   });
 }
@@ -1888,6 +2066,10 @@ export async function addCashMovement({
         snapshot.exists()
           ? snapshot.data()
           : {};
+
+      if (!cash?.sesion?.inicio) {
+        throw new Error("CASH_SESSION_REQUIRED");
+      }
 
       const movements =
         Array.isArray(
@@ -2039,6 +2221,10 @@ export async function closeCashRegister({
         cashSnapshot.exists()
           ? cashSnapshot.data()
           : {};
+
+      if (!cash?.sesion?.inicio) {
+        throw new Error("CASH_SESSION_REQUIRED");
+      }
 
       const summary =
         getCashSummary(

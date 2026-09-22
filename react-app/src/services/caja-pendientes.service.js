@@ -28,6 +28,10 @@ function cleanText(value) {
   ).trim();
 }
 
+function roundMoney(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
 function formatDateTimeAR(date) {
   return new Intl.DateTimeFormat(
     "es-AR",
@@ -274,6 +278,12 @@ export async function sendTicketToCash(
         );
       }
 
+      if (cleanText(ticket.stage) !== "listo") {
+        throw new Error(
+          "TICKET_NOT_READY"
+        );
+      }
+
       /* =================================
          IMPORTE ACTUAL DEL TICKET
       ================================= */
@@ -318,19 +328,24 @@ export async function sendTicketToCash(
         );
 
       const subtotal =
-        itemsTotal +
-        labor;
+        roundMoney(
+          itemsTotal +
+          labor
+        );
+
+      const discountAmount =
+        roundMoney(
+          subtotal *
+          (discountPercent / 100)
+        );
 
       const total =
-        Math.max(
-          0,
-          Math.round(
-            (
-              subtotal -
-              subtotal *
-              (discountPercent / 100)
-            ) * 100
-          ) / 100
+        roundMoney(
+          Math.max(
+            0,
+            subtotal -
+              discountAmount
+          )
         );
 
       if (total <= 0) {
@@ -422,6 +437,12 @@ export async function sendTicketToCash(
           ticket.presupuestoId ||
           null,
 
+        reservaStockId:
+          cleanText(ticket.reservaStockId) || cleanTicketId,
+
+        inventarioYaAplicado:
+          ticket.inventarioAplicado === true,
+
         clienteId:
           ticket.clienteId ||
           null,
@@ -433,6 +454,23 @@ export async function sendTicketToCash(
         concepto,
 
         total,
+
+        subtotal,
+
+        descuento:
+          discountAmount,
+
+        descuentoPorcentaje:
+          discountPercent,
+
+        baseImponible:
+          total,
+
+        impuestoPorcentaje:
+          0,
+
+        impuestoMonto:
+          0,
 
         articulosCart,
 
@@ -623,10 +661,18 @@ export async function sendBudgetToCash(
       ref: cleanBudgetId,
       ticketId: null,
       presupuestoId: cleanBudgetId,
+      reservaStockId: cleanText(budget.reservaStockId) || `presupuesto:${cleanBudgetId}`,
+      inventarioYaAplicado: budget.inventarioAplicado === true,
       clienteId: budget.clienteId || null,
       cliente: budget.cliente || "Mostrador",
       concepto,
       total,
+      subtotal: roundMoney(budget.subtotal ?? total),
+      descuento: roundMoney(budget.descuentoImporte ?? budget.descuento ?? 0),
+      descuentoPorcentaje: Math.max(0, Number(budget.descuentoPorcentaje || 0) || 0),
+      baseImponible: total,
+      impuestoPorcentaje: 0,
+      impuestoMonto: 0,
       articulosCart,
       estado: "Pendiente",
       creadoEn: nowISO,

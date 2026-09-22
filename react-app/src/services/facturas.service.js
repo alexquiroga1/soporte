@@ -152,6 +152,16 @@ export function normalizeInvoiceItems(
       return {
         description,
 
+        sku:
+          cleanText(item.sku) ||
+          null,
+
+        productId:
+          cleanText(
+            item.productId ||
+            item.docId
+          ) || null,
+
         quantity,
 
         price,
@@ -633,6 +643,13 @@ export async function annulInvoice(
           0
         );
 
+      const invoiceInventoryApplied =
+        invoice.inventarioAplicado === true ||
+        (Array.isArray(invoice.items) &&
+          invoice.items.some((item) =>
+            Boolean(cleanText(item?.productId || item?.docId || item?.sku))
+          ));
+
       const creditData =
         creditSnapshot?.exists()
           ? creditSnapshot.data()
@@ -1092,6 +1109,14 @@ export async function annulInvoice(
             notaCreditoId:
               noteId,
 
+            inventarioAplicado:
+              budget.inventarioAplicado === true || invoiceInventoryApplied,
+
+            inventarioAplicadoFacturaId:
+              invoiceInventoryApplied
+                ? cleanInvoiceId
+                : budget.inventarioAplicadoFacturaId || null,
+
             actualizadoEn:
               nowISO,
 
@@ -1163,6 +1188,14 @@ export async function annulInvoice(
 
             notaCreditoId:
               noteId,
+
+            inventarioAplicado:
+              ticket.inventarioAplicado === true || invoiceInventoryApplied,
+
+            inventarioAplicadoFacturaId:
+              invoiceInventoryApplied
+                ? cleanInvoiceId
+                : ticket.inventarioAplicadoFacturaId || null,
 
             actualizadoEn:
               nowISO,
@@ -1452,6 +1485,13 @@ export async function cancelInvoice(
           reason
         );
 
+      const invoiceInventoryApplied =
+        invoice.inventarioAplicado === true ||
+        (Array.isArray(invoice.items) &&
+          invoice.items.some((item) =>
+            Boolean(cleanText(item?.productId || item?.docId || item?.sku))
+          ));
+
       const history =
         Array.isArray(
           invoice.historial
@@ -1586,6 +1626,14 @@ export async function cancelInvoice(
             cobradoEn:
               null,
 
+            inventarioAplicado:
+              ticket.inventarioAplicado === true || invoiceInventoryApplied,
+
+            inventarioAplicadoFacturaId:
+              invoiceInventoryApplied
+                ? cleanInvoiceId
+                : ticket.inventarioAplicadoFacturaId || null,
+
             actualizadoEn:
               nowISO,
 
@@ -1647,6 +1695,14 @@ export async function cancelInvoice(
 
             creditoId:
               null,
+
+            inventarioAplicado:
+              budget.inventarioAplicado === true || invoiceInventoryApplied,
+
+            inventarioAplicadoFacturaId:
+              invoiceInventoryApplied
+                ? cleanInvoiceId
+                : budget.inventarioAplicadoFacturaId || null,
 
             actualizadoEn:
               nowISO,

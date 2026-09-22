@@ -1157,23 +1157,22 @@ export async function applyPublicBudgetResponse(
         ) ||
         "Sistema";
 
-      if (
-        response ===
-          "Aceptado" &&
-        ticketRef &&
-        ticket
-      ) {
+      let stockReservationId = cleanText(budget.reservaStockId);
+
+      if (response === "Aceptado") {
+        stockReservationId = ticketId || `presupuesto:${budgetId}`;
+
         await reserveTicketStockInTransaction(
           transaction,
           {
-            ticketId,
-            pieces:
-              ticket.piezas ||
-              [],
-            author:
-              cleanAuthor,
-            reference:
-              budgetId,
+            ticketId: stockReservationId,
+            pieces: ticketRef && ticket
+              ? ticket.piezas || []
+              : budget.items || [],
+            author: cleanAuthor,
+            reference: budgetId,
+            origin: ticketId ? "Ticket" : "Presupuesto",
+            subjectLabel: ticketId ? "Ticket" : "Presupuesto",
           }
         );
       }
@@ -1190,6 +1189,10 @@ export async function applyPublicBudgetResponse(
         {
           estado:
             response,
+
+          ...(response === "Aceptado"
+            ? { reservaStockId: stockReservationId }
+            : {}),
 
           respuestaPublica:
             response,

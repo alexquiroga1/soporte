@@ -180,6 +180,25 @@ function formatMoney(value) {
   );
 }
 
+function getTicketCommercialErrorMessage(error) {
+  const map = {
+    TICKET_COMMERCIAL_LOCKED:
+      "Los importes del ticket están bloqueados porque el presupuesto fue aceptado, está en Caja o ya tiene una operación financiera.",
+    PRODUCT_NOT_FOUND:
+      "El SKU indicado no existe en Catálogo. Dejá el SKU vacío para un concepto manual o elegí un código válido.",
+    PRODUCT_INACTIVE:
+      "El producto está desactivado en Catálogo y no puede agregarse a un Ticket nuevo.",
+    PRODUCT_REFERENCE_AMBIGUOUS:
+      "Hay más de un producto con ese SKU. Corregí el duplicado en Productos antes de continuar.",
+  };
+
+  return (
+    map[error?.message] ||
+    error?.message ||
+    "Ocurrió un error inesperado."
+  );
+}
+
 function getActiveObjectLabels(
   object,
   labels
@@ -701,7 +720,40 @@ export default function TicketDetail() {
         "No facturado"
     );
 
+  const budgetApproved =
+    ticket?.presupuestoAprobado ===
+    true;
+
+  const terminalCommercialStage =
+    [
+      "entregado",
+      "cancelado",
+      "noreparable",
+    ].includes(
+      ticket?.stage
+    );
+
+  const commercialLocked =
+    budgetApproved ||
+    cashPending ||
+    cashResolved ||
+    alreadyBilled ||
+    terminalCommercialStage;
+
+  const commercialLockMessage =
+    budgetApproved
+      ? "El presupuesto ya fue aceptado y el stock reservado. Para cambiar importes corresponde generar una revisión del presupuesto."
+      : cashPending
+        ? "El Ticket ya está pendiente en Caja. Cancelá el envío antes de modificar importes."
+        : cashResolved || alreadyBilled
+          ? "El Ticket ya tiene una operación financiera registrada. Los importes originales quedan preservados para trazabilidad."
+          : terminalCommercialStage
+            ? "El Ticket está cerrado y sus importes quedan preservados como historial."
+            : "";
+
   const canSendToCash =
+    ticket?.stage ===
+      "listo" &&
     !cashPending &&
     !cashResolved &&
     !alreadyBilled;
@@ -1016,7 +1068,7 @@ export default function TicketDetail() {
 
         notify.error(
           "No se pudo agregar",
-          "Ocurrió un error al guardar el repuesto o servicio."
+          getTicketCommercialErrorMessage(pieceError)
         );
       } finally {
         setAddingPiece(
@@ -1171,7 +1223,7 @@ export default function TicketDetail() {
 
         notify.error(
           "No se pudo actualizar",
-          "Ocurrió un error al guardar los cambios."
+          getTicketCommercialErrorMessage(pieceError)
         );
       } finally {
         setSavingPiece(
@@ -1230,7 +1282,7 @@ export default function TicketDetail() {
 
         notify.error(
           "No se pudo eliminar",
-          "Firestore rechazó la operación."
+          getTicketCommercialErrorMessage(pieceError)
         );
       } finally {
         setDeletingPieceIndex(
@@ -1357,7 +1409,7 @@ export default function TicketDetail() {
 
         notify.error(
           "No se pudo guardar",
-          "Ocurrió un error al actualizar el presupuesto."
+          getTicketCommercialErrorMessage(budgetError)
         );
 
         return null;
@@ -1447,16 +1499,28 @@ export default function TicketDetail() {
         );
 
         const savedBudget =
-          await saveTicketBudgetSummary(
-            ticket.id,
-            {
-              labor:
-                safeLabor,
-              discountPercent:
-                safeDiscount,
-            },
-            author
-          );
+          budgetApproved
+            ? {
+                total:
+                  Math.max(
+                    0,
+                    Number(
+                      ticket.presupuestoEstimado ||
+                        budgetTotal ||
+                        0
+                    )
+                  ),
+              }
+            : await saveTicketBudgetSummary(
+                ticket.id,
+                {
+                  labor:
+                    safeLabor,
+                  discountPercent:
+                    safeDiscount,
+                },
+                author
+              );
 
         if (savedBudget.total <= 0) {
           throw new Error(
@@ -1502,6 +1566,13 @@ export default function TicketDetail() {
 
           TICKET_ALREADY_BILLED:
             "Este ticket ya tiene una factura asociada.",
+
+          TICKET_NOT_READY:
+            "Primero marcá el ticket como Listo para entrega antes de enviarlo a Caja.",
+
+          TICKET_COMMERCIAL_LOCKED:
+            commercialLockMessage ||
+            "Los importes del ticket están bloqueados.",
         };
 
         notify.error(
@@ -2274,6 +2345,15 @@ export default function TicketDetail() {
 
                 </div>
 
+                {commercialLocked && (
+                  <div className="ticket-commercial-lock">
+                    <ShieldCheck size={18} />
+                    <div>
+                      <strong>Importes bloqueados</strong>
+                      <span>{commercialLockMessage}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="ticket-piece-form">
 
@@ -2293,7 +2373,8 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece
+                        addingPiece ||
+                        commercialLocked
                       }
 
                       onChange={(event) =>
@@ -2321,14 +2402,15 @@ export default function TicketDetail() {
                     <input
                       type="text"
 
-                      placeholder="Opcional"
+                      placeholder="Opcional · debe existir en Catálogo"
 
                       value={
                         pieceForm.sku
                       }
 
                       disabled={
-                        addingPiece
+                        addingPiece ||
+                        commercialLocked
                       }
 
                       onChange={(event) =>
@@ -2363,7 +2445,8 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece
+                        addingPiece ||
+                        commercialLocked
                       }
 
                       onChange={(event) =>
@@ -2400,7 +2483,8 @@ export default function TicketDetail() {
                       }
 
                       disabled={
-                        addingPiece
+                        addingPiece ||
+                        commercialLocked
                       }
 
                       onChange={(event) =>
@@ -2425,7 +2509,8 @@ export default function TicketDetail() {
                     className="ticket-piece-add"
 
                     disabled={
-                      addingPiece
+                      addingPiece ||
+                      commercialLocked
                     }
 
                     onClick={
@@ -2540,6 +2625,7 @@ export default function TicketDetail() {
 
                                   {isEditing ? (
                                     <input
+                                      disabled={commercialLocked}
                                       value={
                                         editingPiece?.nombre ||
                                         ""
@@ -2571,6 +2657,7 @@ export default function TicketDetail() {
 
                                   {isEditing ? (
                                     <input
+                                      disabled={commercialLocked}
                                       value={
                                         editingPiece?.sku ||
                                         ""
@@ -2603,6 +2690,7 @@ export default function TicketDetail() {
                                       type="number"
 
                                       min="1"
+                                      disabled={commercialLocked}
 
                                       value={
                                         editingPiece?.cant ??
@@ -2635,6 +2723,7 @@ export default function TicketDetail() {
                                       type="number"
 
                                       min="0"
+                                      disabled={commercialLocked}
 
                                       value={
                                         editingPiece?.costo ??
@@ -2686,7 +2775,8 @@ export default function TicketDetail() {
                                           className="save"
 
                                           disabled={
-                                            savingPiece
+                                            savingPiece ||
+                                            commercialLocked
                                           }
 
                                           onClick={
@@ -2704,7 +2794,8 @@ export default function TicketDetail() {
                                           type="button"
 
                                           disabled={
-                                            savingPiece
+                                            savingPiece ||
+                                            commercialLocked
                                           }
 
                                           onClick={
@@ -2726,6 +2817,7 @@ export default function TicketDetail() {
                                           type="button"
 
                                           disabled={
+                                            commercialLocked ||
                                             editingPieceIndex !==
                                               null
                                           }
@@ -2750,6 +2842,7 @@ export default function TicketDetail() {
                                           className="delete"
 
                                           disabled={
+                                            commercialLocked ||
                                             deletingPieceIndex ===
                                               index
                                           }
@@ -2819,6 +2912,16 @@ export default function TicketDetail() {
 
                 </div>
 
+                {commercialLocked && (
+                  <div className="ticket-commercial-lock">
+                    <ShieldCheck size={18} />
+                    <div>
+                      <strong>Presupuesto bloqueado</strong>
+                      <span>{commercialLockMessage}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="ticket-budget-compact">
 
                   {/* REPUESTOS */}
@@ -2865,7 +2968,8 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          savingBudget
+                          savingBudget ||
+                          commercialLocked
                         }
 
                         onChange={
@@ -2919,7 +3023,8 @@ export default function TicketDetail() {
                         }
 
                         disabled={
-                          savingBudget
+                          savingBudget ||
+                          commercialLocked
                         }
 
                         onChange={
@@ -2983,7 +3088,8 @@ export default function TicketDetail() {
                       type="button"
                       className="ticket-budget-fix-button"
                       disabled={
-                        savingBudget
+                        savingBudget ||
+                        commercialLocked
                       }
                       onClick={
                         handleSaveBudget
@@ -3526,7 +3632,9 @@ export default function TicketDetail() {
                         : cashPaid ||
                             alreadyBilled
                           ? "Cobrado / facturado"
-                          : "Enviar a Caja"}
+                          : ticket?.stage !== "listo"
+                            ? "Primero marcar Listo"
+                            : "Enviar a Caja"}
                 </button>
 
 

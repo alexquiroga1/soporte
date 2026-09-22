@@ -411,20 +411,26 @@ export async function acceptBudget(
 
     const nowISO = new Date().toISOString();
 
-    if (ticketRef && ticketData) {
-      await reserveTicketStockInTransaction(transaction, {
-        ticketId,
-        pieces: ticketData.piezas || [],
-        author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
-        reference: cleanBudgetId,
-      });
-    }
+    const stockReservationId = ticketId || `presupuesto:${cleanBudgetId}`;
+    const stockReservationItems = ticketRef && ticketData
+      ? ticketData.piezas || []
+      : budget.items || [];
+
+    await reserveTicketStockInTransaction(transaction, {
+      ticketId: stockReservationId,
+      pieces: stockReservationItems,
+      author: publicResponse ? "Cliente (Vía Web)" : cleanAuthorValue,
+      reference: cleanBudgetId,
+      origin: ticketId ? "Ticket" : "Presupuesto",
+      subjectLabel: ticketId ? "Ticket" : "Presupuesto",
+    });
 
     const budgetHistory = Array.isArray(budget.historial) ? budget.historial : [];
 
     transaction.update(budgetRef, {
       estado: "Aceptado",
       presupuestoAprobado: true,
+      reservaStockId: stockReservationId,
       ...(publicResponse
         ? {
             respuestaPublica: "Aceptado",

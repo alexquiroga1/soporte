@@ -671,10 +671,14 @@ export async function reserveTicketStockInTransaction(
     pieces = [],
     author = "Sistema",
     reference = "",
+    origin = "Ticket",
+    subjectLabel = "Ticket",
   } = {}
 ) {
   const cleanTicketId = cleanText(ticketId);
   const cleanAuthor = cleanText(author) || "Sistema";
+  const cleanOrigin = cleanText(origin) || "Ticket";
+  const cleanSubjectLabel = cleanText(subjectLabel) || cleanOrigin;
   const requested = aggregateTicketPieces(pieces);
 
   if (!cleanTicketId || requested.size === 0) {
@@ -776,11 +780,11 @@ export async function reserveTicketStockInTransaction(
           stockAfter: item.stock,
           reservedBefore: item.reservedBefore,
           reservedAfter: item.reservedAfter,
-          origin: "Ticket",
+          origin: cleanOrigin,
           reference: cleanText(reference) || cleanTicketId,
           supplier: item.product.proveedor,
           unitCost: item.product.costo,
-          note: `Reserva de stock para Ticket ${cleanTicketId}.`,
+          note: `Reserva de stock para ${cleanSubjectLabel} ${cleanTicketId}.`,
           author: cleanAuthor,
         })
       );
@@ -807,11 +811,15 @@ export async function releaseTicketStockInTransaction(
     author = "Sistema",
     reference = "",
     reason = "Reserva liberada",
+    origin = "Ticket",
+    subjectLabel = "Ticket",
   } = {}
 ) {
   const cleanTicketId = cleanText(ticketId);
   const requested = aggregateTicketPieces(pieces);
   const cleanAuthor = cleanText(author) || "Sistema";
+  const cleanOrigin = cleanText(origin) || "Ticket";
+  const cleanSubjectLabel = cleanText(subjectLabel) || cleanOrigin;
 
   if (!cleanTicketId || requested.size === 0) {
     return { released: 0, items: [] };
@@ -890,11 +898,11 @@ export async function releaseTicketStockInTransaction(
         stockAfter: item.stock,
         reservedBefore: item.reservedBefore,
         reservedAfter: item.reservedAfter,
-        origin: "Ticket",
+        origin: cleanOrigin,
         reference: cleanText(reference) || cleanTicketId,
         supplier: item.product.proveedor,
         unitCost: item.product.costo,
-        note: `${cleanText(reason) || "Reserva liberada"}. Ticket ${cleanTicketId}.`,
+        note: `${cleanText(reason) || "Reserva liberada"}. ${cleanSubjectLabel} ${cleanTicketId}.`,
         author: cleanAuthor,
       })
     );

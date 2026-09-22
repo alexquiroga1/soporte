@@ -1982,9 +1982,11 @@ export async function refinanceClientDebt({
       db
     );
 
+  const now =
+    new Date();
+
   const nowISO =
-    new Date()
-      .toISOString();
+    now.toISOString();
 
   const authorName =
     cleanText(

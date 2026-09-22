@@ -15,6 +15,10 @@ import {
   releaseTicketStockInTransaction,
 } from "./productos.service.js";
 
+import {
+  resolveProductForTransaction,
+} from "./product-reference.service.js";
+
 
 /* =========================================
    ESTADOS DE TICKET
@@ -181,6 +185,89 @@ function cleanText(value) {
   return String(
     value ?? ""
   ).trim();
+}
+
+function getTicketCommercialLockReason(ticket) {
+  if (!ticket) return null;
+
+  if (ticket.presupuestoAprobado === true) {
+    return "BUDGET_APPROVED";
+  }
+
+  if (ticket.estadoCaja === "Pendiente") {
+    return "CASH_PENDING";
+  }
+
+  if (["Cobrado", "Financiado"].includes(ticket.estadoCaja)) {
+    return "CASH_RESOLVED";
+  }
+
+  if ([
+    "Pagado",
+    "Pagado Total",
+    "Pago Parcial",
+    "Financiado",
+  ].includes(ticket.estadoPago)) {
+    return "PAYMENT_RESOLVED";
+  }
+
+  if (
+    ticket.facturaId ||
+    (ticket.estadoFacturacion && ticket.estadoFacturacion !== "No facturado")
+  ) {
+    return "ALREADY_BILLED";
+  }
+
+  if (["entregado", "cancelado", "noreparable"].includes(ticket.stage)) {
+    return "TERMINAL_STAGE";
+  }
+
+  return null;
+}
+
+function assertTicketCommercialEditable(ticket) {
+  const reason = getTicketCommercialLockReason(ticket);
+
+  if (reason) {
+    const error = new Error("TICKET_COMMERCIAL_LOCKED");
+    error.reason = reason;
+    throw error;
+  }
+}
+
+async function resolveTicketPieceProduct(transaction, piece = {}) {
+  const rawSku = cleanText(piece?.sku);
+
+  if (!rawSku) {
+    return {
+      sku: "",
+      productId: "",
+    };
+  }
+
+  const resolved = await resolveProductForTransaction(transaction, {
+    sku: rawSku,
+    productId: cleanText(piece?.productId || piece?.productoId || piece?.docId),
+  });
+
+  if (!resolved.snapshot?.exists()) {
+    const error = new Error("PRODUCT_NOT_FOUND");
+    error.sku = rawSku;
+    throw error;
+  }
+
+  const product = resolved.snapshot.data();
+
+  if (product?.activo === false) {
+    const error = new Error("PRODUCT_INACTIVE");
+    error.sku = resolved.sku || rawSku;
+    throw error;
+  }
+
+  return {
+    sku: cleanText(resolved.sku) || rawSku,
+    productId: resolved.docId || "",
+  };
 }
 
 function normalizeNumber(
@@ -1395,11 +1482,14 @@ export async function addTicketPiece(
       piece?.sku || ""
     ).trim();
 
-  const newPiece = {
+  let newPiece = {
     nombre:
       name,
 
     sku,
+
+    productId:
+      cleanText(piece?.productId || piece?.productoId || piece?.docId),
 
     cant:
       quantity,
@@ -1437,6 +1527,22 @@ export async function addTicketPiece(
       const data =
         snapshot.data();
 
+      assertTicketCommercialEditable(data);
+
+      const productIdentity =
+        await resolveTicketPieceProduct(
+          transaction,
+          {
+            ...piece,
+            sku,
+          }
+        );
+
+      newPiece = {
+        ...newPiece,
+        sku: productIdentity.sku,
+        productId: productIdentity.productId,
+      };
 
       const currentPieces =
         Array.isArray(
@@ -1570,6 +1676,7 @@ export async function updateTicketPiece(
       const data =
         snapshot.data();
 
+      assertTicketCommercialEditable(data);
 
       const pieces =
         Array.isArray(
@@ -1595,6 +1702,23 @@ export async function updateTicketPiece(
           pieceIndex
         ];
 
+      const nextSku =
+        changes.sku !== undefined
+          ? cleanText(changes.sku)
+          : cleanText(previous.sku);
+
+      const productIdentity =
+        await resolveTicketPieceProduct(
+          transaction,
+          {
+            sku: nextSku,
+            productId:
+              nextSku === cleanText(previous.sku)
+                ? cleanText(previous.productId || previous.productoId || previous.docId)
+                : "",
+          }
+        );
+
       const updated = {
         ...previous,
 
@@ -1607,12 +1731,10 @@ export async function updateTicketPiece(
             : previous.nombre,
 
         sku:
-          changes.sku !==
-          undefined
-            ? String(
-                changes.sku
-              ).trim()
-            : previous.sku,
+          productIdentity.sku,
+
+        productId:
+          productIdentity.productId,
 
         cant:
           changes.cant !==
@@ -1690,7 +1812,7 @@ export async function updateTicketPiece(
         ticketRef,
 
         {
-          piezas,
+          piezas: pieces,
 
           presupuestoSubtotal:
             budgetSummary.subtotal,
@@ -1770,6 +1892,8 @@ export async function removeTicketPiece(
       const data =
         snapshot.data();
 
+      assertTicketCommercialEditable(data);
+
 
       const pieces =
         Array.isArray(
@@ -1828,7 +1952,7 @@ export async function removeTicketPiece(
         ticketRef,
 
         {
-          piezas,
+          piezas: pieces,
 
           presupuestoSubtotal:
             budgetSummary.subtotal,
@@ -1896,6 +2020,8 @@ export async function saveTicketBudgetSummary(
 
       const data =
         snapshot.data();
+
+      assertTicketCommercialEditable(data);
 
       const summary =
         calculateTicketBudgetSummary(
